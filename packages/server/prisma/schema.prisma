@@ -1,23 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum UserType {
-  PRODUCTION
-  SANDBOX
 }
 
 model User {
@@ -25,16 +12,6 @@ model User {
 
   // clerk id
   authId    String   @unique
-
-  // allows us to have sandbox users in production for app store testing
-  userType UserType?
-
-  // openai related
-  conversations Conversation[]
-
-  // plaid related
-  items Item[]
-  itemTransactions ItemTransaction[]
 
   userKey UserKey?
 
@@ -51,63 +28,6 @@ model UserKey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   key String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// PLAID START //
-
-enum ItemStatus {
-  INITIALIZING // item hasn't had its first sync yet
-  SYNCED // first full sync has completed for transactions
-  RECONNECT // user needs to reconnect the item
-}
-
-model Item {
-  id String @id @default(uuid())
-
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  token String
-  itemId String @unique // plaid's item id
-  nextCursor String?
-
-  status ItemStatus @default(INITIALIZING)
-
-  itemTransactions ItemTransaction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model ItemTransaction {
-  id String @id @default(uuid())
-
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  itemId String
-  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  transactionId String @unique
-  transaction String // encrypted string
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// OPENAI START //
-model Conversation {
-  id String @id @default(uuid())
-
-  openaiConversationId String @unique
-
-  title String?
-
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
