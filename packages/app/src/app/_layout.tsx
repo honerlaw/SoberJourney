@@ -1,18 +1,55 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
-import 'react-native-reanimated';
+import { Stack } from "expo-router";
+import "react-native-reanimated";
+import { AppLayout } from "@/src/components/AppLayout";
+import * as Sentry from "@sentry/react-native";
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+export const unstable_settings = {
+  anchor: "index",
+};
 
+function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AppLayout>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(unauth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="privacy"
+          options={{
+            headerTitle: "",
+            headerBackButtonDisplayMode: "minimal",
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="terms"
+          options={{
+            headerTitle: "",
+            headerBackButtonDisplayMode: "minimal",
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="+not-found"
+          options={{
+            headerTitle: "",
+            headerBackButtonDisplayMode: "minimal",
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="support"
+          options={{
+            headerTitle: "",
+            headerBackButtonDisplayMode: "minimal",
+            headerShadowVisible: false,
+          }}
+        />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </AppLayout>
   );
 }
+
+export default Sentry.wrap(RootLayout);

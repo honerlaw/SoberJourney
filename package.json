@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces",
+    "clean": "npm run clean --workspaces",
+    "clean:install": "npm run clean && npm install"
   },
   "author": "",
   "license": "ISC",

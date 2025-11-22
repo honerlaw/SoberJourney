@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "*.com.onerlaw.soberjourney"
+        ],
+        "components": [
+          {
+            "/": "/connect/*",
+            "comment": "Matches any URL with path /connect/*"
+          }
+        ]
+      }
+    ]
+  }
+}
