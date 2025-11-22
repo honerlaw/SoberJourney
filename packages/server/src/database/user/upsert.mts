@@ -1,11 +1,11 @@
-import { type DBClient, type User } from "../../util/database.mjs";
+import { type DBClient, type UserModel } from "../../util/database.mjs";
 import { type Logger } from "../../util/logger/index.mjs";
 
 export async function upsert(
   logger: Logger,
   client: DBClient,
   authId: string,
-): Promise<User | null> {
+): Promise<UserModel | null> {
   try {
     return await client.user.upsert({
       where: {

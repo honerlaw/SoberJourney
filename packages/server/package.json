@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "OPENAI_API_KEY=test node --experimental-strip-types --experimental-test-module-mocks --experimental-test-coverage --import tsx --test **/*.test.mts",
+    "test": "node --experimental-strip-types --experimental-test-module-mocks --experimental-test-coverage --import tsx --test **/*.test.mts",
     "start:local": "tsx --watch --no-cache --env-file=.env src/index.mts",
     "ngrok": "ngrok http --url=intimate-certainly-opossum.ngrok-free.app 3000",
     "build": "rm -rf dist && npm run codegen && tsc && cp -r ./src/generated ./dist/generated",

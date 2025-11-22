@@ -6,6 +6,7 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
     "clean": "npm run clean --workspaces",
+    "lint:format": "npm run lint:format --workspaces",
     "clean:install": "npm run clean && npm install"
   },
   "author": "",

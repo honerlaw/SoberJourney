@@ -4,16 +4,13 @@ import { getConfig } from "./util/config.mjs";
 
 import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
-import * as conversationDB from "./database/conversation/index.mjs";
-import * as itemsDB from "./database/items/index.mjs";
-import * as itemsTransactionsDB from "./database/items/transactions/index.mjs";
 
 import * as encryptionService from "./service/encryption/index.mjs";
 
 import * as clerkDS from "./datasource/clerk/index.mjs";
 
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
-import { client, type User } from "./util/database.mjs";
+import { client, type UserModel } from "./util/database.mjs";
 import { getAuth, verifyToken } from "@clerk/express";
 import { type RequestHandler } from "express";
 
@@ -23,12 +20,11 @@ const options = {
     return userDB.upsert(logger, client, userId);
   },
   create: async (
-    user: User | null,
+    user: UserModel | null,
     childLogger: Logger,
     additional?: { [key: string]: unknown },
   ) => {
     const { clerkClient, ...clerkDSRemaining } = clerkDS;
-
 
     return {
       logger: childLogger,
@@ -36,11 +32,17 @@ const options = {
         user,
       },
       datasource: {
-        clerk: clerkDSRemaining
+        clerk: {
+          client: clerkClient,
+          ...wrap(clerkClient, wrap(childLogger, clerkDSRemaining)),
+        },
       },
       database: {
         client,
-        user: userDB,
+        user: {
+          ...wrap(client, wrap(childLogger, userDB)),
+          key: wrap(client, wrap(childLogger, userKeyDB)),
+        },
       },
       additional: additional || {},
       service: {
@@ -51,7 +53,10 @@ const options = {
 };
 
 export type Context = Awaited<ReturnType<(typeof options)["create"]>>;
-export type CTXRequest = ContextRequest<User, Context> | string | undefined;
+export type CTXRequest =
+  | ContextRequest<UserModel, Context>
+  | string
+  | undefined;
 
 export const createContext = async (
   req: CTXRequest,

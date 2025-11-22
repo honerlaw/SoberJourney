@@ -32,6 +32,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "codegen.ts"
+    "codegen.ts",
+    "prisma.config.ts"
   ]
 }

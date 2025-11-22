@@ -6,11 +6,12 @@
     "clean": "rm -rf node_modules package-lock.json",
     "build": "tsc --noEmit",
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "lint:format": "expo lint --fix",
+    "test": "echo \"Error: no test specified\""
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
