@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run build --workspaces",
+    "start": "npm run start --workspace=@onerlaw/soberjourney-server",
     "test": "npm run test --workspaces",
     "clean": "npm run clean --workspaces",
     "lint:format": "npm run lint:format --workspaces",

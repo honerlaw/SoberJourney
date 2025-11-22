@@ -13,22 +13,11 @@ const envSchema = z.object({
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
 
-  // Plaid integration
-  PLAID_CLIENT_ID: z.string().min(1, "PLAID_CLIENT_ID is required"),
-  PLAID_SECRET: z.string().min(1, "PLAID_SECRET is required"),
-  PLAID_SECRET_SANDBOX: z.string().min(1, "PLAID_SECRET_SANDBOX is required"),
-
   // Encryption
   KEY_ENCRYPTION_KEY: z.string().min(1, "KEY_ENCRYPTION_KEY is required"),
 
   // Database (assuming DATABASE_URL is used by Prisma, even if not directly referenced)
-  DATABASE_URL: z.string().url().optional(),
-
-  // OpenAI (based on test script mentioning OPENAI_API_KEY)
-  OPENAI_API_KEY: z.string().min(1).optional(),
-
-  // Webhook base URL
-  WEBHOOK_BASE_URL: z.string().min(1, "WEBHOOK_BASE_URL is required"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 });
 
 export type Config = z.infer<typeof envSchema>;

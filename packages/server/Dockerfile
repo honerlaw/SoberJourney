@@ -1,5 +1,5 @@
-# Use Node.js 22 Alpine as base image for smaller size, explicitly target amd64/linux
-FROM node:22-alpine AS base
+# Use Node.js 24 Alpine as base image for smaller size, explicitly target amd64/linux
+FROM node:24-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
