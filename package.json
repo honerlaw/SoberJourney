@@ -14,7 +14,8 @@
   "license": "ISC",
   "description": "",
   "workspaces": [
-    "packages/*"
+    "packages/server",
+    "packages/app"
   ],
   "engines": {
     "node": ">=24.0.0"
