@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React from "react";
-import { Button, Form, H1, H3, Input, Stack, Text, YStack } from "tamagui";
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
 import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider";
 
@@ -29,7 +29,6 @@ export const EnterCodePage: React.FC = () => {
         maxWidth={"400px"}
       >
         <YStack borderRadius="$4" gap="$5">
-          <H1>SoberJourney</H1>
           <H3>Enter verification code</H3>
           <Text color="$gray11">
             We&apos;ve sent a 6-digit verification code to {emailAddress}. Enter

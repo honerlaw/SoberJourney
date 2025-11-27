@@ -51,19 +51,12 @@ export const CustomToast = () => {
     >
       <XStack
         display="flex"
-        backgroundColor={"$gray4"}
         paddingVertical="$3"
         paddingHorizontal="$4"
         borderRadius="$4"
         alignItems="center"
         gap="$3"
         borderWidth={1}
-        borderColor={"$gray6"}
-        shadowColor={"$gray4"}
-        shadowOffset={{ width: 0, height: 2 }}
-        shadowOpacity={0.25}
-        shadowRadius={3.84}
-        elevation={5}
         justifyContent="center"
       >
         <ToastIcon type={type} />

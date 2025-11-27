@@ -1,6 +1,6 @@
 import React from "react";
 import { router } from "expo-router";
-import { Button, Form, H1, H3, Input, Stack, Text, YStack } from "tamagui";
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
 import { useForgotPasswordContext } from "@/src/components/flows/ForgotPasswordFlow/providers/ForgotPasswordProvider";
 
@@ -32,7 +32,6 @@ export const ResetPasswordPage: React.FC = () => {
     <KeyboardAvoiding>
       <Form onSubmit={handleSubmit} gap="$5" width={"75%"} maxWidth={"400px"}>
         <YStack borderRadius="$4" gap="$5">
-          <H1>SoberJourney</H1>
           <H3>Reset your password</H3>
           <Text color="$gray11">
             Enter your new password below. Make sure it&apos;s at least 8

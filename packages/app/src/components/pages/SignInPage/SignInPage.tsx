@@ -3,7 +3,6 @@ import React from "react";
 import {
   Button,
   Form,
-  H1,
   H3,
   Input,
   Separator,
@@ -41,9 +40,10 @@ export function SignInPage() {
           width={"75%"}
           maxWidth={"400px"}
         >
-          <YStack borderRadius="$4" gap="$5">
-            <H1 marginLeft={-8}>SoberJourney</H1>
-            <H3>Sign in</H3>
+          <YStack borderRadius="$4" gap="$8">
+            <YStack gap="$2" alignItems="center">
+              <H3>Sign in</H3>
+            </YStack>
             {errors &&
               errors.map((e) => (
                 <Text color="$red10" key={e}>
@@ -65,7 +65,7 @@ export function SignInPage() {
                 onChangeText={(password) => setPassword(password)}
               />
               <Form.Trigger asChild>
-                <Button disabled={isSigningIn}>
+                <Button theme={"base"} disabled={isSigningIn} fontWeight={"600"}>
                   {isSigningIn ? "Signing in..." : "Sign in"}
                 </Button>
               </Form.Trigger>

@@ -14,22 +14,6 @@ function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(unauth)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="privacy"
-          options={{
-            headerTitle: "",
-            headerBackButtonDisplayMode: "minimal",
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="terms"
-          options={{
-            headerTitle: "",
-            headerBackButtonDisplayMode: "minimal",
-            headerShadowVisible: false,
-          }}
-        />
         <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
         <Stack.Screen
           name="+not-found"

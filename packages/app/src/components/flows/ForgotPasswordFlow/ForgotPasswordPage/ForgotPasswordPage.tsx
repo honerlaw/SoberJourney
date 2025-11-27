@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React from "react";
-import { Button, Form, H1, H3, Input, Stack, Text, YStack } from "tamagui";
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
 import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider";
 import { ResetPasswordPage } from "../ResetPasswordPage";
@@ -38,7 +38,6 @@ export const ForgotPasswordPage: React.FC = () => {
         maxWidth={"400px"}
       >
         <YStack borderRadius="$4" gap="$5">
-          <H1>SoberJourney</H1>
           <H3>Forgot password</H3>
           <Text color="$gray11">
             Enter your email address and we&apos;ll send you a verification code

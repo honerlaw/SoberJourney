@@ -31,7 +31,7 @@ export default function UnauthLayout() {
         <Stack.Screen name="signup" options={{ headerTitle: "" }} />
         <Stack.Screen
           name="password/forgot"
-          options={{ headerTitle: "Forgot Password" }}
+          options={{ headerTitle: "" }}
         />
       </Stack>
     </WebLayout>

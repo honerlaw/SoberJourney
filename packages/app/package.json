@@ -4,13 +4,14 @@
   "version": "1.0.0",
   "scripts": {
     "clean": "rm -rf node_modules .vscode package-lock.json ios android .expo-env.d.ts .tamagui .expo dist expo-env.d.ts tamagui-web.css",
-    "clean:dist": "rm -rf .expo .tamagui ios android .expo-env.d.ts dist $TMPDIR/react-*",
+    "clean:dist": "rm -rf .expo .tamagui tamagui-web.css ios android .expo-env.d.ts dist $TMPDIR/react-*",
     "clean:cache": "npm run clean:dist && watchman watch-del-all",
     "build": "tsc --noEmit",
     "start": "expo start",
     "android": "expo start --android",
     "android:localhost": "adb reverse tcp:3000 tcp:3000",
     "ios": "expo start --ios",
+    "ios:clean": "npm run clean:cache && npm run ios --clear",
     "web": "expo start --web --clear",
     "web:export": "npm run clean:dist && expo export --clear -p web",
     "lint": "expo lint",
@@ -66,6 +67,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.9.2"
   },
   "private": true
