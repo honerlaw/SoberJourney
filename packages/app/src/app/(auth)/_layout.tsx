@@ -45,9 +45,7 @@ export default function AuthLayout() {
         <Stack.Screen
           name="journeys-new"
           options={{
-            headerTitle: "New Journey",
-            presentation: "modal",
-            headerShown: false
+            headerTitle: "New Journey"
           }}
         />
       </Stack>

@@ -1,17 +1,22 @@
-import { YStack, H1, Text, Label, Input, Button } from "tamagui";
+import { YStack, Text, Label, Input, Button, H5 } from "tamagui";
 import { Calendar, ChevronRight } from "@tamagui/lucide-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoiding } from "../../KeyboardAvoiding";
 import { DateTimeInput } from "./DateTimeInput";
 import { InputButton } from "./InputButton";
 import { useState } from "react";
+import { useCreateJourney } from "./hooks/useCreateJourney";
 
 export const NewJourneyPage: React.FC = () => {
-  const { bottom, top } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false);
   const [startDate, setStartDate] = useState<Date>(new Date());
+  const [title, setTitle] = useState<string>("");
+  const { createJourney, isPending } = useCreateJourney();
 
-  console.log(startDate)
+  const onCreate = async () => {
+    await createJourney(title, startDate);
+  }
 
   return (
     <KeyboardAvoiding>
@@ -19,12 +24,9 @@ export const NewJourneyPage: React.FC = () => {
         <YStack flex={1} gap="$4">
           {/* Header */}
           <YStack gap="$2">
-            <H1 size="$8" fontWeight="bold" marginTop={top / 2}>
-              New Journey
-            </H1>
-            <Text fontSize="$5">
+            <H5 textAlign="center">
               Take the first step towards a healthier you
-            </Text>
+            </H5>
           </YStack>
 
           {/* Journey Name */}
@@ -35,6 +37,8 @@ export const NewJourneyPage: React.FC = () => {
             <Input
               id="journey-name"
               placeholder="What are you staying sober from?"
+              value={title}
+              onChangeText={setTitle}
             />
           </YStack>
 
@@ -66,7 +70,7 @@ export const NewJourneyPage: React.FC = () => {
         </YStack>
 
         {/* Create Journey Button */}
-        <Button marginBottom={bottom} size="$5">
+        <Button marginBottom={bottom} size="$5" onPress={onCreate} disabled={isPending}>
           Create Journey
         </Button>
       </YStack>

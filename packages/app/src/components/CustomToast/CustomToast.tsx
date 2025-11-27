@@ -58,6 +58,7 @@ export const CustomToast = () => {
         gap="$3"
         borderWidth={1}
         justifyContent="center"
+        backgroundColor={"$background"}
       >
         <ToastIcon type={type} />
         <Toast.Title fontWeight={"600"}>{toast.title}</Toast.Title>

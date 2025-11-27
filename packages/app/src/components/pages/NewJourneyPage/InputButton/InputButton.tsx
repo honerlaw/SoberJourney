@@ -19,6 +19,9 @@ export const InputButton: React.FC<InputButtonProps> = ({
       flex={1}
       justifyContent="flex-start"
       paddingHorizontal="$3"
+      backgroundColor="$color2"
+      borderWidth={1}
+      borderColor="$color5"
     >
       <XStack flex={1} alignItems="center" justifyContent="space-between">
         <XStack gap="$2" alignItems="center">

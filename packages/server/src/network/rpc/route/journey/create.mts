@@ -6,7 +6,7 @@ import { z } from "zod";
 import { procedure } from "../../router.mjs";
 
 const createJourneyInput = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, "Journey name is required."),
   startDateTime: z.date(),
 });
 
