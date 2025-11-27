@@ -1,8 +1,10 @@
 import { LoadingView } from "@/src/components/LoadingView";
 import { useAuth } from "@/src/hooks/useAuth";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, router, Stack } from "expo-router";
 import { WebLayout } from "@/src/components/WebLayout";
 import React from "react";
+import { PlusCircle } from "@tamagui/lucide-icons";
+import { HeaderButton } from "@/src/components/HeaderButton";
 
 export const unstable_settings = {
   initialRouteName: "dashboard",
@@ -20,21 +22,35 @@ export default function AuthLayout() {
   }
 
   return (
-        <WebLayout>
-          <Stack
-            initialRouteName="dashboard"
-            screenOptions={{
-              headerBackButtonDisplayMode: "minimal",
-              headerShadowVisible: false,
-            }}
-          >
-            <Stack.Screen
-              name="dashboard"
-              options={{
-                headerTitle: "SoberJourney",
-              }}
-            />
-          </Stack>
-        </WebLayout>
+    <WebLayout>
+      <Stack
+        initialRouteName="dashboard"
+        screenOptions={{
+          headerBackButtonDisplayMode: "minimal",
+          headerShadowVisible: false,
+        }}
+      >
+        <Stack.Screen
+          name="dashboard"
+          options={{
+            headerTitle: "SoberJourney",
+            headerRight: () => (
+              <HeaderButton
+                icon={PlusCircle}
+                onPress={() => router.push("/journeys-new")}
+              />
+            ),
+          }}
+        />
+        <Stack.Screen
+          name="journeys-new"
+          options={{
+            headerTitle: "New Journey",
+            presentation: "modal",
+            headerShown: false
+          }}
+        />
+      </Stack>
+    </WebLayout>
   );
 }
