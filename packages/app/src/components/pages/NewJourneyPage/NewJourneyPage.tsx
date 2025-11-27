@@ -1,10 +1,17 @@
-import { YStack, H1, Text, Label, Input, XStack, Button } from "tamagui";
+import { YStack, H1, Text, Label, Input, Button } from "tamagui";
 import { Calendar, ChevronRight } from "@tamagui/lucide-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoiding } from "../../KeyboardAvoiding";
+import { DateTimeInput } from "./DateTimeInput";
+import { InputButton } from "./InputButton";
+import { useState } from "react";
 
 export const NewJourneyPage: React.FC = () => {
-  const { bottom, top } = useSafeAreaInsets()
+  const { bottom, top } = useSafeAreaInsets();
+  const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false);
+  const [startDate, setStartDate] = useState<Date>(new Date());
+
+  console.log(startDate)
 
   return (
     <KeyboardAvoiding>
@@ -34,27 +41,27 @@ export const NewJourneyPage: React.FC = () => {
           {/* Start Date & Time */}
           <YStack>
             <Label fontWeight={"400"}>
-              Start Date & Time{" "}
-              <Text color="$color11">
-                (optional)
-              </Text>
+              Start Date & Time <Text color="$color11">(optional)</Text>
             </Label>
-            <Button
-              borderWidth={1}
-              justifyContent="flex-start"
-              paddingHorizontal="$3"
-            >
-              <XStack flex={1} alignItems="center" justifyContent="space-between">
-                <XStack gap="$2" alignItems="center">
-                  <Calendar size={20} />
-                  <Text>Now</Text>
-                </XStack>
-                <ChevronRight size={20} />
-              </XStack>
-            </Button>
-            <Text fontSize="$3" color="$color11" textAlign="center" marginTop="$3">
-              If left empty, your journey will start now.
-            </Text>
+            {!showDateTimePicker && (
+              <>
+                <InputButton
+                  value="Now"
+                  onPress={() => setShowDateTimePicker(true)}
+                  icon={Calendar}
+                  iconRight={ChevronRight}
+                />
+                <Text
+                  fontSize="$3"
+                  color="$color11"
+                  textAlign="center"
+                  marginTop="$3"
+                >
+                  If left empty, your journey will start now.
+                </Text>
+              </>
+            )}
+            {showDateTimePicker && <DateTimeInput onChange={setStartDate} />}
           </YStack>
         </YStack>
 
