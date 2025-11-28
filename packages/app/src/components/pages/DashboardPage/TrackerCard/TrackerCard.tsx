@@ -1,51 +1,68 @@
-import React from "react";
-import {
-  Card,
-  Text,
-  XStack,
-  YStack,
-  Button,
-  Progress,
-} from "tamagui";
+import React, { useState, useEffect } from "react";
+import { Card, Text, XStack, YStack, Button } from "tamagui";
 import { RotateCcw } from "@tamagui/lucide-icons";
+import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
+import {
+  differenceInMinutes,
+  differenceInHours,
+  differenceInDays,
+  differenceInSeconds,
+  differenceInYears,
+  addYears,
+} from "date-fns";
+import { AlertModal } from "@/src/components/AlertModal";
+import { useJourneyReset } from "./hooks/useJourneyReset";
+
+type UserJourneyWithEntryModel = NonNullable<
+  AppRouter["journey"]["list"]["_def"]["$types"]["output"]["journeys"][number]
+>;
 
 export type TrackerCardProps = {
-  title?: string;
-  days?: number;
-  hours?: number;
-  minutes?: number;
-  lastResetDate?: Date | string;
-  streakCurrent?: number;
-  streakGoal?: number;
-  onReset?: () => void;
+  title: string;
+  model: UserJourneyWithEntryModel;
+  requestRefetch: () => void | Promise<void>
 };
 
-export const TrackerCard: React.FC<TrackerCardProps> = ({
-  title = "Alcohol",
-  days = 285,
-  hours = 23,
-  minutes = 1,
-  lastResetDate,
-  streakCurrent = 12,
-  streakGoal = 90,
-  onReset,
-}) => {
-  const formatDate = (date: Date | string | undefined): string => {
-    if (!date) return "";
-    const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+export const TrackerCard: React.FC<TrackerCardProps> = ({ title, model, requestRefetch }) => {
+  const { resetJourney } = useJourneyReset();
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    // Update the current time every second for live counter
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!model.lastEntry) {
+    return null
+  }
+
+  const lastEntryDate = new Date(model.lastEntry.createdAt);
+  const totalMinutes = differenceInMinutes(now, lastEntryDate);
+  const totalSeconds = differenceInSeconds(now, lastEntryDate);
+  const years = differenceInYears(now, lastEntryDate);
+  const afterYears = addYears(lastEntryDate, years);
+  const days = differenceInDays(now, afterYears);
+  const hours = differenceInHours(now, lastEntryDate) % 24;
+  const minutes = totalMinutes % 60;
+  const seconds = totalSeconds % 60;
+
+  const sections = [
+    [years, "years"],
+    [days, "days"],
+    [hours, "hours"],
+    [minutes, "minutes"],
+    [seconds, "seconds"],
+  ];
+
+  const onReset = async () => {
+    await resetJourney(model.id)
+    await requestRefetch()
   };
-
-
-  const progressPercentage = Math.round(streakGoal > 0 
-    ? Math.min((streakCurrent / streakGoal) * 100, 100) 
-    : 0);
-
-    console.log(progressPercentage)
 
   return (
     <Card
@@ -56,69 +73,52 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
       padding="$4"
     >
       <YStack gap="$4">
-        {/* Header with title and reset button */}
-        <XStack justifyContent="space-between" alignItems="center">
+        {/* Header with title */}
+        <XStack justifyContent="space-between">
           <Text fontSize="$6" fontWeight="600" color="$color12">
             {title}
           </Text>
-          <Button
-            size="$2"
-            circular
-            chromeless
-            icon={RotateCcw}
-            onPress={onReset}
-            backgroundColor="$color3"
-            pressStyle={{ opacity: 0.7 }}
-          />
+          <AlertModal
+            title="Reset"
+            message="This is a hard moment — are you ready to honor it and start again?"
+            buttons={[
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Reset",
+                onPress: onReset,
+              },
+            ]}
+          >
+            <Button size="$2" icon={RotateCcw} onPress={onReset}>
+              <Text fontSize="$3" color="$color11">
+                Reset
+              </Text>
+            </Button>
+          </AlertModal>
         </XStack>
 
         {/* Main counter */}
         <YStack gap="$1">
-          <XStack alignItems="baseline" gap="$2">
-            <Text fontSize="$10" fontWeight="600" color="$green10">
-              {days}
-            </Text>
-            <Text fontSize="$5" color="$color11">
-              days
-            </Text>
-          </XStack>
-          <Text fontSize="$3" color="$color11">
-            {hours}h {minutes}m
-          </Text>
-        </YStack>
-
-        {/* Last reset date */}
-        {lastResetDate && (
-          <Text fontSize="$2" color="$color11">
-            Last reset: {formatDate(lastResetDate)}
-          </Text>
-        )}
-
-        {/* Streak progress */}
-        <YStack gap="$2">
-          <Text fontSize="$2" color="$color11">
-            Streak Progress
-          </Text>
-          <XStack alignItems="center" gap="$3">
-            <Progress
-              value={progressPercentage}
-              max={100}
-              size="$1"
-              flex={1}
-              backgroundColor="$color4"
-            >
-              <Progress.Indicator
-                animation="bouncy"
-                backgroundColor="$green10"
-              />
-            </Progress>
-            <Text fontSize="$2" color="$color11" minWidth={60}>
-              {streakCurrent}/{streakGoal} days
-            </Text>
+          <XStack alignItems="baseline" gap="$4" flexWrap="wrap">
+            {sections.map(([value, label], index) => {
+              const size = sections.length - index;
+              if (value === 0) {
+                return null;
+              }
+              return (
+                <XStack key={label} alignItems="baseline" gap="$2">
+                  <Text fontSize={`$${6 + size}`} fontWeight="600">
+                    {value}
+                  </Text>
+                  <Text fontSize="$4" color="$color11">
+                    {label}
+                  </Text>
+                </XStack>
+              );
+            })}
           </XStack>
         </YStack>
       </YStack>
     </Card>
   );
 };
-

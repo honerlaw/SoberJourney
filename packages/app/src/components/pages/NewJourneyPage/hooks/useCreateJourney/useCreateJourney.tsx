@@ -20,6 +20,7 @@ export function useCreateJourney() {
           title,
           startDateTime,
         });
+        return true
       } catch (error) {
         if (isTRPCClientError(error)) {
           const errorMessages = JSON.parse(error.message)
@@ -34,6 +35,7 @@ export function useCreateJourney() {
           report(error);
         }
       }
+      return false
     },
     isPending,
     error,
