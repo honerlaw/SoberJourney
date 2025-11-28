@@ -9,6 +9,7 @@
     "build": "rm -rf dist && npm run codegen && tsc && cp -r ./src/generated ./dist/generated",
     "build:pre": "npm run build:web",
     "build:web": "rm -rf static && cd ../app && NODE_ENV=production npm run web:export && cd ../server && mv ../app/dist static",
+    "build:prod": "npm run build:pre && npm run build",
     "start": "prisma migrate deploy && node dist/index.mjs",
     "format": "prettier --write \"src/**/*.{js,ts,mjs,mts}\"",
     "lint": "eslint \"src/**/*.{js,ts,mjs,mts}\" --fix",

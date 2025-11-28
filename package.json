@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run build --workspaces",
+    "build:prod": "npm run build:prod --workspace=@onerlaw/soberjourney-server",
     "start": "npm run start --workspace=@onerlaw/soberjourney-server",
     "test": "npm run test --workspaces",
     "clean": "npm run clean --workspaces && rm -rf package-lock.json node_modules",
