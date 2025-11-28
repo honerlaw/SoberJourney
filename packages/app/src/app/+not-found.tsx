@@ -1,5 +1,5 @@
 import { YStack, Text, Button } from "tamagui";
-import Icon from "@/assets/icon.svg";
+import Icon from "@/assets/logo/icon.svg";
 import { WebLayout } from "../components/WebLayout";
 import { Platform } from "react-native";
 import { Redirect, router } from "expo-router";

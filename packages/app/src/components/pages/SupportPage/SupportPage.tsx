@@ -1,6 +1,6 @@
 import { ScrollView, H1, Paragraph, YStack, Anchor } from "tamagui";
 import { WebLayout } from "@/src/components/WebLayout";
-import Icon from "@/assets/icon.svg";
+import Icon from "@/assets/logo/icon.svg";
 
 export const SupportPage = () => {
   return (
