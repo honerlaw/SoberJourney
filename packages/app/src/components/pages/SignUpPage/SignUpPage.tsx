@@ -70,7 +70,7 @@ export function SignUpPage() {
                 fontSize="$2"
                 color="$primary"
                 textDecorationLine="underline"
-                onPress={() => router.push("/")}
+                onPress={() => router.push("/terms")}
               >
                 terms of service
               </Text>

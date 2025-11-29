@@ -1,6 +1,7 @@
 import { Redirect } from "expo-router";
 import { useAuth } from "@/src/hooks/useAuth";
 import { LoadingView } from "@/src/components/LoadingView";
+import { LandingPage } from "@/src/components/pages/LandingPage";
 import { Platform } from "react-native";
 
 export default function Page() {
@@ -19,6 +20,6 @@ export default function Page() {
     return <Redirect href="/signin" />;
   }
 
-  // @todo landing page on web
-  return null
+  // Show landing page on web
+  return <LandingPage />;
 }
