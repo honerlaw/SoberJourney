@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f79c97c3-d0dd-43d0-bc42-a766540bee2b"
+      }
+    },
+    "owner": "onerlawllc"
   }
 }

@@ -7,9 +7,12 @@ import { config } from "./network/http/index.mjs";
 import { getConfig } from "./util/config.mjs";
 import cors from "cors";
 import { register, logger } from "./util/logger/index.mjs";
+import { redirectToWwwMiddleware } from "./util/middleware/redirect.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
+
+app.use(redirectToWwwMiddleware);
 
 app.use(
   clerkMiddleware({
