@@ -23,7 +23,7 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 });
 
 Sentry.init({
-  dsn: "https://08c9c3ad8d1213e2508fe4703e961b4c@o4507030771007488.ingest.us.sentry.io/4510054013730816",
+  dsn: "https://74a1a681ae029380d0dedb0fec2536bf@o4507030771007488.ingest.us.sentry.io/4510450371854336",
   debug: false,
   tracesSampleRate: 1.0, // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing. Adjusting this value in production.
   integrations: [
