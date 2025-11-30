@@ -13,6 +13,11 @@
       "bundleIdentifier": "com.onerlaw.soberjourney",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "icon": {
+        "any": "./assets/logo/ios-light.png",
+        "dark": "./assets/logo/ios-dark.png",
+        "tinted": "./assets/logo/ios-tinted.png"
       }
     },
     "android": {

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import React, { useCallback, useMemo, useState } from "react";
 
 import { useAuth } from "@clerk/clerk-expo";
@@ -9,11 +9,13 @@ import {
   httpSubscriptionLink,
   loggerLink,
   splitLink,
+  TRPCClientError,
 } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
 import { useConfig } from "@/src/providers/ConfigProvider";
 import { useReportError } from "@/src/hooks/useReportError";
+import { useAuth as useAuthHelpers } from "@/src/hooks/useAuth";
 
 // Polyfills for React Native SSE support
 import "@azure/core-asynciterator-polyfill";
@@ -37,8 +39,60 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
 }) => {
   const config = useConfig();
   const { getToken } = useAuth();
-  const [queryClient] = useState(() => new QueryClient());
+  const { logout } = useAuthHelpers();
   const { report } = useReportError();
+
+  // Handle auth errors globally
+  const handleError = useCallback((error: unknown) => {
+    if (error instanceof TRPCClientError) {
+      // Check for specific error codes that should trigger logout
+      if (
+        error.data?.code === "UNAUTHORIZED" ||
+        error.data?.httpStatus === 401 ||
+        error.message?.includes("Token expired") ||
+        error.message?.includes("Invalid token")
+      ) {
+        logout().catch((logoutErr) => {
+          report(logoutErr);
+        });
+      }
+    }
+  }, [logout, report]);
+
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: (failureCount, error) => {
+              // Don't retry on auth errors
+              if (error instanceof TRPCClientError) {
+                if (error.data?.code === "UNAUTHORIZED") {
+                  return false;
+                }
+              }
+              return failureCount < 3;
+            },
+          },
+          mutations: {
+            retry: false,
+            onError: (error) => {
+              handleError(error);
+            },
+          },
+        },
+        queryCache: new QueryCache({
+          onError: (error) => {
+            handleError(error);
+          },
+        }),
+        mutationCache: new MutationCache({
+          onError: (error) => {
+            handleError(error);
+          },
+        }),
+      })
+  );
 
   const getHeaders = useCallback(async () => {
     try {

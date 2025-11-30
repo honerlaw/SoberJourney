@@ -4,12 +4,17 @@ import { LoadingView } from "@/src/components/LoadingView";
 import { EmptyDashboard } from "./EmptyDashboard";
 import { YStack } from "tamagui";
 import { FlatList } from "react-native";
+import { ErrorView } from "../../ErrorView";
 
 export const DashboardPage: React.FC = () => {
-  const { journeys, isLoading, refetch } = useJourneyList();
+  const { journeys, isLoading, refetch, error } = useJourneyList();
 
   if (isLoading) {
     return <LoadingView />;
+  }
+
+  if (error) {
+    return <ErrorView error={error} />;
   }
 
   if (journeys.length === 0) {
