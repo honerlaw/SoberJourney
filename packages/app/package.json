@@ -16,7 +16,8 @@
     "web:export": "npm run clean:dist && expo export --clear -p web",
     "lint": "expo lint",
     "lint:format": "expo lint --fix",
-    "test": "echo \"Error: no test specified\""
+    "test": "echo \"Error: no test specified\"",
+    "eas:submit": "eas build --non-interactive --auto-submit --platform ios"
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
