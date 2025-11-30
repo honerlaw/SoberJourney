@@ -4,7 +4,6 @@ import {
   DarkTheme,
   DefaultTheme,
 } from "@react-navigation/native";
-import { COLOR_PRIMARY } from "@/src/constant";
 
 export type NavigationThemeProviderProps = React.PropsWithChildren<{
   theme: "light" | "dark";
@@ -40,7 +39,7 @@ export const NavigationThemeProvider: React.FC<
   const navigationTheme: typeof DefaultTheme = {
     dark: isDark,
     colors: {
-      primary: COLOR_PRIMARY || tamaguiTheme.color?.val || fallbacks.primary,
+      primary: tamaguiTheme.color?.val || fallbacks.primary,
       background: tamaguiTheme.background?.val || fallbacks.background,
       card: tamaguiTheme.background?.val || fallbacks.card,
       text: tamaguiTheme.color?.val || fallbacks.text,

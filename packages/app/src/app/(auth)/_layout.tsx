@@ -3,7 +3,7 @@ import { useAuth } from "@/src/hooks/useAuth";
 import { Redirect, router, Stack } from "expo-router";
 import { WebLayout } from "@/src/components/WebLayout";
 import React from "react";
-import { PlusCircle } from "@tamagui/lucide-icons";
+import { PlusCircle , User} from "@tamagui/lucide-icons";
 import { HeaderButton } from "@/src/components/HeaderButton";
 
 export const unstable_settings = {
@@ -40,12 +40,26 @@ export default function AuthLayout() {
                 onPress={() => router.push("/journeys-new")}
               />
             ),
+            headerLeft: () => (
+              <HeaderButton
+                icon={User}
+                onPress={() => router.push("/profile")}
+              />
+            )
           }}
         />
         <Stack.Screen
           name="journeys-new"
           options={{
-            headerTitle: "New Journey"
+            headerTitle: "New Journey",
+          }}
+        />
+        <Stack.Screen
+          name="profile"
+          options={{
+            headerTitle: "Profile",
+            headerBackButtonDisplayMode: "minimal",
+            headerShadowVisible: false,
           }}
         />
       </Stack>
