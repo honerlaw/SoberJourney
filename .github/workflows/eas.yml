@@ -13,6 +13,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
+          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: 🏗 Setup EAS
@@ -22,7 +23,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci
+        run: rm -rf .npmrc && npm ci
 
       - name: 🚀 Build app
         run: eas build --non-interactive --auto-submit
