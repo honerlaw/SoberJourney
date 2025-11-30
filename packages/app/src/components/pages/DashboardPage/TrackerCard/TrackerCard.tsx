@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, Text, XStack, YStack, Button } from "tamagui";
-import { RotateCcw } from "@tamagui/lucide-icons";
+import { RotateCcw, Trash2 } from "@tamagui/lucide-icons";
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
 import {
   differenceInMinutes,
@@ -12,6 +12,7 @@ import {
 } from "date-fns";
 import { AlertModal } from "@/src/components/AlertModal";
 import { useJourneyReset } from "./hooks/useJourneyReset";
+import { useJourneyRemove } from "./hooks/useJourneyRemove";
 
 type UserJourneyWithEntryModel = NonNullable<
   AppRouter["journey"]["list"]["_def"]["$types"]["output"]["journeys"][number]
@@ -20,11 +21,16 @@ type UserJourneyWithEntryModel = NonNullable<
 export type TrackerCardProps = {
   title: string;
   model: UserJourneyWithEntryModel;
-  requestRefetch: () => void | Promise<void>
+  requestRefetch: () => void | Promise<void>;
 };
 
-export const TrackerCard: React.FC<TrackerCardProps> = ({ title, model, requestRefetch }) => {
+export const TrackerCard: React.FC<TrackerCardProps> = ({
+  title,
+  model,
+  requestRefetch,
+}) => {
   const { resetJourney } = useJourneyReset();
+  const { removeJourney } = useJourneyRemove();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -38,7 +44,7 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({ title, model, requestR
   }, []);
 
   if (!model.lastEntry) {
-    return null
+    return null;
   }
 
   const lastEntryDate = new Date(model.lastEntry.createdAt);
@@ -60,8 +66,13 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({ title, model, requestR
   ];
 
   const onReset = async () => {
-    await resetJourney(model.id)
-    await requestRefetch()
+    await resetJourney(model.id);
+    await requestRefetch();
+  };
+
+  const onDelete = async () => {
+    await removeJourney(model.id);
+    await requestRefetch();
   };
 
   return (
@@ -74,27 +85,53 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({ title, model, requestR
     >
       <YStack gap="$4">
         {/* Header with title */}
-        <XStack justifyContent="space-between">
-          <Text fontSize="$6" fontWeight="600" color="$color12">
+        <XStack justifyContent="space-between" alignItems="center">
+          <Text
+            fontSize="$6"
+            fontWeight="600"
+            color="$color12"
+            flex={1}
+            flexWrap="wrap"
+          >
             {title}
           </Text>
-          <AlertModal
-            title="Reset"
-            message="This is a hard moment — are you ready to honor it and start again?"
-            buttons={[
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Reset",
-                onPress: onReset,
-              },
-            ]}
-          >
-            <Button size="$2" icon={RotateCcw} onPress={onReset}>
-              <Text fontSize="$3" color="$color11">
-                Reset
-              </Text>
-            </Button>
-          </AlertModal>
+          <XStack gap="$2">
+            <AlertModal
+              title="Reset"
+              message="This is a hard moment — are you ready to honor it and start again?"
+              buttons={[
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Reset",
+                  onPress: onReset,
+                },
+              ]}
+            >
+              <Button size="$2" icon={RotateCcw} onPress={onReset}>
+                <Text fontSize="$3" color="$color11">
+                  Reset
+                </Text>
+              </Button>
+            </AlertModal>
+            <AlertModal
+              title="Delete Journey"
+              message="Are you sure you want to delete this journey and all of the entries associated with it? This action cannot be undone."
+              buttons={[
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: onDelete,
+                },
+              ]}
+            >
+              <Button
+                size="$2"
+                icon={Trash2}
+                theme="red"
+              />
+            </AlertModal>
+          </XStack>
         </XStack>
 
         {/* Main counter */}

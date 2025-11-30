@@ -1,15 +1,12 @@
-import {
-  type DBClient,
-  type UserJourneyModelWithEntries,
-} from "../../util/database.mjs";
+import { type DBClient, type UserJourneyModel } from "../../util/database.mjs";
 import { type Logger } from "../../util/logger/index.mjs";
 
-export async function reset(
+export async function remove(
   logger: Logger,
   client: DBClient,
   journeyId: string,
   userId: string,
-): Promise<UserJourneyModelWithEntries | null> {
+): Promise<UserJourneyModel | null> {
   try {
     // First verify that the journey belongs to the user
     const journey = await client.userJourney.findFirst({
@@ -26,30 +23,22 @@ export async function reset(
             journeyId,
             userId,
           },
-          tags: ["database", "journey", "reset"],
+          tags: ["database", "journey", "remove"],
         },
         "Journey not found or does not belong to user",
       );
       return null;
     }
 
-    // Create a new entry for the journey
-    return await client.userJourney.update({
+    // Delete the journey (cascade will handle entries)
+    const removedJourney = await client.userJourney.delete({
       where: {
-        id: journey.id,
-        userId,
-      },
-      data: {
-        entries: {
-          create: {
-            createdAt: new Date(),
-          },
-        },
-      },
-      include: {
-        entries: true,
+        id: journeyId,
+        userId: userId,
       },
     });
+
+    return removedJourney;
   } catch (err) {
     logger.error(
       {
@@ -58,9 +47,9 @@ export async function reset(
           journeyId,
           userId,
         },
-        tags: ["database", "journey", "reset"],
+        tags: ["database", "journey", "remove"],
       },
-      "Failed to reset user journey",
+      "Failed to remove user journey",
     );
     return null;
   }
