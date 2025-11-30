@@ -8,7 +8,7 @@ export function useJourneyList() {
     const { report } = useReportError()
     const trpc = useTRPC()
 
-    const { data, error, isLoading, refetch } = useQuery(
+    const { data, error, isLoading, isRefetching, refetch } = useQuery(
         trpc.journey.list.queryOptions()
     )
 
@@ -25,7 +25,7 @@ export function useJourneyList() {
     return {
         journeys: data?.journeys ?? [],
         error,
-        isLoading,
+        isLoading: isLoading && !isRefetching,
         refetch
     }
 }

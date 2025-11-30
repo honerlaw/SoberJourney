@@ -1,7 +1,7 @@
-import { EmptyView } from "@/src/components/EmptyView";
 import { TrackerCard } from "./TrackerCard";
 import { useJourneyList } from "./hooks/useJourneyList";
 import { LoadingView } from "@/src/components/LoadingView";
+import { EmptyDashboard } from "./EmptyDashboard";
 import { YStack } from "tamagui";
 import { FlatList } from "react-native";
 
@@ -13,11 +13,7 @@ export const DashboardPage: React.FC = () => {
   }
 
   if (journeys.length === 0) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <EmptyView message="No journeys found" />
-      </YStack>
-    );
+    return <EmptyDashboard />;
   }
 
   return (
