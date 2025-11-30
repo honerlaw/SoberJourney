@@ -1,15 +1,12 @@
-import { useReportError } from "@/src/hooks/useReportError";
+import { useToastError } from "@/src/hooks/useToastError";
 import { useTRPC } from "@/src/providers/TRPCProvider";
-import { useToastController } from "@tamagui/toast";
 import { useMutation } from "@tanstack/react-query";
-import { isTRPCClientError } from "@trpc/client";
 
 export function useCreateJourney() {
   const trpc = useTRPC();
-  const { report } = useReportError();
-  const toast = useToastController()
+  const { handleError } = useToastError();
 
-  const { mutateAsync, isPending, error } = useMutation(
+  const { mutateAsync, isPending } = useMutation(
     trpc.journey.create.mutationOptions()
   );
 
@@ -22,22 +19,10 @@ export function useCreateJourney() {
         });
         return true
       } catch (error) {
-        if (isTRPCClientError(error)) {
-          const errorMessages = JSON.parse(error.message)
-          if (Array.isArray(errorMessages) && errorMessages.length > 0) {
-            const messObj = errorMessages[0]
-            toast.show(messObj.message, {
-              type: "error",
-              native: false,
-            });
-          }
-        } else {
-          report(error);
-        }
+        handleError(error, "Failed to create journey.");
       }
       return false
     },
-    isPending,
-    error,
+    isPending
   };
 }

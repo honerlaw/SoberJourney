@@ -1,9 +1,9 @@
-import { useReportError } from "@/src/hooks/useReportError";
+import { useToastError } from "@/src/hooks/useToastError";
 import { useTRPC } from "@/src/providers/TRPCProvider";
 import { useMutation } from "@tanstack/react-query";
 
 export function useJourneyReset() {
-  const { report } = useReportError();
+  const { handleError } = useToastError();
   const trpc = useTRPC();
 
   const { mutateAsync, isPending } = useMutation(
@@ -17,7 +17,7 @@ export function useJourneyReset() {
         await mutateAsync({ journeyId });
         return true;
       } catch (error) {
-        report(error);
+        handleError(error, "Failed to reset journey.");
       }
       return false;
     },

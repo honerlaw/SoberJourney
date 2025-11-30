@@ -81,8 +81,8 @@ export const NewJourneyPage: React.FC = () => {
         </YStack>
 
         {/* Create Journey Button */}
-        <Button marginBottom={bottom} size="$5" onPress={onCreate} disabled={isPending}>
-          Create Journey
+        <Button marginBottom={bottom} size="$5" onPress={onCreate} disabled={isPending} themeInverse>
+          {isPending ? "Creating..." : "Create Journey"}
         </Button>
       </YStack>
     </KeyboardAvoiding>

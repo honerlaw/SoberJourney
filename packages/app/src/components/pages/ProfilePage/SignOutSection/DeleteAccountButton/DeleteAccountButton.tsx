@@ -2,17 +2,17 @@ import React from "react";
 import { Text, Button } from "tamagui";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/src/providers/TRPCProvider";
-import { useReportError } from "@/src/hooks/useReportError";
 import { useAuth } from "@/src/hooks/useAuth";
 import { AlertModal } from "@/src/components/AlertModal";
+import { useToastError } from "@/src/hooks/useToastError";
 
 export const DeleteAccountButton: React.FC = () => {
   const trpc = useTRPC();
-  const { report } = useReportError();
+  const { handleError } = useToastError();
   const { logout } = useAuth();
 
   const { mutateAsync: removeUser, isPending } = useMutation(
-    trpc.user.remove.mutationOptions(),
+    trpc.user.remove.mutationOptions()
   );
 
   return (
@@ -33,7 +33,7 @@ export const DeleteAccountButton: React.FC = () => {
               // Sign out the user after successful deletion
               await logout();
             } catch (error) {
-              report(error, "Failed to delete account. Please try again.");
+              handleError(error, "Failed to delete account. Please try again.");
             }
           },
         },

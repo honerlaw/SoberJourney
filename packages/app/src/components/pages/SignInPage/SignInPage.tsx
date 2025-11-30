@@ -98,7 +98,7 @@ export function SignInPage() {
           width={"75%"}
           maxWidth={"400px"}
         >
-          <Button size="$3" onPress={() => router.push("/signup")}>
+          <Button size="$3" onPress={() => router.push("/signup")} themeInverse>
             <Text fontWeight="600">Create an account</Text>
           </Button>
         </YStack>

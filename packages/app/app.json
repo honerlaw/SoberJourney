@@ -4,7 +4,7 @@
     "slug": "SoberJourney",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/ios-light.png",
+    "icon": "./assets/logo/app-icon.png",
     "scheme": "soberjourney",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

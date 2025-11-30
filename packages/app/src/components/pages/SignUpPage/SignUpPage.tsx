@@ -45,19 +45,21 @@ export function SignUpPage() {
                 {e}
               </Text>
             ))}
-          <Input
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={emailAddress}
-            placeholder="Enter email"
-            onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
-          />
-          <Input
-            value={password}
-            placeholder="Enter password"
-            secureTextEntry={true}
-            onChangeText={(password) => setPassword(password)}
-          />
+          <YStack gap="$3">
+            <Input
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={emailAddress}
+              placeholder="Enter email"
+              onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
+            />
+            <Input
+              value={password}
+              placeholder="Enter password"
+              secureTextEntry={true}
+              onChangeText={(password) => setPassword(password)}
+            />
+          </YStack>
 
           <Stack
             justifyContent="center"
