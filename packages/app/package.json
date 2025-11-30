@@ -17,7 +17,7 @@
     "lint": "expo lint",
     "lint:format": "expo lint --fix",
     "test": "echo \"Error: no test specified\"",
-    "eas:submit": "eas build --non-interactive --auto-submit --platform ios"
+    "eas:submit": "eas build --non-interactive --auto-submit --platform ios --no-wait"
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
