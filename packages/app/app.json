@@ -4,7 +4,7 @@
     "slug": "SoberJourney",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/icon-1024.png",
+    "icon": "./assets/logo/icon-light.png",
     "scheme": "soberjourney",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
