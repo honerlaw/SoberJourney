@@ -11,6 +11,7 @@ type HeaderButtonProps = {
 
 export const HeaderButton: React.FC<HeaderButtonProps> = ({ onPress, icon: IconComponent }) => {
     const { isLiquidGlassEnabled } = useLiquidGlass();
+
     return (
       <Button
         size="$3"

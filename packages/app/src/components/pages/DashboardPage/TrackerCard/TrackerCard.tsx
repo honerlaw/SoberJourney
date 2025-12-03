@@ -107,7 +107,7 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
                 },
               ]}
             >
-              <Button size="$2" icon={RotateCcw} onPress={onReset}>
+              <Button size="$2" icon={RotateCcw}>
                 <Text fontSize="$3" color="$color11">
                   Reset
                 </Text>

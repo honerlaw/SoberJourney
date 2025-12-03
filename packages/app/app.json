@@ -15,7 +15,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "icon": {
-        "any": "./assets/logo/ios-light.png",
+        "light": "./assets/logo/ios-light.png",
         "dark": "./assets/logo/ios-dark.png",
         "tinted": "./assets/logo/ios-tinted.png"
       }
@@ -44,6 +44,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
+            "image": "./assets/logo/splash-icon-dark.png",
             "backgroundColor": "#000000"
           }
         }
