@@ -58,33 +58,32 @@ export const DashboardPage: React.FC = () => {
     ({ item, drag, isActive }: RenderItemParams<JourneyItem>) => {
       return (
         <ScaleDecorator>
-          <Pressable
-            onLongPress={drag}
-            disabled={isActive}
-            style={{
-              marginHorizontal: 16,
-              marginVertical: 8,
-              opacity: isActive ? 0.8 : 1,
-            }}
+          <XStack
+            marginHorizontal="$4"
+            marginVertical="$2"
+            opacity={isActive ? 0.8 : 1}
           >
-            <XStack>
-              <YStack
-                justifyContent="center"
-                paddingRight="$2"
-              >
-                <GripVertical size={24} color="$color8" />
-              </YStack>
-              <YStack flex={1} pointerEvents="box-none">
-                <TrackerCard
-                  title={item.title}
-                  model={item}
-                  requestRefetch={() => {
-                    refetch();
-                  }}
-                />
-              </YStack>
-            </XStack>
-          </Pressable>
+            <Pressable
+              onLongPress={drag}
+              disabled={isActive}
+              style={{
+                justifyContent: "center",
+                paddingRight: 8,
+                paddingVertical: 16,
+              }}
+            >
+              <GripVertical size={24} color="$color8" />
+            </Pressable>
+            <YStack flex={1}>
+              <TrackerCard
+                title={item.title}
+                model={item}
+                requestRefetch={() => {
+                  refetch();
+                }}
+              />
+            </YStack>
+          </XStack>
         </ScaleDecorator>
       );
     },
