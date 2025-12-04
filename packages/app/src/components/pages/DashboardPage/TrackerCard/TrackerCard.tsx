@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Card, Text, XStack, YStack, Button } from "tamagui";
-import { RotateCcw, Trash2 } from "@tamagui/lucide-icons";
+import { Pencil, RotateCcw, Trash2 } from "@tamagui/lucide-icons";
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
+import { router } from "expo-router";
 import {
   differenceInMinutes,
   differenceInHours,
@@ -96,6 +97,16 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
             {title}
           </Text>
           <XStack gap="$2">
+            <Button
+              size="$2"
+              icon={Pencil}
+              onPress={() =>
+                router.push({
+                  pathname: "/journeys-modify",
+                  params: { journeyId: model.id, currentTitle: title },
+                })
+              }
+            />
             <AlertModal
               title="Reset"
               message="This is a hard moment — are you ready to honor it and start again?"
