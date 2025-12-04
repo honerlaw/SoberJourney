@@ -21,9 +21,7 @@ export async function list(
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [{ position: "asc" }, { createdAt: "desc" }],
     });
   } catch (err) {
     logger.error(

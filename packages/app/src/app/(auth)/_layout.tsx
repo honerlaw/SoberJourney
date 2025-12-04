@@ -45,7 +45,7 @@ export default function AuthLayout() {
                 icon={User}
                 onPress={() => router.push("/profile")}
               />
-            )
+            ),
           }}
         />
         <Stack.Screen

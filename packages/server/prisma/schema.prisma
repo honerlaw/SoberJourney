@@ -47,6 +47,9 @@ model UserJourney {
 
   title String
 
+  // position for ordering journeys on the dashboard (lower = higher priority)
+  position Int @default(0)
+
   userId String
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

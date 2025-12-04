@@ -13,6 +13,7 @@ import { Platform } from "react-native";
 import Head from "expo-router/head";
 import { CustomToast } from "../CustomToast";
 import { LoadingProvider } from "@/src/providers/LoadingProvider";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -48,7 +49,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   });
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === "web" && (
         <Head>
           <title>SoberJourney</title>
@@ -70,6 +71,6 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           </AuthProvider>
         </ConfigProvider>
       </AppThemeProvider>
-    </>
+    </GestureHandlerRootView>
   );
 };

@@ -13,6 +13,7 @@ export const list = procedure.query(async ({ ctx }) => {
     journeys: journeys.map((journey) => ({
       id: journey.id,
       title: journey.title,
+      position: journey.position,
       entryCount: journey.entries.length,
       lastEntry: journey.entries[0]
         ? {
