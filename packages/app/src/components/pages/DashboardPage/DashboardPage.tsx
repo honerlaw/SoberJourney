@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TouchableOpacity } from "react-native-gesture-handler";
+import { Pressable } from "react-native-gesture-handler";
 import { TrackerCard } from "./TrackerCard";
 import { useJourneyList } from "./hooks/useJourneyList";
 import { useJourneyReorder } from "./hooks/useJourneyReorder";
@@ -58,10 +58,9 @@ export const DashboardPage: React.FC = () => {
     ({ item, drag, isActive }: RenderItemParams<JourneyItem>) => {
       return (
         <ScaleDecorator>
-          <TouchableOpacity
+          <Pressable
             onLongPress={drag}
             disabled={isActive}
-            activeOpacity={1}
             style={{
               marginHorizontal: 16,
               marginVertical: 8,
@@ -85,7 +84,7 @@ export const DashboardPage: React.FC = () => {
                 />
               </YStack>
             </XStack>
-          </TouchableOpacity>
+          </Pressable>
         </ScaleDecorator>
       );
     },
