@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, Text, XStack, YStack, Button } from "tamagui";
-import { Pencil, RotateCcw, Trash2 } from "@tamagui/lucide-icons";
+import { Info, Pencil, RotateCcw, Trash2 } from "@tamagui/lucide-icons";
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
 import { router } from "expo-router";
 import {
@@ -97,6 +97,16 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
             {title}
           </Text>
           <XStack gap="$2">
+            <Button
+              size="$2"
+              icon={Info}
+              onPress={() =>
+                router.push({
+                  pathname: "/journeys-info",
+                  params: { journeyId: model.id },
+                })
+              }
+            />
             <Button
               size="$2"
               icon={Pencil}

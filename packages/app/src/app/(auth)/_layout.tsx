@@ -61,6 +61,12 @@ export default function AuthLayout() {
           }}
         />
         <Stack.Screen
+          name="journeys-info"
+          options={{
+            headerTitle: "Journey Details",
+          }}
+        />
+        <Stack.Screen
           name="profile"
           options={{
             headerTitle: "Profile",

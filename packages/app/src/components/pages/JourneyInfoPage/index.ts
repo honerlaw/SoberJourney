@@ -1,0 +1,2 @@
+export { JourneyInfoPage } from "./JourneyInfoPage";
+
