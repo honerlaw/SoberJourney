@@ -18,7 +18,7 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
     <Button
       size="$3"
       circular
-      icon={() => <IconComponent pointerEvents="none" />}
+      icon={() => <IconComponent size={"$1"} pointerEvents="none" />}
       marginHorizontal={Platform.OS === "web" ? "$4" : undefined}
       backgroundColor={isLiquidGlassEnabled ? "transparent" : undefined}
       hoverStyle={

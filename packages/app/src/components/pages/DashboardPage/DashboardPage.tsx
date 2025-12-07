@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable } from "react-native-gesture-handler";
 import { TrackerCard } from "./TrackerCard";
 import { useJourneyList } from "./hooks/useJourneyList";
 import { useJourneyReorder } from "./hooks/useJourneyReorder";
 import { LoadingView } from "@/src/components/LoadingView";
 import { EmptyDashboard } from "./EmptyDashboard";
-import { YStack, XStack } from "tamagui";
+import { YStack } from "tamagui";
 import { ErrorView } from "../../ErrorView";
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
 } from "react-native-draggable-flatlist";
-import { GripVertical } from "@tamagui/lucide-icons";
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type JourneyItem = NonNullable<
   AppRouter["journey"]["list"]["_def"]["$types"]["output"]["journeys"][number]
@@ -23,6 +22,7 @@ export const DashboardPage: React.FC = () => {
   const { reorderJourneys } = useJourneyReorder();
   const [localJourneys, setLocalJourneys] = useState<JourneyItem[]>([]);
   const isDragging = useRef(false);
+  const { bottom } = useSafeAreaInsets()
 
   // Sync local state with server data
   useEffect(() => {
@@ -58,32 +58,21 @@ export const DashboardPage: React.FC = () => {
     ({ item, drag, isActive }: RenderItemParams<JourneyItem>) => {
       return (
         <ScaleDecorator>
-          <XStack
+          <YStack
             marginHorizontal="$4"
             marginVertical="$2"
             opacity={isActive ? 0.8 : 1}
           >
-            <Pressable
-              onLongPress={drag}
-              disabled={isActive}
-              style={{
-                justifyContent: "center",
-                paddingRight: 8,
-                paddingVertical: 16,
+            <TrackerCard
+              title={item.title}
+              model={item}
+              requestRefetch={() => {
+                refetch();
               }}
-            >
-              <GripVertical size={24} color="$color8" />
-            </Pressable>
-            <YStack flex={1}>
-              <TrackerCard
-                title={item.title}
-                model={item}
-                requestRefetch={() => {
-                  refetch();
-                }}
-              />
-            </YStack>
-          </XStack>
+              drag={drag}
+              isActive={isActive}
+            />
+          </YStack>
         </ScaleDecorator>
       );
     },
@@ -109,6 +98,7 @@ export const DashboardPage: React.FC = () => {
       onDragEnd={handleDragEnd}
       keyExtractor={(item) => item.id}
       containerStyle={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: bottom }}
       renderItem={renderItem}
     />
   );
