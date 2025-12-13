@@ -1,13 +1,12 @@
 import { LoadingView } from "@/src/components/LoadingView";
 import { useAuth } from "@/src/hooks/useAuth";
-import { Redirect, router, Stack } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { WebLayout } from "@/src/components/WebLayout";
 import React from "react";
-import { PlusCircle , User} from "@tamagui/lucide-icons";
-import { HeaderButton } from "@/src/components/HeaderButton";
+import { Home, BookOpen } from "@tamagui/lucide-icons";
 
 export const unstable_settings = {
-  initialRouteName: "dashboard",
+  initialRouteName: "(dashboard)",
 };
 
 export default function AuthLayout() {
@@ -23,58 +22,31 @@ export default function AuthLayout() {
 
   return (
     <WebLayout>
-      <Stack
-        initialRouteName="dashboard"
+      <Tabs
         screenOptions={{
-          headerBackButtonDisplayMode: "minimal",
           headerShadowVisible: false,
+          tabBarShowLabel: true,
         }}
       >
-        <Stack.Screen
-          name="dashboard"
+        <Tabs.Screen
+          name="(dashboard)"
           options={{
-            headerTitle: "SoberJourney",
-            headerRight: () => (
-              <HeaderButton
-                icon={PlusCircle}
-                onPress={() => router.push("/journeys-new")}
-              />
+            headerShown: false,
+            title: "Journeys",
+            tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="(journal)"
+          options={{
+            headerShown: false,
+            title: "Journal",
+            tabBarIcon: ({ color, size }) => (
+              <BookOpen color={color} size={size} />
             ),
-            headerLeft: () => (
-              <HeaderButton
-                icon={User}
-                onPress={() => router.push("/profile")}
-              />
-            ),
           }}
         />
-        <Stack.Screen
-          name="journeys-new"
-          options={{
-            headerTitle: "New Journey",
-          }}
-        />
-        <Stack.Screen
-          name="journeys-modify"
-          options={{
-            headerTitle: "Edit Journey",
-          }}
-        />
-        <Stack.Screen
-          name="journeys-info"
-          options={{
-            headerTitle: "Journey Details",
-          }}
-        />
-        <Stack.Screen
-          name="profile"
-          options={{
-            headerTitle: "Profile",
-            headerBackButtonDisplayMode: "minimal",
-            headerShadowVisible: false,
-          }}
-        />
-      </Stack>
+      </Tabs>
     </WebLayout>
   );
 }
