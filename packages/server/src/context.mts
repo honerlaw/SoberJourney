@@ -5,6 +5,7 @@ import { getConfig } from "./util/config.mjs";
 import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
 import * as journeyDB from "./database/journey/index.mjs";
+import * as journalDB from "./database/journal/index.mjs";
 
 import * as encryptionService from "./service/encryption/index.mjs";
 
@@ -45,6 +46,7 @@ const options = {
           key: wrap(client, wrap(childLogger, userKeyDB)),
         },
         journey: wrap(client, wrap(childLogger, journeyDB)),
+        journal: wrap(client, wrap(childLogger, journalDB)),
       },
       additional: additional || {},
       service: {
