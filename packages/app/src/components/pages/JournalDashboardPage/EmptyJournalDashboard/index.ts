@@ -1,0 +1,2 @@
+export { EmptyJournalDashboard } from "./EmptyJournalDashboard";
+

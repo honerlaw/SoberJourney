@@ -55,6 +55,25 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     }
   }, [isAvailable, report])
 
+  const stop = useCallback(async () => {
+    try {
+      if (!isAvailable) {
+        throw new Error("Speech recognition is not available")
+      }
+
+      ExpoSpeechRecognitionModule.stop()
+      setIsListening(false)
+    } catch (error) {
+      report(error)
+      setIsListening(false)
+    }
+  }, [report, isAvailable])
+
+  const reset = useCallback(() => {
+    setText("")
+    setInterimText("")
+  }, [])
+
   const start = useCallback(async () => {
     try {
       if (!isAvailable) {
@@ -74,26 +93,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       report(error)
       setIsListening(false)
     }
-  }, [isAvailable, report])
-
-  const stop = useCallback(async () => {
-    try {
-      if (!isAvailable) {
-        throw new Error("Speech recognition is not available")
-      }
-
-      ExpoSpeechRecognitionModule.stop()
-      setIsListening(false)
-    } catch (error) {
-      report(error)
-      setIsListening(false)
-    }
-  }, [report])
-
-  const reset = useCallback(() => {
-    setText("")
-    setInterimText("")
-  }, [])
+  }, [isAvailable, report, reset])
 
   useSpeechRecognitionEvent("result", (event) => {
     if (!event.results || event.results.length === 0) {

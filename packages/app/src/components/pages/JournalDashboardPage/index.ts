@@ -1,0 +1,2 @@
+export { JournalDashboardPage } from "./JournalDashboardPage";
+

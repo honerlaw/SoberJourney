@@ -7,12 +7,14 @@ import { Platform } from "react-native";
 export default function Page() {
   const { isSignedIn, isLoaded } = useAuth();
 
+  console.log("Index", isSignedIn, isLoaded);
+
   if (!isLoaded) {
     return <LoadingView />;
   }
 
   if (isSignedIn) {
-    return <Redirect href="/dashboard" />;
+    return <Redirect href="/(auth)/(tabs)/dashboard" />;
   }
 
   // native, so go ahead and show the signin page
