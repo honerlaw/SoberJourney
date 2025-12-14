@@ -1,4 +1,8 @@
-import { Card, Text, YStack } from "tamagui";
+import { format } from "date-fns";
+import { Card, Text, YStack, XStack, Button } from "tamagui";
+import { Trash2 } from "@tamagui/lucide-icons";
+import { AlertModal } from "@/src/components/AlertModal";
+import { useJournalRemove } from "../hooks/useJournalRemove";
 
 type JournalEntryCardProps = {
   id: string;
@@ -6,30 +10,48 @@ type JournalEntryCardProps = {
 };
 
 export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
+  id,
   createdAt,
 }) => {
-  const formattedDate = new Date(createdAt).toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = format(new Date(createdAt), "EEEE, MMMM d, yyyy");
+  const formattedTime = format(new Date(createdAt), "h:mm a");
+  const { removeEntry, isPending } = useJournalRemove();
 
-  const formattedTime = new Date(createdAt).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const handleDelete = async () => {
+    await removeEntry(id);
+  };
 
   return (
-    <Card elevate bordered padding="$4">
-      <YStack gap="$2">
-        <Text fontSize="$5" fontWeight="600">
-          {formattedDate}
-        </Text>
-        <Text fontSize="$3" color="$color11">
-          {formattedTime}
-        </Text>
-      </YStack>
+    <Card bordered padding="$4">
+      <XStack justifyContent="space-between" alignItems="flex-start">
+        <YStack gap="$2" flex={1}>
+          <Text fontSize="$5" fontWeight="600">
+            {formattedDate}
+          </Text>
+          <Text fontSize="$3" color="$color11">
+            {formattedTime}
+          </Text>
+        </YStack>
+        <AlertModal
+          title="Delete Entry"
+          message="Are you sure you want to delete this journal entry?"
+          buttons={[
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: handleDelete,
+            },
+          ]}
+        >
+          <Button
+            size="$3"
+            circular
+            disabled={isPending}
+            icon={<Trash2 size={18} color="$color11" pointerEvents="none" />}
+          />
+        </AlertModal>
+      </XStack>
     </Card>
   );
 };

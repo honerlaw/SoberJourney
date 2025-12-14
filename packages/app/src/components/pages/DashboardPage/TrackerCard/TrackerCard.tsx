@@ -49,6 +49,10 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
       borderRadius="$4"
       backgroundColor="$background"
       padding="$4"
+      onPress={() => router.push({
+        pathname: "/journeys-info",
+        params: { journeyId: model.id },
+      })}
     >
       <YStack gap="$4">
         {/* Header with title and reset button */}

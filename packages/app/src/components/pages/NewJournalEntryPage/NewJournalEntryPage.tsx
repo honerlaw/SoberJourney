@@ -1,10 +1,26 @@
-import { YStack, TextArea, Button, H5 } from "tamagui";
+import { YStack, TextArea, Button, Paragraph } from "tamagui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoiding } from "../../KeyboardAvoiding";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCreateJournalEntry } from "./hooks/useCreateJournalEntry";
 import { useToastController } from "@tamagui/toast";
 import { useRouter } from "expo-router";
+
+const JOURNAL_PROMPTS = [
+  "What are three things you're grateful for in your sobriety journey today?",
+  "Describe a moment today when you felt strong in your recovery.",
+  "What coping strategies helped you navigate challenges today?",
+  "How has your relationship with yourself changed since starting this journey?",
+  "What is one thing you've learned about yourself this week?",
+  "Write about a person who supports your sobriety and what they mean to you.",
+  "What emotions came up for you today, and how did you handle them?",
+  "Describe a goal you're working toward and the progress you've made.",
+  "What does living authentically mean to you in recovery?",
+  "Reflect on how far you've come—what would you tell your past self?",
+];
+
+const getRandomPrompt = () =>
+  JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
 
 export const NewJournalEntryPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets();
@@ -12,6 +28,8 @@ export const NewJournalEntryPage: React.FC = () => {
   const toast = useToastController();
   const router = useRouter();
   const { createEntry, isPending } = useCreateJournalEntry();
+
+  const prompt = useMemo(() => getRandomPrompt(), []);
 
   const onCreate = async () => {
     if (!content.trim()) {
@@ -37,9 +55,15 @@ export const NewJournalEntryPage: React.FC = () => {
       <YStack flex={1} padding="$4" width="100%">
         <YStack flex={1} gap="$4">
           <YStack gap="$2">
-            <H5 textAlign="center">
-              Write freely about your thoughts and feelings
-            </H5>
+            <Paragraph textAlign="center" color="$color12" size={"$6"}>
+              {prompt}
+            </Paragraph>
+            <Paragraph textAlign="center" color="$color10" size={"$2"}>
+              - or -
+            </Paragraph>
+            <Paragraph textAlign="center" color="$color12" size={"$5"}>
+              Let your thoughts flow freely.
+            </Paragraph>
           </YStack>
 
           <TextArea
@@ -47,7 +71,6 @@ export const NewJournalEntryPage: React.FC = () => {
             placeholder="What's on your mind today?"
             value={content}
             onChangeText={setContent}
-            textAlignVertical="top"
             padding="$3"
           />
         </YStack>
