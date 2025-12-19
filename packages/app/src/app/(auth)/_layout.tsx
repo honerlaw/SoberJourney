@@ -4,7 +4,7 @@ import { Redirect, Stack, useRouter, useSegments } from "expo-router";
 import { WebLayout } from "@/src/components/WebLayout";
 import React from "react";
 import { HeaderButton } from "@/src/components/HeaderButton";
-import { PlusCircle, User } from "@tamagui/lucide-icons";
+import { Pencil, PlusCircle, User } from "@tamagui/lucide-icons";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -17,6 +17,7 @@ export default function AuthLayout() {
 
   // Determine which tab is active based on route segments
   const isJournalTab = (segments as string[]).includes("journal");
+  const isSponsorTab = (segments as string[]).includes("sponsor");
 
   if (!isLoaded) {
     return <LoadingView />;
@@ -26,12 +27,19 @@ export default function AuthLayout() {
     return <Redirect href="/" />;
   }
 
-  const handleAddPress = () => {
-    if (isJournalTab) {
-      router.push("/journal-new");
-    } else {
-      router.push("/journeys-new");
+  const renderHeaderRight = () => {
+    if (isSponsorTab) {
+      return null;
     }
+    if (isJournalTab) {
+      return (
+        <HeaderButton icon={Pencil} onPress={() => router.push("/journal-new")} />
+      );
+    }
+    // Dashboard tab (default)
+    return (
+      <HeaderButton icon={PlusCircle} onPress={() => router.push("/journeys-new")} />
+    );
   };
 
   return (
@@ -46,9 +54,7 @@ export default function AuthLayout() {
           name="(tabs)"
           options={{
             headerTitle: "SoberJourney",
-            headerRight: () => (
-              <HeaderButton icon={PlusCircle} onPress={handleAddPress} />
-            ),
+            headerRight: renderHeaderRight,
             headerLeft: () => (
               <HeaderButton
                 icon={User}
