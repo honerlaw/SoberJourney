@@ -1,15 +1,22 @@
-import { type GoogleGenAI } from "@google/genai";
+import {
+  type ContentListUnion,
+  type GenerateContentConfig,
+  type GoogleGenAI,
+} from "@google/genai";
 import { type Logger } from "../../util/logger/index.mjs";
 
 export async function chat(
   logger: Logger,
   client: GoogleGenAI,
-  prompt: string,
+  contents: ContentListUnion,
+  config: GenerateContentConfig = {},
+  model: string = "gemini-2.0-flash",
 ) {
   try {
     const response = await client.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
+      model,
+      contents,
+      config,
     });
     return response.text;
   } catch (error) {
