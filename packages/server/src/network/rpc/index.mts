@@ -5,12 +5,14 @@ import * as trpcExpress from "@trpc/server/adapters/express";
 import * as userRoutes from "./route/user/index.mjs";
 import * as journeyRoutes from "./route/journey/index.mjs";
 import * as journalRoutes from "./route/journal/index.mjs";
+import * as conversationRoutes from "./route/conversation/index.mjs";
 import type { UserModel } from "../../util/database.mjs";
 
 const appRouter = router({
   user: router(userRoutes),
   journey: router(journeyRoutes),
   journal: router(journalRoutes),
+  conversation: router(conversationRoutes),
 });
 
 export type AppRouter = typeof appRouter;

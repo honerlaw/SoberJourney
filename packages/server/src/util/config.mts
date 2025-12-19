@@ -18,6 +18,9 @@ const envSchema = z.object({
 
   // Database (assuming DATABASE_URL is used by Prisma, even if not directly referenced)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+
+  // Gemini AI
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 });
 
 export type Config = z.infer<typeof envSchema>;

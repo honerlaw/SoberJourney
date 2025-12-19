@@ -6,11 +6,13 @@ import { Button } from "tamagui";
 type HeaderButtonProps = {
   onPress: () => void | Promise<void>;
   icon: React.ComponentType<{ size?: string, pointerEvents?: "none" | "auto" }>;
+  disabled?: boolean;
 };
 
 export const HeaderButton: React.FC<HeaderButtonProps> = ({
   onPress,
   icon: IconComponent,
+  disabled,
 }) => {
   const { isLiquidGlassEnabled } = useLiquidGlass();
 
@@ -32,6 +34,7 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
           : undefined
       }
       onPress={onPress}
+      disabled={disabled}
     />
   );
 };

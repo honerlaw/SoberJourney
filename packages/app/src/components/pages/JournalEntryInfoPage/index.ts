@@ -1,0 +1,2 @@
+export { JournalEntryInfoPage } from "./JournalEntryInfoPage";
+

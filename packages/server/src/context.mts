@@ -6,10 +6,12 @@ import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
 import * as journeyDB from "./database/journey/index.mjs";
 import * as journalDB from "./database/journal/index.mjs";
+import * as conversationDB from "./database/conversation/index.mjs";
 
 import * as encryptionService from "./service/encryption/index.mjs";
 
 import * as clerkDS from "./datasource/clerk/index.mjs";
+import * as geminiDS from "./datasource/gemini/index.mjs";
 
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
 import { client, type UserModel } from "./util/database.mjs";
@@ -27,6 +29,7 @@ const options = {
     additional?: { [key: string]: unknown },
   ) => {
     const { clerkClient, ...clerkDSRemaining } = clerkDS;
+    const { geminiClient, ...geminiDSRemaining } = geminiDS;
 
     return {
       logger: childLogger,
@@ -38,6 +41,10 @@ const options = {
           client: clerkClient,
           ...wrap(clerkClient, wrap(childLogger, clerkDSRemaining)),
         },
+        gemini: {
+          client: geminiClient,
+          ...wrap(geminiClient, wrap(childLogger, geminiDSRemaining)),
+        },
       },
       database: {
         client,
@@ -47,6 +54,7 @@ const options = {
         },
         journey: wrap(client, wrap(childLogger, journeyDB)),
         journal: wrap(client, wrap(childLogger, journalDB)),
+        conversation: wrap(client, wrap(childLogger, conversationDB)),
       },
       additional: additional || {},
       service: {

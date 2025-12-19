@@ -1,28 +1,18 @@
-import { BookOpen, Home } from "@tamagui/lucide-icons";
+import { BookOpen, Home, Users } from "@tamagui/lucide-icons";
 import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
-import { Platform } from "react-native";
 
 export default function TabsLayout() {
-  if (Platform.OS !== "web") {
-    return <NativeTabs>
-      <NativeTabs.Trigger name="dashboard">
-        <Label>Home</Label>
-        <Icon sf="house.fill" drawable="custom_android_drawable" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="journal">
-        <Label>Journal</Label>
-        <Icon sf="book" drawable="custom_settings_drawable" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  }
-  
   return (
     <Tabs
       screenOptions={{
         headerShadowVisible: false,
-        tabBarShowLabel: true,
-        headerBackButtonDisplayMode: "minimal"
+        tabBarShowLabel: false,
+        headerBackButtonDisplayMode: "minimal",
+        tabBarStyle: {
+          elevation: 0,
+          borderTopWidth: 0,
+          paddingTop: 14
+        }
       }}
     >
       <Tabs.Screen
@@ -40,6 +30,15 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <BookOpen color={color} size={size} pointerEvents="none" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="sponsor"
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Users color={color} size={size} pointerEvents="none" />
           ),
         }}
       />

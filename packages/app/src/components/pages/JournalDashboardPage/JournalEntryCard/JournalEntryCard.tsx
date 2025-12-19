@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { Card, Text, YStack, XStack, Button } from "tamagui";
 import { Trash2 } from "@tamagui/lucide-icons";
+import { router } from "expo-router";
 import { AlertModal } from "@/src/components/AlertModal";
 import { useJournalRemove } from "../hooks/useJournalRemove";
 
@@ -22,7 +23,16 @@ export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   };
 
   return (
-    <Card bordered padding="$4">
+    <Card
+      bordered
+      padding="$4"
+      onPress={() =>
+        router.push({
+          pathname: "/journal-info",
+          params: { entryId: id },
+        })
+      }
+    >
       <XStack justifyContent="space-between" alignItems="flex-start">
         <YStack gap="$2" flex={1}>
           <Text fontSize="$5" fontWeight="600">
