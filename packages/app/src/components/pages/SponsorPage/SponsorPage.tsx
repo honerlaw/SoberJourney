@@ -9,6 +9,7 @@ import { useKeyboardHeight } from "./hooks/useKeyboardHeight";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { EmptyChatView } from "./EmptyChatView";
 
 export const SponsorPage: React.FC = () => {
   const scrollViewRef = useRef<ScrollViewType>(null);
@@ -38,22 +39,28 @@ export const SponsorPage: React.FC = () => {
   const inputBottomPadding =
     keyboardHeight > 0 ? keyboardHeight - tabBarHeight + 14 : "$3";
 
+  const hasMessages = messages.length > 0 || isSending;
+
   return (
     <YStack flex={1}>
-      <ScrollView
-        ref={scrollViewRef}
-        flex={1}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <YStack gap="$3" flex={1} paddingHorizontal="$3">
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-          {isSending && <ThinkingIndicator />}
-        </YStack>
-      </ScrollView>
+      {hasMessages ? (
+        <ScrollView
+          ref={scrollViewRef}
+          flex={1}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <YStack gap="$3" flex={1} paddingHorizontal="$3">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            {isSending && <ThinkingIndicator />}
+          </YStack>
+        </ScrollView>
+      ) : (
+        <EmptyChatView />
+      )}
 
       <ChatInput
         onSend={sendMessage}

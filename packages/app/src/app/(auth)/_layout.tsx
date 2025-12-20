@@ -88,7 +88,7 @@ export default function AuthLayout() {
         <Stack.Screen
           name="journal-new"
           options={{
-            headerTitle: "New Entry",
+            headerTitle: "New Entry"
           }}
         />
         <Stack.Screen

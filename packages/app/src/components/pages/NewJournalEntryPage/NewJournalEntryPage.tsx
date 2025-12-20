@@ -1,10 +1,11 @@
-import { YStack, TextArea, Button, Paragraph } from "tamagui";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { YStack, TextArea, Paragraph } from "tamagui";
 import { KeyboardAvoiding } from "../../KeyboardAvoiding";
 import { useState, useMemo } from "react";
 import { useCreateJournalEntry } from "./hooks/useCreateJournalEntry";
 import { useToastController } from "@tamagui/toast";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
+import { HeaderButton } from "../../HeaderButton";
+import { Check } from "@tamagui/lucide-icons";
 
 const JOURNAL_PROMPTS = [
   "What are three things you're grateful for in your sobriety journey today?",
@@ -23,7 +24,6 @@ const getRandomPrompt = () =>
   JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
 
 export const NewJournalEntryPage: React.FC = () => {
-  const { bottom } = useSafeAreaInsets();
   const [content, setContent] = useState<string>("");
   const toast = useToastController();
   const router = useRouter();
@@ -51,10 +51,22 @@ export const NewJournalEntryPage: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoiding>
-      <YStack flex={1} padding="$4" width="100%">
+    <>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <HeaderButton
+              icon={Check}
+              onPress={onCreate}
+              disabled={isPending}
+            />
+          ),
+        }}
+      />
+      <KeyboardAvoiding>
+      <YStack flex={1} width="100%">
         <YStack flex={1} gap="$4">
-          <YStack gap="$2">
+          <YStack gap="$2" padding="$4">
             <Paragraph textAlign="center" color="$color12" size={"$6"}>
               {prompt}
             </Paragraph>
@@ -71,22 +83,14 @@ export const NewJournalEntryPage: React.FC = () => {
             placeholder="What's on your mind today?"
             value={content}
             onChangeText={setContent}
-            padding="$3"
+            padding="$4"
+            borderWidth={0}
+            borderRadius={0}
           />
         </YStack>
-
-        <Button
-          marginTop="$4"
-          marginBottom={bottom}
-          size="$5"
-          onPress={onCreate}
-          disabled={isPending || !content.trim()}
-          themeInverse
-        >
-          {isPending ? "Saving..." : "Save Entry"}
-        </Button>
       </YStack>
     </KeyboardAvoiding>
+    </>
   );
 };
 
