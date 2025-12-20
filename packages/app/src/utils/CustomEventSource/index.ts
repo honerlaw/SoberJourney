@@ -1,1 +1,1 @@
-export { CustomEventSource } from "./CustomEventSource";
+export { CustomEventSource } from "./CustomEventSource"

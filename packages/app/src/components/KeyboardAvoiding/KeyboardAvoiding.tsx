@@ -1,10 +1,10 @@
-import React from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
-import { Stack } from "tamagui";
+import React from "react"
+import { KeyboardAvoidingView, Platform, ScrollView } from "react-native"
+import { Stack } from "tamagui"
 
 export type KeyboardAvoidingProps = {
-  children: React.ReactNode;
-};
+  children: React.ReactNode
+}
 
 export const KeyboardAvoiding = React.forwardRef<
   ScrollView,
@@ -32,7 +32,7 @@ export const KeyboardAvoiding = React.forwardRef<
         </Stack>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-});
+  )
+})
 
-KeyboardAvoiding.displayName = "KeyboardAvoiding";
+KeyboardAvoiding.displayName = "KeyboardAvoiding"

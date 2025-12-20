@@ -1,11 +1,11 @@
-import { Button, XStack, Text } from "tamagui";
+import { Button, XStack, Text } from "tamagui"
 
 type InputButtonProps = {
-  onPress: () => void;
-  value: string;
-  icon: React.ComponentType<{ size?: string | number }>;
-  iconRight?: React.ComponentType<{ size?: string | number }>;
-};
+  onPress: () => void
+  value: string
+  icon: React.ComponentType<{ size?: string | number }>
+  iconRight?: React.ComponentType<{ size?: string | number }>
+}
 
 export const InputButton: React.FC<InputButtonProps> = ({
   value,
@@ -26,12 +26,10 @@ export const InputButton: React.FC<InputButtonProps> = ({
       <XStack flex={1} alignItems="center" justifyContent="space-between">
         <XStack gap="$2" alignItems="center">
           <Icon size={20} />
-          <Text fontSize="$4">
-            {value}
-          </Text>
+          <Text fontSize="$4">{value}</Text>
         </XStack>
         {IconRight && <IconRight size={20} />}
       </XStack>
     </Button>
-  );
-};
+  )
+}

@@ -1,10 +1,10 @@
-import React from "react";
-import { useRouter } from "expo-router";
-import { YStack, XStack, Text, Stack, useMedia } from "tamagui";
+import React from "react"
+import { useRouter } from "expo-router"
+import { YStack, XStack, Text, Stack, useMedia } from "tamagui"
 
 export function FooterSection() {
-  const router = useRouter();
-  const media = useMedia();
+  const router = useRouter()
+  const media = useMedia()
 
   return (
     <YStack
@@ -28,7 +28,7 @@ export function FooterSection() {
           <Text fontSize="$3" color="$gray11">
             © 2025 Sobriety Tracker. All rights reserved.
           </Text>
-          
+
           <XStack gap="$6">
             <Text
               fontSize="$3"
@@ -36,7 +36,7 @@ export function FooterSection() {
               pressStyle={{ opacity: 0.7 }}
               cursor="pointer"
               onPress={() => {
-                router.push("/privacy");
+                router.push("/privacy")
               }}
             >
               Privacy
@@ -47,7 +47,7 @@ export function FooterSection() {
               pressStyle={{ opacity: 0.7 }}
               cursor="pointer"
               onPress={() => {
-                router.push("/terms");
+                router.push("/terms")
               }}
             >
               Terms
@@ -65,6 +65,5 @@ export function FooterSection() {
         </XStack>
       </Stack>
     </YStack>
-  );
+  )
 }
-

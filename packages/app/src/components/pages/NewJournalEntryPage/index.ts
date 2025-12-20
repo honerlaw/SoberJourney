@@ -1,2 +1,1 @@
-export { NewJournalEntryPage } from "./NewJournalEntryPage";
-
+export { NewJournalEntryPage } from "./NewJournalEntryPage"

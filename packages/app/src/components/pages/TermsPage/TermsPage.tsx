@@ -7,7 +7,7 @@ import {
   Text,
   YStack,
   XStack,
-} from "tamagui";
+} from "tamagui"
 
 export const TermsPage = () => {
   return (
@@ -622,5 +622,5 @@ export const TermsPage = () => {
         </YStack>
       </YStack>
     </ScrollView>
-  );
-};
+  )
+}

@@ -1,26 +1,26 @@
-import { format } from "date-fns";
-import { Card, Text, YStack, XStack, Button } from "tamagui";
-import { Trash2 } from "@tamagui/lucide-icons";
-import { router } from "expo-router";
-import { AlertModal } from "@/src/components/AlertModal";
-import { useJournalRemove } from "../hooks/useJournalRemove";
+import { format } from "date-fns"
+import { Card, Text, YStack, XStack, Button } from "tamagui"
+import { Trash2 } from "@tamagui/lucide-icons"
+import { router } from "expo-router"
+import { AlertModal } from "@/src/components/AlertModal"
+import { useJournalRemove } from "../hooks/useJournalRemove"
 
 type JournalEntryCardProps = {
-  id: string;
-  createdAt: Date;
-};
+  id: string
+  createdAt: Date
+}
 
 export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   id,
   createdAt,
 }) => {
-  const formattedDate = format(new Date(createdAt), "EEEE, MMMM d, yyyy");
-  const formattedTime = format(new Date(createdAt), "h:mm a");
-  const { removeEntry, isPending } = useJournalRemove();
+  const formattedDate = format(new Date(createdAt), "EEEE, MMMM d, yyyy")
+  const formattedTime = format(new Date(createdAt), "h:mm a")
+  const { removeEntry, isPending } = useJournalRemove()
 
   const handleDelete = async () => {
-    await removeEntry(id);
-  };
+    await removeEntry(id)
+  }
 
   return (
     <Card
@@ -63,6 +63,5 @@ export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
         </AlertModal>
       </XStack>
     </Card>
-  );
-};
-
+  )
+}

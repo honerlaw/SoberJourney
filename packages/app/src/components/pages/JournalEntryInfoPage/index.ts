@@ -1,2 +1,1 @@
-export { JournalEntryInfoPage } from "./JournalEntryInfoPage";
-
+export { JournalEntryInfoPage } from "./JournalEntryInfoPage"

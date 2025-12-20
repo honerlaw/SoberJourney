@@ -1,4 +1,4 @@
-import { type Message } from "../../hooks/useConversation";
+import { type Message } from "../../hooks/useConversation"
 
 export const mockChatMessage: Message = {
   id: "mock-comprehensive-markdown-message",
@@ -203,7 +203,7 @@ try {
 ---
 
 This comprehensive example demonstrates all the markdown formatting supported by the MessageBubble component, including headers, text formatting, code blocks, lists, blockquotes, links, and horizontal rules.`,
-};
+}
 
 export const mockUserMessage: Message = {
   id: "mock-user-message",
@@ -222,7 +222,7 @@ const markdownContent = "# Hello World\\n\\nThis is **bold** text.";
 \`\`\`
 
 Thanks!`,
-};
+}
 
 export const mockSystemMessage: Message = {
   id: "mock-system-message",
@@ -237,7 +237,7 @@ Available features:
 - *Real-time* problem solving
 
 Type your questions or requests to get started.`,
-};
+}
 
 export const mockErrorMessage: Message = {
   id: "mock-error-message",
@@ -256,11 +256,11 @@ export const mockErrorMessage: Message = {
 3. Try again in a few moments
 
 If the problem persists, please contact support at \`support@example.com\`.`,
-};
+}
 
 export const allMockMessages: Message[] = [
   mockChatMessage,
   mockUserMessage,
   mockSystemMessage,
   mockErrorMessage,
-];
+]

@@ -1,6 +1,6 @@
-import React from "react";
-import { Stack } from "expo-router";
-import { ForgotPasswordProvider } from "@/src/components/flows/ForgotPasswordFlow/providers/ForgotPasswordProvider";
+import React from "react"
+import { Stack } from "expo-router"
+import { ForgotPasswordProvider } from "@/src/components/flows/ForgotPasswordFlow/providers/ForgotPasswordProvider"
 
 export default function ForgotPasswordLayout() {
   return (
@@ -17,5 +17,5 @@ export default function ForgotPasswordLayout() {
         />
       </Stack>
     </ForgotPasswordProvider>
-  );
+  )
 }

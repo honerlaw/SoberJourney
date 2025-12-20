@@ -1,1 +1,1 @@
-export { useAppleSignIn } from "./useAppleSignIn";
+export { useAppleSignIn } from "./useAppleSignIn"

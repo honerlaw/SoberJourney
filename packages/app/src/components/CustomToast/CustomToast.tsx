@@ -1,34 +1,34 @@
-import { Toast, useToastState } from "@tamagui/toast";
-import React from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useWindowDimensions, XStack } from "tamagui";
-import { AlertTriangle, Check } from "@tamagui/lucide-icons";
+import { Toast, useToastState } from "@tamagui/toast"
+import React from "react"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useWindowDimensions, XStack } from "tamagui"
+import { AlertTriangle, Check } from "@tamagui/lucide-icons"
 
 type ToastIconProps = {
-  type: "error" | "success";
-};
+  type: "error" | "success"
+}
 
 const ToastIcon: React.FC<ToastIconProps> = ({ type }) => {
   switch (type) {
     case "error":
-      return <AlertTriangle size={24} color="$red10" />;
+      return <AlertTriangle size={24} color="$red10" />
     case "success":
-      return <Check size={24} color="$green10" />;
+      return <Check size={24} color="$green10" />
   }
-};
+}
 
 type CustomToastType = {
-  type: "error" | "success";
-} & ReturnType<typeof useToastState>;
+  type: "error" | "success"
+} & ReturnType<typeof useToastState>
 
 export const CustomToast = () => {
-  const toast = useToastState() as CustomToastType;
-  const inset = useSafeAreaInsets();
-  const dimensions = useWindowDimensions();
-  const type = toast?.type;
+  const toast = useToastState() as CustomToastType
+  const inset = useSafeAreaInsets()
+  const dimensions = useWindowDimensions()
+  const type = toast?.type
 
   if (!toast || toast?.isHandledNatively) {
-    return null;
+    return null
   }
 
   return (
@@ -64,5 +64,5 @@ export const CustomToast = () => {
         <Toast.Title fontWeight={"600"}>{toast.title}</Toast.Title>
       </XStack>
     </Toast>
-  );
-};
+  )
+}

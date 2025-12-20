@@ -1,2 +1,1 @@
-export { EmptyDashboard } from "./EmptyDashboard";
-
+export { EmptyDashboard } from "./EmptyDashboard"

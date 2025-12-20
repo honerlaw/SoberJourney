@@ -1,25 +1,25 @@
-import React from "react";
-import { Pressable } from "react-native-gesture-handler";
-import { Card, Text, XStack, YStack, Button } from "tamagui";
-import { GripVertical, Info, RotateCcw } from "@tamagui/lucide-icons";
-import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs";
-import { router } from "expo-router";
-import { AlertModal } from "@/src/components/AlertModal";
-import { DurationProgressBar } from "@/src/components/DurationProgressBar";
-import { useDurationSections } from "@/src/hooks/useDurationSections";
-import { useJourneyReset } from "./hooks/useJourneyReset";
+import React from "react"
+import { Pressable } from "react-native-gesture-handler"
+import { Card, Text, XStack, YStack, Button } from "tamagui"
+import { GripVertical, Info, RotateCcw } from "@tamagui/lucide-icons"
+import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs"
+import { router } from "expo-router"
+import { AlertModal } from "@/src/components/AlertModal"
+import { DurationProgressBar } from "@/src/components/DurationProgressBar"
+import { useDurationSections } from "@/src/hooks/useDurationSections"
+import { useJourneyReset } from "./hooks/useJourneyReset"
 
 type UserJourneyWithEntryModel = NonNullable<
   AppRouter["journey"]["list"]["_def"]["$types"]["output"]["journeys"][number]
->;
+>
 
 export type TrackerCardProps = {
-  title: string;
-  model: UserJourneyWithEntryModel;
-  requestRefetch: () => void | Promise<void>;
-  drag?: () => void;
-  isActive?: boolean;
-};
+  title: string
+  model: UserJourneyWithEntryModel
+  requestRefetch: () => void | Promise<void>
+  drag?: () => void
+  isActive?: boolean
+}
 
 export const TrackerCard: React.FC<TrackerCardProps> = ({
   title,
@@ -28,19 +28,19 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
   drag,
   isActive,
 }) => {
-  const { resetJourney } = useJourneyReset();
+  const { resetJourney } = useJourneyReset()
   const { sections } = useDurationSections({
     startDate: model.lastEntry?.createdAt || new Date(),
-  });
+  })
 
   if (!model.lastEntry) {
-    return null;
+    return null
   }
 
   const onReset = async () => {
-    await resetJourney(model.id);
-    await requestRefetch();
-  };
+    await resetJourney(model.id)
+    await requestRefetch()
+  }
 
   return (
     <Card
@@ -49,10 +49,12 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
       borderRadius="$4"
       backgroundColor="$background"
       padding="$4"
-      onPress={() => router.push({
-        pathname: "/journeys-info",
-        params: { journeyId: model.id },
-      })}
+      onPress={() =>
+        router.push({
+          pathname: "/journeys-info",
+          params: { journeyId: model.id },
+        })
+      }
     >
       <YStack gap="$4">
         {/* Header with title and reset button */}
@@ -103,7 +105,13 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
                 },
               ]}
             >
-              <Button size="$3" icon={({ size }) => <RotateCcw size={size} pointerEvents="none" />} circular />
+              <Button
+                size="$3"
+                icon={({ size }) => (
+                  <RotateCcw size={size} pointerEvents="none" />
+                )}
+                circular
+              />
             </AlertModal>
           </XStack>
         </XStack>
@@ -112,7 +120,7 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
         <YStack gap="$3">
           {sections.map(({ value, max, label, singularLabel }) => {
             if (value === 0 && label !== "seconds") {
-              return null;
+              return null
             }
             return (
               <DurationProgressBar
@@ -122,10 +130,10 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
                 label={label}
                 singularLabel={singularLabel}
               />
-            );
+            )
           })}
         </YStack>
       </YStack>
     </Card>
-  );
-};
+  )
+}

@@ -1,2 +1,1 @@
-export { JourneyInfoPage } from "./JourneyInfoPage";
-
+export { JourneyInfoPage } from "./JourneyInfoPage"

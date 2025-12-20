@@ -1,8 +1,8 @@
-import React from "react";
-import { router } from "expo-router";
-import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
-import { useForgotPasswordContext } from "@/src/components/flows/ForgotPasswordFlow/providers/ForgotPasswordProvider";
+import React from "react"
+import { router } from "expo-router"
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
+import { useForgotPasswordContext } from "@/src/components/flows/ForgotPasswordFlow/providers/ForgotPasswordProvider"
 
 export const ResetPasswordPage: React.FC = () => {
   const {
@@ -14,20 +14,20 @@ export const ResetPasswordPage: React.FC = () => {
     isSubmitting,
     onPasswordSubmit,
     goBackToCodeStep,
-  } = useForgotPasswordContext();
+  } = useForgotPasswordContext()
 
   const handleSubmit = async () => {
-    const success = await onPasswordSubmit();
+    const success = await onPasswordSubmit()
     if (success) {
-      router.dismissAll();
-      router.back();
+      router.dismissAll()
+      router.back()
     }
-  };
+  }
 
   const handleBackPress = () => {
-    goBackToCodeStep();
-    router.back();
-  };
+    goBackToCodeStep()
+    router.back()
+  }
   return (
     <KeyboardAvoiding>
       <Form onSubmit={handleSubmit} gap="$5" width={"75%"} maxWidth={"400px"}>
@@ -71,5 +71,5 @@ export const ResetPasswordPage: React.FC = () => {
         </YStack>
       </Form>
     </KeyboardAvoiding>
-  );
-};
+  )
+}

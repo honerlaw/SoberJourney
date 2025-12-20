@@ -1,5 +1,5 @@
-import { SupportPage } from "@/src/components/pages/SupportPage";
+import { SupportPage } from "@/src/components/pages/SupportPage"
 
 export default function Support() {
-  return <SupportPage />;
+  return <SupportPage />
 }

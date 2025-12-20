@@ -1,25 +1,25 @@
-import { XStack, YStack, Input, Button } from "tamagui";
-import { Send } from "@tamagui/lucide-icons";
-import { useState } from "react";
+import { XStack, YStack, Input, Button } from "tamagui"
+import { Send } from "@tamagui/lucide-icons"
+import { useState } from "react"
 
 type ChatInputProps = {
-  onSend: (text: string) => void;
-  disabled?: boolean;
-  bottomPadding: number | string;
-};
+  onSend: (text: string) => void
+  disabled?: boolean
+  bottomPadding: number | string
+}
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   disabled,
   bottomPadding,
 }) => {
-  const [text, setText] = useState("");
+  const [text, setText] = useState("")
 
   const handleSend = () => {
-    if (!text.trim() || disabled) return;
-    onSend(text.trim());
-    setText("");
-  };
+    if (!text.trim() || disabled) return
+    onSend(text.trim())
+    setText("")
+  }
 
   return (
     <YStack
@@ -49,6 +49,5 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
       </XStack>
     </YStack>
-  );
-};
-
+  )
+}

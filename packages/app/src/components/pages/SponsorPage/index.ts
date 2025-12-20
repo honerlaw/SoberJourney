@@ -1,2 +1,1 @@
-export { SponsorPage } from "./SponsorPage";
-
+export { SponsorPage } from "./SponsorPage"

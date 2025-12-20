@@ -1,14 +1,14 @@
-import { TamaguiProvider } from "tamagui";
-import * as config from "../../../tamagui.config";
-import { NavigationThemeProvider } from "./NavigationThemeProvider";
-import { ThemeProvider, useThemeMode } from "./ThemeContext";
+import { TamaguiProvider } from "tamagui"
+import * as config from "../../../tamagui.config"
+import { NavigationThemeProvider } from "./NavigationThemeProvider"
+import { ThemeProvider, useThemeMode } from "./ThemeContext"
 
 function TamaguiThemeWrapper({ children }: { children: React.ReactNode }) {
-  const { currentTheme } = useThemeMode();
+  const { currentTheme } = useThemeMode()
 
   // Ensure we have a valid theme that exists in the config
   // Tamagui expects specific theme names, so we need to ensure they exist
-  const validTheme = currentTheme === "light" ? "light" : "dark";
+  const validTheme = currentTheme === "light" ? "light" : "dark"
 
   return (
     <TamaguiProvider
@@ -20,7 +20,7 @@ function TamaguiThemeWrapper({ children }: { children: React.ReactNode }) {
         {children}
       </NavigationThemeProvider>
     </TamaguiProvider>
-  );
+  )
 }
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
@@ -28,5 +28,5 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <TamaguiThemeWrapper>{children}</TamaguiThemeWrapper>
     </ThemeProvider>
-  );
+  )
 }

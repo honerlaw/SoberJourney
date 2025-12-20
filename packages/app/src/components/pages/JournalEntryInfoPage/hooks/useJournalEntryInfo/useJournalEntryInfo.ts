@@ -1,46 +1,42 @@
-import { useReportError } from "@/src/hooks/useReportError/useReportError";
-import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider";
-import { useQuery } from "@tanstack/react-query";
-import { useFocusEffect } from "expo-router";
-import { useEffect } from "react";
+import { useReportError } from "@/src/hooks/useReportError/useReportError"
+import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider"
+import { useQuery } from "@tanstack/react-query"
+import { useFocusEffect } from "expo-router"
+import { useEffect } from "react"
 
 type JournalEntryInfo = {
-  id: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
+  id: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+}
 
 export function useJournalEntryInfo(entryId: string) {
-  const { report } = useReportError();
-  const trpc = useTRPC();
+  const { report } = useReportError()
+  const trpc = useTRPC()
 
   const { data, error, isLoading, isRefetching, refetch } = useQuery(
-    trpc.journal.get.queryOptions(
-      { entryId },
-      { enabled: !!entryId }
-    )
-  );
+    trpc.journal.get.queryOptions({ entryId }, { enabled: !!entryId }),
+  )
 
   useFocusEffect(() => {
     if (entryId) {
-      refetch();
+      refetch()
     }
-  });
+  })
 
   useEffect(() => {
     if (error) {
-      report(error);
+      report(error)
     }
-  }, [error, report]);
+  }, [error, report])
 
-  const typedData = data as { entry: JournalEntryInfo } | undefined;
+  const typedData = data as { entry: JournalEntryInfo } | undefined
 
   return {
     entry: typedData?.entry ?? null,
     error,
     isLoading: isLoading && !isRefetching,
     refetch,
-  };
+  }
 }
-

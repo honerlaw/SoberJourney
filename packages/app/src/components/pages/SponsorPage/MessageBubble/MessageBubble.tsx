@@ -1,19 +1,19 @@
-import React, { memo } from "react";
-import { XStack, YStack } from "tamagui";
-import Markdown from "react-native-markdown-display";
-import MarkdownIt from "markdown-it";
-import { type Message } from "../hooks/useConversation";
-import { useMarkdownStyles } from "./useMarkdownStyles";
+import React, { memo } from "react"
+import { XStack, YStack } from "tamagui"
+import Markdown from "react-native-markdown-display"
+import MarkdownIt from "markdown-it"
+import { type Message } from "../hooks/useConversation"
+import { useMarkdownStyles } from "./useMarkdownStyles"
 
-const md = new MarkdownIt({ breaks: true });
+const md = new MarkdownIt({ breaks: true })
 
 export type MessageBubbleProps = {
-  message: Message;
-};
+  message: Message
+}
 
 export const MessageBubble = memo<MessageBubbleProps>(({ message }) => {
-  const isUser = message.role.toLowerCase() === "user";
-  const markdownStyles = useMarkdownStyles();
+  const isUser = message.role.toLowerCase() === "user"
+  const markdownStyles = useMarkdownStyles()
 
   return (
     <XStack justifyContent={isUser ? "flex-end" : "flex-start"}>
@@ -28,7 +28,7 @@ export const MessageBubble = memo<MessageBubbleProps>(({ message }) => {
         </Markdown>
       </YStack>
     </XStack>
-  );
-});
+  )
+})
 
-MessageBubble.displayName = "MessageBubble";
+MessageBubble.displayName = "MessageBubble"

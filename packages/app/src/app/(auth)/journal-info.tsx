@@ -1,6 +1,5 @@
-import { JournalEntryInfoPage } from "@/src/components/pages/JournalEntryInfoPage";
+import { JournalEntryInfoPage } from "@/src/components/pages/JournalEntryInfoPage"
 
 export default function JournalInfo() {
-  return <JournalEntryInfoPage />;
+  return <JournalEntryInfoPage />
 }
-

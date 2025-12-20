@@ -1,12 +1,12 @@
-import { EventSource as WebEventSource } from "eventsource";
+import { EventSource as WebEventSource } from "eventsource"
 
 type Options = EventSourceInit & {
-  headers?: Record<string, string> | null;
-};
+  headers?: Record<string, string> | null
+}
 
 export class CustomEventSource extends WebEventSource {
   constructor(url: string, options: EventSourceInit) {
-    const opts = options as Options;
+    const opts = options as Options
     super(url, {
       ...options,
       fetch: (input, init) => {
@@ -16,8 +16,8 @@ export class CustomEventSource extends WebEventSource {
             ...init.headers,
             ...(opts.headers || {}),
           },
-        });
+        })
       },
-    });
+    })
   }
 }

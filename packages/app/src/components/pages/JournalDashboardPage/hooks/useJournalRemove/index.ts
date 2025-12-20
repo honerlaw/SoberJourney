@@ -1,2 +1,1 @@
-export { useJournalRemove } from "./useJournalRemove";
-
+export { useJournalRemove } from "./useJournalRemove"

@@ -1,29 +1,29 @@
-import React, { useRef } from "react";
-import { Card, Text, YStack, ScrollView, Separator } from "tamagui";
-import { useLocalSearchParams, router, Stack } from "expo-router";
-import { format } from "date-fns";
-import { useJournalEntryInfo } from "./hooks/useJournalEntryInfo";
-import { useJournalRemove } from "@/src/components/pages/JournalDashboardPage/hooks/useJournalRemove";
-import { LoadingView } from "@/src/components/LoadingView";
-import { ErrorView } from "@/src/components/ErrorView";
-import { AlertModal, AlertModalRef } from "@/src/components/AlertModal";
-import { HeaderButton } from "@/src/components/HeaderButton";
-import { Trash2 } from "@tamagui/lucide-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useRef } from "react"
+import { Card, Text, YStack, ScrollView, Separator } from "tamagui"
+import { useLocalSearchParams, router, Stack } from "expo-router"
+import { format } from "date-fns"
+import { useJournalEntryInfo } from "./hooks/useJournalEntryInfo"
+import { useJournalRemove } from "@/src/components/pages/JournalDashboardPage/hooks/useJournalRemove"
+import { LoadingView } from "@/src/components/LoadingView"
+import { ErrorView } from "@/src/components/ErrorView"
+import { AlertModal, AlertModalRef } from "@/src/components/AlertModal"
+import { HeaderButton } from "@/src/components/HeaderButton"
+import { Trash2 } from "@tamagui/lucide-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 export const JournalEntryInfoPage: React.FC = () => {
-  const { entryId } = useLocalSearchParams<{ entryId: string }>();
-  const { entry, isLoading, error } = useJournalEntryInfo(entryId || "");
-  const { removeEntry, isPending } = useJournalRemove();
-  const alertModalRef = useRef<AlertModalRef>(null);
-  const { bottom } = useSafeAreaInsets();
+  const { entryId } = useLocalSearchParams<{ entryId: string }>()
+  const { entry, isLoading, error } = useJournalEntryInfo(entryId || "")
+  const { removeEntry, isPending } = useJournalRemove()
+  const alertModalRef = useRef<AlertModalRef>(null)
+  const { bottom } = useSafeAreaInsets()
 
   if (isLoading) {
-    return <LoadingView />;
+    return <LoadingView />
   }
 
   if (error) {
-    return <ErrorView error={error} />;
+    return <ErrorView error={error} />
   }
 
   if (!entry) {
@@ -31,17 +31,17 @@ export const JournalEntryInfoPage: React.FC = () => {
       <YStack flex={1} justifyContent="center" alignItems="center" padding="$4">
         <Text color="$color11">Journal entry not found</Text>
       </YStack>
-    );
+    )
   }
 
-  const createdDate = new Date(entry.createdAt);
-  const formattedDate = format(createdDate, "EEEE, MMMM d, yyyy");
-  const formattedTime = format(createdDate, "h:mm a");
+  const createdDate = new Date(entry.createdAt)
+  const formattedDate = format(createdDate, "EEEE, MMMM d, yyyy")
+  const formattedTime = format(createdDate, "h:mm a")
 
   const onDelete = async () => {
-    await removeEntry(entryId || "");
-    router.back();
-  };
+    await removeEntry(entryId || "")
+    router.back()
+  }
 
   return (
     <>
@@ -110,6 +110,5 @@ export const JournalEntryInfoPage: React.FC = () => {
         </YStack>
       </ScrollView>
     </>
-  );
-};
-
+  )
+}

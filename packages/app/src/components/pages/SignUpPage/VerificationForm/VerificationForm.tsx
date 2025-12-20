@@ -1,14 +1,14 @@
-import React from "react";
-import { Button, Form, H3, Input, Text, YStack } from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
+import React from "react"
+import { Button, Form, H3, Input, Text, YStack } from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
 
 type VerificationFormProps = {
-  verificationCode: string;
-  setVerificationCode: (code: string) => void;
-  errors: string[] | null;
-  onVerifyPress: () => Promise<void>;
-  isVerifying: boolean;
-};
+  verificationCode: string
+  setVerificationCode: (code: string) => void
+  errors: string[] | null
+  onVerifyPress: () => Promise<void>
+  isVerifying: boolean
+}
 
 export function VerificationForm({
   verificationCode,
@@ -45,5 +45,5 @@ export function VerificationForm({
         </YStack>
       </Form>
     </KeyboardAvoiding>
-  );
+  )
 }

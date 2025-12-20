@@ -1,5 +1,5 @@
-import React from "react";
-import { YStack, Text, H1, H2, H3, H4, Anchor, ScrollView } from "tamagui";
+import React from "react"
+import { YStack, Text, H1, H2, H3, H4, Anchor, ScrollView } from "tamagui"
 
 export function PrivacyPolicyPage() {
   return (
@@ -64,8 +64,8 @@ export function PrivacyPolicyPage() {
         </YStack>
         <YStack>
           <Text lineHeight="$6">
-            <Text>Application</Text> refers to SoberJourney, the software program
-            provided by the Company.
+            <Text>Application</Text> refers to SoberJourney, the software
+            program provided by the Company.
           </Text>
         </YStack>
         <YStack>
@@ -470,5 +470,5 @@ export function PrivacyPolicyPage() {
         </Text>
       </YStack>
     </ScrollView>
-  );
+  )
 }

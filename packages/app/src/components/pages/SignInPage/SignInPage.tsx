@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import React from "react";
+import { useRouter } from "expo-router"
+import React from "react"
 import {
   Button,
   Form,
@@ -10,15 +10,15 @@ import {
   Text,
   XStack,
   YStack,
-} from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
-import { useSignInForm } from "./hooks/useSignInForm";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppleButton } from "@/src/components/pages/SignInPage/AppleButton";
-import { GoogleButton } from "./GoogleButton";
+} from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
+import { useSignInForm } from "./hooks/useSignInForm"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { AppleButton } from "@/src/components/pages/SignInPage/AppleButton"
+import { GoogleButton } from "./GoogleButton"
 
 export function SignInPage() {
-  const router = useRouter();
+  const router = useRouter()
   const {
     emailAddress,
     setEmailAddress,
@@ -27,9 +27,9 @@ export function SignInPage() {
     errors,
     onSignInPress,
     isSigningIn,
-  } = useSignInForm();
+  } = useSignInForm()
 
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets()
 
   return (
     <>
@@ -65,7 +65,11 @@ export function SignInPage() {
                 onChangeText={(password) => setPassword(password)}
               />
               <Form.Trigger asChild>
-                <Button theme={"base"} disabled={isSigningIn} fontWeight={"600"}>
+                <Button
+                  theme={"base"}
+                  disabled={isSigningIn}
+                  fontWeight={"600"}
+                >
                   {isSigningIn ? "Signing in..." : "Sign in"}
                 </Button>
               </Form.Trigger>
@@ -104,5 +108,5 @@ export function SignInPage() {
         </YStack>
       </YStack>
     </>
-  );
+  )
 }

@@ -1,1 +1,1 @@
-export { useLiquidGlass } from "./useLiquidGlass";
+export { useLiquidGlass } from "./useLiquidGlass"

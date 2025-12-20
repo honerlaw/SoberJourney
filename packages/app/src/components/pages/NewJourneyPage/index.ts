@@ -1,1 +1,1 @@
-export { NewJourneyPage } from "./NewJourneyPage";
+export { NewJourneyPage } from "./NewJourneyPage"

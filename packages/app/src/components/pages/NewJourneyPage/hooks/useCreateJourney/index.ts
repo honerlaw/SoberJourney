@@ -1,1 +1,1 @@
-export { useCreateJourney } from "./useCreateJourney";
+export { useCreateJourney } from "./useCreateJourney"

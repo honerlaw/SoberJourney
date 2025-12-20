@@ -1,7 +1,7 @@
-import React from "react";
-import { YStack } from "tamagui";
-import { UserInfo } from "@/src/components/pages/ProfilePage/UserInfo";
-import { SignOutSection } from "@/src/components/pages/ProfilePage/SignOutSection";
+import React from "react"
+import { YStack } from "tamagui"
+import { UserInfo } from "@/src/components/pages/ProfilePage/UserInfo"
+import { SignOutSection } from "@/src/components/pages/ProfilePage/SignOutSection"
 
 export const ProfilePage: React.FC = () => {
   return (
@@ -9,5 +9,5 @@ export const ProfilePage: React.FC = () => {
       <UserInfo />
       <SignOutSection />
     </YStack>
-  );
-};
+  )
+}

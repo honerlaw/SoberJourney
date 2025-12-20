@@ -1,14 +1,14 @@
-import { YStack, Text, Button, H4 } from "tamagui";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useRouter } from "expo-router";
-import Icon from "@/assets/logo/icon.svg";
+import { YStack, Text, Button, H4 } from "tamagui"
+import { useHeaderHeight } from "@react-navigation/elements"
+import { useRouter } from "expo-router"
+import Icon from "@/assets/logo/icon.svg"
 
 export const EmptyDashboard: React.FC = () => {
-  const router = useRouter();
-  const headerHeight = useHeaderHeight();
+  const router = useRouter()
+  const headerHeight = useHeaderHeight()
   const handleCreateJourney = () => {
-    router.push("/journeys-new");
-  };
+    router.push("/journeys-new")
+  }
 
   return (
     <YStack
@@ -27,26 +27,16 @@ export const EmptyDashboard: React.FC = () => {
         <H4 textAlign="center" fontWeight="600">
           Begin your journey whenever you&apos;re ready
         </H4>
-        <Text
-          fontSize="$5"
-          color="$color11"
-          textAlign="center"
-          lineHeight="$5"
-        >
+        <Text fontSize="$5" color="$color11" textAlign="center" lineHeight="$5">
           Every step forward is progress. Start tracking your journey at your
           own pace, with compassion and care.
         </Text>
       </YStack>
 
       {/* CTA Button */}
-      <Button
-        paddingHorizontal="$7"
-        onPress={handleCreateJourney}
-        themeInverse
-      >
+      <Button paddingHorizontal="$7" onPress={handleCreateJourney} themeInverse>
         Create Your First Journey
       </Button>
     </YStack>
-  );
-};
-
+  )
+}

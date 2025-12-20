@@ -1,2 +1,1 @@
-export { useJourneyInfo } from "./useJourneyInfo";
-
+export { useJourneyInfo } from "./useJourneyInfo"

@@ -1,6 +1,5 @@
-import { NewJourneyPage } from "@/src/components/pages/NewJourneyPage";
+import { NewJourneyPage } from "@/src/components/pages/NewJourneyPage"
 
 export default function NewJourney() {
-  return <NewJourneyPage />;
+  return <NewJourneyPage />
 }
-

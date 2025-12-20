@@ -1,2 +1,1 @@
-export { useUpdateJourney } from "./useUpdateJourney";
-
+export { useUpdateJourney } from "./useUpdateJourney"

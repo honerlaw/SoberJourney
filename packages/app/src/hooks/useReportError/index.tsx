@@ -1,1 +1,1 @@
-export { useReportError } from "./useReportError";
+export { useReportError } from "./useReportError"

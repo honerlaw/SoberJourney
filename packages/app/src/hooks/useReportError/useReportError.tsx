@@ -1,36 +1,36 @@
-import { useToastController } from "@tamagui/toast";
-import * as Sentry from "@sentry/react-native";
-import { useCallback, useEffect } from "react";
+import { useToastController } from "@tamagui/toast"
+import * as Sentry from "@sentry/react-native"
+import { useCallback, useEffect } from "react"
 
 export function useReportError(error?: unknown) {
-  const toast = useToastController();
+  const toast = useToastController()
 
   const report = useCallback(
     (error: unknown, displayMessage?: string) => {
-      Sentry.captureException(error);
+      Sentry.captureException(error)
 
       if (process.env.NODE_ENV !== "production") {
-        console.error(error, displayMessage);
+        console.error(error, displayMessage)
       }
 
       if (displayMessage) {
         toast.show(displayMessage, {
           type: "error",
           native: false,
-        });
+        })
       }
     },
     [toast],
-  );
+  )
 
   useEffect(() => {
     if (!error) {
-      return;
+      return
     }
-    report(error);
-  }, [error, report]);
+    report(error)
+  }, [error, report])
 
   return {
     report,
-  };
+  }
 }

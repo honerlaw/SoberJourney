@@ -1,6 +1,5 @@
-import { JourneyInfoPage } from "@/src/components/pages/JourneyInfoPage";
+import { JourneyInfoPage } from "@/src/components/pages/JourneyInfoPage"
 
 export default function JourneyInfo() {
-  return <JourneyInfoPage />;
+  return <JourneyInfoPage />
 }
-

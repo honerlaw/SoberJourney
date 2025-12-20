@@ -1,36 +1,36 @@
-import React, { useRef } from "react";
-import { Card, Text, XStack, YStack, ScrollView, Separator } from "tamagui";
-import { useLocalSearchParams, router, Stack } from "expo-router";
-import { format } from "date-fns";
-import { useJourneyInfo } from "./hooks/useJourneyInfo";
-import { useJourneyRemove } from "@/src/components/pages/DashboardPage/TrackerCard/hooks/useJourneyRemove";
-import { DurationProgressBar } from "@/src/components/DurationProgressBar";
-import { useDurationSections } from "@/src/hooks/useDurationSections";
-import { LoadingView } from "@/src/components/LoadingView";
-import { ErrorView } from "@/src/components/ErrorView";
-import { AlertModal, AlertModalRef } from "@/src/components/AlertModal";
-import { HeaderButton } from "@/src/components/HeaderButton";
-import { ResetHistoryCard } from "./ResetHistoryCard";
-import { Pencil, Trash2 } from "@tamagui/lucide-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useRef } from "react"
+import { Card, Text, XStack, YStack, ScrollView, Separator } from "tamagui"
+import { useLocalSearchParams, router, Stack } from "expo-router"
+import { format } from "date-fns"
+import { useJourneyInfo } from "./hooks/useJourneyInfo"
+import { useJourneyRemove } from "@/src/components/pages/DashboardPage/TrackerCard/hooks/useJourneyRemove"
+import { DurationProgressBar } from "@/src/components/DurationProgressBar"
+import { useDurationSections } from "@/src/hooks/useDurationSections"
+import { LoadingView } from "@/src/components/LoadingView"
+import { ErrorView } from "@/src/components/ErrorView"
+import { AlertModal, AlertModalRef } from "@/src/components/AlertModal"
+import { HeaderButton } from "@/src/components/HeaderButton"
+import { ResetHistoryCard } from "./ResetHistoryCard"
+import { Pencil, Trash2 } from "@tamagui/lucide-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 export const JourneyInfoPage: React.FC = () => {
-  const { journeyId } = useLocalSearchParams<{ journeyId: string }>();
-  const { journey, isLoading, error } = useJourneyInfo(journeyId || "");
-  const { removeJourney } = useJourneyRemove();
-  const alertModalRef = useRef<AlertModalRef>(null);
-  const { bottom } = useSafeAreaInsets();
-  const lastEntry = journey?.entries[0];
+  const { journeyId } = useLocalSearchParams<{ journeyId: string }>()
+  const { journey, isLoading, error } = useJourneyInfo(journeyId || "")
+  const { removeJourney } = useJourneyRemove()
+  const alertModalRef = useRef<AlertModalRef>(null)
+  const { bottom } = useSafeAreaInsets()
+  const lastEntry = journey?.entries[0]
   const { sections } = useDurationSections({
     startDate: lastEntry?.createdAt || new Date(),
-  });
+  })
 
   if (isLoading) {
-    return <LoadingView />;
+    return <LoadingView />
   }
 
   if (error) {
-    return <ErrorView error={error} />;
+    return <ErrorView error={error} />
   }
 
   if (!journey || journey.entries.length === 0) {
@@ -38,21 +38,21 @@ export const JourneyInfoPage: React.FC = () => {
       <YStack flex={1} justifyContent="center" alignItems="center" padding="$4">
         <Text color="$color11">Journey not found</Text>
       </YStack>
-    );
+    )
   }
 
-  const lastEntryDate = new Date(lastEntry!.createdAt);
+  const lastEntryDate = new Date(lastEntry!.createdAt)
 
   // All entries except the first one are "resets" (the first entry is the start)
-  const resets = journey.entries.slice(1);
-  const startEntry = journey.entries[journey.entries.length - 1];
+  const resets = journey.entries.slice(1)
+  const startEntry = journey.entries[journey.entries.length - 1]
 
   const onDelete = async () => {
-    const success = await removeJourney(journeyId || "");
+    const success = await removeJourney(journeyId || "")
     if (success) {
-      router.back();
+      router.back()
     }
-  };
+  }
 
   return (
     <>
@@ -65,7 +65,10 @@ export const JourneyInfoPage: React.FC = () => {
                 onPress={() =>
                   router.push({
                     pathname: "/journeys-modify",
-                    params: { journeyId: journeyId || "", currentTitle: journey?.title || "" },
+                    params: {
+                      journeyId: journeyId || "",
+                      currentTitle: journey?.title || "",
+                    },
                   })
                 }
               />
@@ -101,68 +104,70 @@ export const JourneyInfoPage: React.FC = () => {
             backgroundColor="$background"
             padding="$4"
           >
-          <YStack gap="$4">
-            <Text fontSize="$5" fontWeight="600" color="$color12">
-              Current Streak
-            </Text>
+            <YStack gap="$4">
+              <Text fontSize="$5" fontWeight="600" color="$color12">
+                Current Streak
+              </Text>
 
-            <YStack gap="$3">
-              {sections.map(({ value, max, label, singularLabel }) => {
-                if (value === 0 && label !== "seconds") {
-                  return null;
-                }
-                return (
-                  <DurationProgressBar
-                    key={label}
-                    value={value}
-                    max={max}
-                    label={label}
-                    singularLabel={singularLabel}
-                  />
-                );
-              })}
+              <YStack gap="$3">
+                {sections.map(({ value, max, label, singularLabel }) => {
+                  if (value === 0 && label !== "seconds") {
+                    return null
+                  }
+                  return (
+                    <DurationProgressBar
+                      key={label}
+                      value={value}
+                      max={max}
+                      label={label}
+                      singularLabel={singularLabel}
+                    />
+                  )
+                })}
+              </YStack>
+
+              <Separator />
+
+              <YStack gap="$2">
+                <XStack justifyContent="space-between">
+                  <Text fontSize="$3" color="$color11">
+                    Started on
+                  </Text>
+                  <Text fontSize="$3" color="$color12">
+                    {format(
+                      new Date(startEntry.createdAt),
+                      "MMM d, yyyy 'at' h:mm a",
+                    )}
+                  </Text>
+                </XStack>
+                <XStack justifyContent="space-between">
+                  <Text fontSize="$3" color="$color11">
+                    Current streak since
+                  </Text>
+                  <Text fontSize="$3" color="$color12">
+                    {format(lastEntryDate, "MMM d, yyyy 'at' h:mm a")}
+                  </Text>
+                </XStack>
+                <XStack justifyContent="space-between">
+                  <Text fontSize="$3" color="$color11">
+                    Total resets
+                  </Text>
+                  <Text fontSize="$3" color="$color12">
+                    {resets.length}
+                  </Text>
+                </XStack>
+              </YStack>
             </YStack>
+          </Card>
 
-            <Separator />
-
-            <YStack gap="$2">
-              <XStack justifyContent="space-between">
-                <Text fontSize="$3" color="$color11">
-                  Started on
-                </Text>
-                <Text fontSize="$3" color="$color12">
-                  {format(new Date(startEntry.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                </Text>
-              </XStack>
-              <XStack justifyContent="space-between">
-                <Text fontSize="$3" color="$color11">
-                  Current streak since
-                </Text>
-                <Text fontSize="$3" color="$color12">
-                  {format(lastEntryDate, "MMM d, yyyy 'at' h:mm a")}
-                </Text>
-              </XStack>
-              <XStack justifyContent="space-between">
-                <Text fontSize="$3" color="$color11">
-                  Total resets
-                </Text>
-                <Text fontSize="$3" color="$color12">
-                  {resets.length}
-                </Text>
-              </XStack>
-            </YStack>
-          </YStack>
-        </Card>
-
-        {/* Reset History Card */}
-        <ResetHistoryCard
-          resets={resets}
-          entries={journey.entries}
-          startEntry={startEntry}
-        />
-      </YStack>
-    </ScrollView>
+          {/* Reset History Card */}
+          <ResetHistoryCard
+            resets={resets}
+            entries={journey.entries}
+            startEntry={startEntry}
+          />
+        </YStack>
+      </ScrollView>
     </>
-  );
-};
-
+  )
+}

@@ -1,0 +1,29 @@
+# Build output
+dist/
+.expo/
+.tamagui/
+
+# Dependencies
+node_modules/
+
+# Native builds
+ios/
+android/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Generated files
+expo-env.d.ts
+tamagui-web.css
+
+# Package files
+package-lock.json
+
+# Assets
+assets/
+

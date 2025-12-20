@@ -1,12 +1,12 @@
-import { useRouter } from "expo-router";
-import React from "react";
-import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
-import { useSignUpForm } from "./hooks/useSignUpForm";
-import { VerificationForm } from "./VerificationForm";
+import { useRouter } from "expo-router"
+import React from "react"
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
+import { useSignUpForm } from "./hooks/useSignUpForm"
+import { VerificationForm } from "./VerificationForm"
 
 export function SignUpPage() {
-  const router = useRouter();
+  const router = useRouter()
   const {
     emailAddress,
     setEmailAddress,
@@ -20,7 +20,7 @@ export function SignUpPage() {
     onVerifyPress,
     isSigningUp,
     isVerifying,
-  } = useSignUpForm();
+  } = useSignUpForm()
 
   if (pendingVerification) {
     return (
@@ -31,7 +31,7 @@ export function SignUpPage() {
         onVerifyPress={onVerifyPress}
         isVerifying={isVerifying}
       />
-    );
+    )
   }
 
   return (
@@ -97,5 +97,5 @@ export function SignUpPage() {
         </YStack>
       </Form>
     </KeyboardAvoiding>
-  );
+  )
 }

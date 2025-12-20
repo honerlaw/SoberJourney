@@ -1,1 +1,1 @@
-export { useToastError } from "./useToastError";
+export { useToastError } from "./useToastError"

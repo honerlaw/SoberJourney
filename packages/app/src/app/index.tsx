@@ -1,27 +1,27 @@
-import { Redirect } from "expo-router";
-import { useAuth } from "@/src/hooks/useAuth";
-import { LoadingView } from "@/src/components/LoadingView";
-import { LandingPage } from "@/src/components/pages/LandingPage";
-import { Platform } from "react-native";
+import { Redirect } from "expo-router"
+import { useAuth } from "@/src/hooks/useAuth"
+import { LoadingView } from "@/src/components/LoadingView"
+import { LandingPage } from "@/src/components/pages/LandingPage"
+import { Platform } from "react-native"
 
 export default function Page() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth()
 
-  console.log("Index", isSignedIn, isLoaded);
+  console.log("Index", isSignedIn, isLoaded)
 
   if (!isLoaded) {
-    return <LoadingView />;
+    return <LoadingView />
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(auth)/(tabs)/dashboard" />;
+    return <Redirect href="/(auth)/(tabs)/dashboard" />
   }
 
   // native, so go ahead and show the signin page
   if (Platform.OS !== "web") {
-    return <Redirect href="/signin" />;
+    return <Redirect href="/signin" />
   }
 
   // Show landing page on web
-  return <LandingPage />;
+  return <LandingPage />
 }

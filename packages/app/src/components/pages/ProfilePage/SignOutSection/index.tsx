@@ -1,1 +1,1 @@
-export { SignOutSection } from "./SignOutSection";
+export { SignOutSection } from "./SignOutSection"

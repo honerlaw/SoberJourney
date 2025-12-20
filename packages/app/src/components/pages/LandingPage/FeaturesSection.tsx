@@ -1,9 +1,9 @@
-import React from "react";
-import { YStack, XStack, Text, Paragraph, useMedia } from "tamagui";
-import { Heart, Clock, RotateCcw } from "@tamagui/lucide-icons";
+import React from "react"
+import { YStack, XStack, Text, Paragraph, useMedia } from "tamagui"
+import { Heart, Clock, RotateCcw } from "@tamagui/lucide-icons"
 
 export function FeaturesSection() {
-  const media = useMedia();
+  const media = useMedia()
 
   return (
     <YStack
@@ -37,7 +37,7 @@ export function FeaturesSection() {
           >
             <Heart size={32} color="$gray11" />
           </YStack>
-          
+
           <Text
             fontSize="$6"
             fontWeight="600"
@@ -46,14 +46,15 @@ export function FeaturesSection() {
           >
             Track Any Habit
           </Text>
-          
+
           <Paragraph
             fontSize="$4"
             textAlign="center"
             color="$gray11"
             lineHeight="$5"
           >
-            Whatever you&apos;re working on—substances, behaviors, or patterns—this tool adapts to your journey.
+            Whatever you&apos;re working on—substances, behaviors, or
+            patterns—this tool adapts to your journey.
           </Paragraph>
         </YStack>
 
@@ -76,7 +77,7 @@ export function FeaturesSection() {
           >
             <Clock size={32} color="$gray11" />
           </YStack>
-          
+
           <Text
             fontSize="$6"
             fontWeight="600"
@@ -85,14 +86,15 @@ export function FeaturesSection() {
           >
             See Your Progress
           </Text>
-          
+
           <Paragraph
             fontSize="$4"
             textAlign="center"
             color="$gray11"
             lineHeight="$5"
           >
-            Watch time accumulate since your last reset. Simple, clear, and always there when you need it.
+            Watch time accumulate since your last reset. Simple, clear, and
+            always there when you need it.
           </Paragraph>
         </YStack>
 
@@ -115,7 +117,7 @@ export function FeaturesSection() {
           >
             <RotateCcw size={32} color="$gray11" />
           </YStack>
-          
+
           <Text
             fontSize="$6"
             fontWeight="600"
@@ -124,18 +126,18 @@ export function FeaturesSection() {
           >
             Reset When Needed
           </Text>
-          
+
           <Paragraph
             fontSize="$4"
             textAlign="center"
             color="$gray11"
             lineHeight="$5"
           >
-            Life happens. Reset your timer without shame and start fresh. Every moment is a new beginning.
+            Life happens. Reset your timer without shame and start fresh. Every
+            moment is a new beginning.
           </Paragraph>
         </YStack>
       </XStack>
     </YStack>
-  );
+  )
 }
-

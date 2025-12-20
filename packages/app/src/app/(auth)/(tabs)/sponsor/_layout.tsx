@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack } from "expo-router"
 
 export default function SponsorLayout() {
   return (
@@ -6,9 +6,9 @@ export default function SponsorLayout() {
       <Stack.Screen
         name="index"
         options={{
-          headerShown: false
+          headerShown: false,
         }}
       />
     </Stack>
-  );
+  )
 }

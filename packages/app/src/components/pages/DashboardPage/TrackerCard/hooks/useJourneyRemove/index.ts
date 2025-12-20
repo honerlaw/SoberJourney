@@ -1,2 +1,1 @@
-export { useJourneyRemove } from "./useJourneyRemove";
-
+export { useJourneyRemove } from "./useJourneyRemove"

@@ -1,15 +1,15 @@
-import { YStack, Text, Button, H4 } from "tamagui";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useRouter } from "expo-router";
-import { BookOpen } from "@tamagui/lucide-icons";
+import { YStack, Text, Button, H4 } from "tamagui"
+import { useHeaderHeight } from "@react-navigation/elements"
+import { useRouter } from "expo-router"
+import { BookOpen } from "@tamagui/lucide-icons"
 
 export const EmptyJournalDashboard: React.FC = () => {
-  const router = useRouter();
-  const headerHeight = useHeaderHeight();
+  const router = useRouter()
+  const headerHeight = useHeaderHeight()
 
   const handleCreateEntry = () => {
-    router.push("/journal-new");
-  };
+    router.push("/journal-new")
+  }
 
   return (
     <YStack
@@ -35,12 +35,7 @@ export const EmptyJournalDashboard: React.FC = () => {
         <H4 textAlign="center" fontWeight="600">
           Start capturing your thoughts
         </H4>
-        <Text
-          fontSize="$5"
-          color="$color11"
-          textAlign="center"
-          lineHeight="$5"
-        >
+        <Text fontSize="$5" color="$color11" textAlign="center" lineHeight="$5">
           Journaling can help you reflect on your journey, process emotions, and
           celebrate your progress. Write freely and honestly.
         </Text>
@@ -50,6 +45,5 @@ export const EmptyJournalDashboard: React.FC = () => {
         Write Your First Entry
       </Button>
     </YStack>
-  );
-};
-
+  )
+}

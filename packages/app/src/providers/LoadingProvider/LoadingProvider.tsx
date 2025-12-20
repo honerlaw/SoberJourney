@@ -1,30 +1,30 @@
-import React from "react";
-import { Modal } from "react-native";
-import { View } from "tamagui";
-import { LoadingView } from "@/src/components/LoadingView";
+import React from "react"
+import { Modal } from "react-native"
+import { View } from "tamagui"
+import { LoadingView } from "@/src/components/LoadingView"
 
 type LoadingContextType = {
-  isLoading: boolean;
-  showLoading: () => void;
-  hideLoading: () => void;
-};
+  isLoading: boolean
+  showLoading: () => void
+  hideLoading: () => void
+}
 
 export const LoadingContext = React.createContext<LoadingContextType | null>(
   null,
-);
+)
 
 export const LoadingProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false)
 
   const showLoading = React.useCallback(() => {
-    setIsLoading(true);
-  }, []);
+    setIsLoading(true)
+  }, [])
 
   const hideLoading = React.useCallback(() => {
-    setIsLoading(false);
-  }, []);
+    setIsLoading(false)
+  }, [])
 
   const contextValue = React.useMemo(
     () => ({
@@ -33,7 +33,7 @@ export const LoadingProvider: React.FC<React.PropsWithChildren> = ({
       hideLoading,
     }),
     [isLoading, showLoading, hideLoading],
-  );
+  )
 
   return (
     <LoadingContext.Provider value={contextValue}>
@@ -55,13 +55,13 @@ export const LoadingProvider: React.FC<React.PropsWithChildren> = ({
         </View>
       </Modal>
     </LoadingContext.Provider>
-  );
-};
+  )
+}
 
 export function useLoading(): LoadingContextType {
-  const context = React.useContext(LoadingContext);
+  const context = React.useContext(LoadingContext)
   if (!context) {
-    throw new Error("useLoading must be used within a LoadingProvider");
+    throw new Error("useLoading must be used within a LoadingProvider")
   }
-  return context;
+  return context
 }

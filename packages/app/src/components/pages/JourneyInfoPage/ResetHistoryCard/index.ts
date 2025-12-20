@@ -1,2 +1,1 @@
-export { ResetHistoryCard } from "./ResetHistoryCard";
-
+export { ResetHistoryCard } from "./ResetHistoryCard"

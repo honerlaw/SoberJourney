@@ -1,13 +1,13 @@
-import { YStack, Text, Button } from "tamagui";
-import Icon from "@/assets/logo/icon.svg";
-import { WebLayout } from "../components/WebLayout";
-import { Platform } from "react-native";
-import { Redirect, router } from "expo-router";
+import { YStack, Text, Button } from "tamagui"
+import Icon from "@/assets/logo/icon.svg"
+import { WebLayout } from "../components/WebLayout"
+import { Platform } from "react-native"
+import { Redirect, router } from "expo-router"
 
 export default function NotFound() {
   // on none-web platforms, redirect to the home page
   if (Platform.OS !== "web") {
-    return <Redirect href="/" />;
+    return <Redirect href="/" />
   }
 
   return (
@@ -35,5 +35,5 @@ export default function NotFound() {
         </Button>
       </YStack>
     </WebLayout>
-  );
+  )
 }

@@ -1,3 +1,3 @@
-import { RNEventSource } from "rn-eventsource-reborn";
+import { RNEventSource } from "rn-eventsource-reborn"
 
-export const CustomEventSource = RNEventSource;
+export const CustomEventSource = RNEventSource

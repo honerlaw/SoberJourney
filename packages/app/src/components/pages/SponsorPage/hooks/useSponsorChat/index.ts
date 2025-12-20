@@ -1,2 +1,1 @@
-export { useSponsorChat } from "./useSponsorChat";
-
+export { useSponsorChat } from "./useSponsorChat"

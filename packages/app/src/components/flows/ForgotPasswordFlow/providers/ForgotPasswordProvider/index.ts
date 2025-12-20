@@ -1,4 +1,4 @@
 export {
   ForgotPasswordProvider,
   useForgotPasswordContext,
-} from "./ForgotPasswordProvider";
+} from "./ForgotPasswordProvider"

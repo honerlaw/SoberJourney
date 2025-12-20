@@ -1,4 +1,4 @@
-import { YStack, Text } from "tamagui";
+import { YStack, Text } from "tamagui"
 
 export const ThinkingIndicator: React.FC = () => (
   <YStack alignItems="flex-start">
@@ -12,5 +12,4 @@ export const ThinkingIndicator: React.FC = () => (
       <Text color="$gray11">Thinking...</Text>
     </YStack>
   </YStack>
-);
-
+)

@@ -1,14 +1,14 @@
-import { useToastError } from "@/src/hooks/useToastError";
-import { useTRPC } from "@/src/providers/TRPCProvider";
-import { useMutation } from "@tanstack/react-query";
+import { useToastError } from "@/src/hooks/useToastError"
+import { useTRPC } from "@/src/providers/TRPCProvider"
+import { useMutation } from "@tanstack/react-query"
 
 export function useUpdateJourney() {
-  const trpc = useTRPC();
-  const { handleError } = useToastError();
+  const trpc = useTRPC()
+  const { handleError } = useToastError()
 
   const { mutateAsync, isPending } = useMutation(
-    trpc.journey.update.mutationOptions()
-  );
+    trpc.journey.update.mutationOptions(),
+  )
 
   return {
     updateJourney: async (journeyId: string, title: string) => {
@@ -16,14 +16,13 @@ export function useUpdateJourney() {
         await mutateAsync({
           journeyId,
           title,
-        });
-        return true;
+        })
+        return true
       } catch (error) {
-        handleError(error, "Failed to update journey.");
+        handleError(error, "Failed to update journey.")
       }
-      return false;
+      return false
     },
     isPending,
-  };
+  }
 }
-

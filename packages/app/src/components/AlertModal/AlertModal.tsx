@@ -1,36 +1,36 @@
-import React from "react";
-import { Modal } from "react-native";
-import { Button, Text, XStack, YStack, View } from "tamagui";
+import React from "react"
+import { Modal } from "react-native"
+import { Button, Text, XStack, YStack, View } from "tamagui"
 
 export type AlertButton = {
-  text: string;
-  style?: "default" | "cancel" | "destructive";
-  onPress?: () => void;
-};
+  text: string
+  style?: "default" | "cancel" | "destructive"
+  onPress?: () => void
+}
 
 // AlertModal ref interface
 export type AlertModalRef = {
-  show: () => void;
-  hide: () => void;
-};
+  show: () => void
+  hide: () => void
+}
 
 type AlertModalProps = React.PropsWithChildren<{
-  title: string;
-  message?: string;
-  buttons: AlertButton[];
-}>;
+  title: string
+  message?: string
+  buttons: AlertButton[]
+}>
 
 export const AlertModal = React.forwardRef<AlertModalRef, AlertModalProps>(
   ({ title, message, buttons, children }, ref) => {
-    const [isVisible, setIsVisible] = React.useState(false);
+    const [isVisible, setIsVisible] = React.useState(false)
 
     const showModal = React.useCallback(() => {
-      setIsVisible(true);
-    }, []);
+      setIsVisible(true)
+    }, [])
 
     const closeModal = React.useCallback(() => {
-      setIsVisible(false);
-    }, []);
+      setIsVisible(false)
+    }, [])
 
     // Expose show and hide methods through the ref
     React.useImperativeHandle(
@@ -40,32 +40,32 @@ export const AlertModal = React.forwardRef<AlertModalRef, AlertModalProps>(
         hide: closeModal,
       }),
       [showModal, closeModal],
-    );
+    )
 
     const handleButtonPress = React.useCallback(
       (button: AlertButton) => {
         if (button.onPress) {
-          button.onPress();
+          button.onPress()
         }
-        closeModal();
+        closeModal()
       },
       [closeModal],
-    );
+    )
 
     const childrenWithProps = React.Children.map(children, (child) => {
       if (!React.isValidElement(child)) {
-        return null;
+        return null
       }
       return React.cloneElement(child, {
         onPress: () => {
-          const props = child.props as any;
+          const props = child.props as any
           if (props?.onPress) {
-            props.onPress();
+            props.onPress()
           }
-          showModal();
+          showModal()
         },
-      } as any);
-    });
+      } as any)
+    })
     return (
       <>
         {childrenWithProps}
@@ -108,8 +108,8 @@ export const AlertModal = React.forwardRef<AlertModalRef, AlertModalProps>(
 
                 <XStack space="$3" justifyContent="flex-end" marginTop="$4">
                   {buttons.map((button, index) => {
-                    const isCancel = button.style === "cancel";
-                    const isDestructive = button.style === "destructive";
+                    const isCancel = button.style === "cancel"
+                    const isDestructive = button.style === "destructive"
 
                     return (
                       <Button
@@ -128,7 +128,7 @@ export const AlertModal = React.forwardRef<AlertModalRef, AlertModalProps>(
                           {button.text}
                         </Text>
                       </Button>
-                    );
+                    )
                   })}
                 </XStack>
               </YStack>
@@ -136,8 +136,8 @@ export const AlertModal = React.forwardRef<AlertModalRef, AlertModalProps>(
           </View>
         </Modal>
       </>
-    );
+    )
   },
-);
+)
 
-AlertModal.displayName = "AlertModal";
+AlertModal.displayName = "AlertModal"

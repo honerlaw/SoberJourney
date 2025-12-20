@@ -1,5 +1,5 @@
-import { BookOpen, Home, Users } from "@tamagui/lucide-icons";
-import { Tabs } from "expo-router";
+import { BookOpen, Home, Users } from "@tamagui/lucide-icons"
+import { Tabs } from "expo-router"
 
 export default function TabsLayout() {
   return (
@@ -11,8 +11,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           elevation: 0,
           borderTopWidth: 0,
-          paddingTop: 14
-        }
+          paddingTop: 14,
+        },
       }}
     >
       <Tabs.Screen
@@ -43,5 +43,5 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
-  );
+  )
 }

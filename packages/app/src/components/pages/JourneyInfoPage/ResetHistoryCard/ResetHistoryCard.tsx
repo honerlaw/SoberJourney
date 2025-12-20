@@ -1,17 +1,17 @@
-import React from "react";
-import { Card, Text, XStack, YStack, Separator } from "tamagui";
-import { differenceInDays, format } from "date-fns";
+import React from "react"
+import { Card, Text, XStack, YStack, Separator } from "tamagui"
+import { differenceInDays, format } from "date-fns"
 
 type JourneyEntry = {
-  id: string;
-  createdAt: Date;
-};
+  id: string
+  createdAt: Date
+}
 
 type ResetHistoryCardProps = {
-  resets: JourneyEntry[];
-  entries: JourneyEntry[];
-  startEntry: JourneyEntry;
-};
+  resets: JourneyEntry[]
+  entries: JourneyEntry[]
+  startEntry: JourneyEntry
+}
 
 export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
   resets,
@@ -46,11 +46,11 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
         ) : (
           <YStack gap="$3">
             {resets.map((reset: JourneyEntry, index: number) => {
-              const resetDate = new Date(reset.createdAt);
+              const resetDate = new Date(reset.createdAt)
               // Calculate the streak length before this reset
-              const previousEntry = entries[index + 2] || startEntry;
-              const previousDate = new Date(previousEntry.createdAt);
-              const streakDays = differenceInDays(resetDate, previousDate);
+              const previousEntry = entries[index + 2] || startEntry
+              const previousDate = new Date(previousEntry.createdAt)
+              const streakDays = differenceInDays(resetDate, previousDate)
 
               return (
                 <YStack key={reset.id} gap="$2">
@@ -81,12 +81,11 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
                     </YStack>
                   </XStack>
                 </YStack>
-              );
+              )
             })}
           </YStack>
         )}
       </YStack>
     </Card>
-  );
-};
-
+  )
+}

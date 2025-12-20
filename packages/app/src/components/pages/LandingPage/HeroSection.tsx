@@ -1,13 +1,13 @@
-import React from "react";
-import { YStack, H1, Button, Paragraph, useMedia, XStack, H2 } from "tamagui";
-import Logo from "@/assets/logo/icon.svg";
+import React from "react"
+import { YStack, H1, Button, Paragraph, useMedia, XStack, H2 } from "tamagui"
+import Logo from "@/assets/logo/icon.svg"
 
 interface HeroSectionProps {
-  onGetStarted: () => void;
+  onGetStarted: () => void
 }
 
 export function HeroSection({ onGetStarted }: HeroSectionProps) {
-  const media = useMedia();
+  const media = useMedia()
 
   return (
     <YStack
@@ -25,14 +25,11 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
         gap="$6"
         paddingHorizontal="$4"
       >
-        <XStack
-          justifyContent="center"
-          alignItems="center"
-        >
+        <XStack justifyContent="center" alignItems="center">
           <Logo width={90} height={90} />
           <H2>SoberJourney</H2>
         </XStack>
-        
+
         <H1
           fontSize={media.gtSm ? "$10" : "$8"}
           textAlign="center"
@@ -41,7 +38,7 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
         >
           Track your sobriety, your way
         </H1>
-        
+
         <Paragraph
           fontSize={media.gtSm ? "$6" : "$4"}
           textAlign="center"
@@ -49,9 +46,10 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
           maxWidth={800}
           lineHeight={media.gtSm ? "$8" : "$6"}
         >
-          A gentle tool to help you notice time since your last action. Track any habit, any goal, at your own pace. No judgment, just support.
+          A gentle tool to help you notice time since your last action. Track
+          any habit, any goal, at your own pace. No judgment, just support.
         </Paragraph>
-        
+
         <Button
           size={media.gtSm ? "$5" : "$4"}
           backgroundColor="$gray12"
@@ -67,6 +65,5 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
         </Button>
       </YStack>
     </YStack>
-  );
+  )
 }
-

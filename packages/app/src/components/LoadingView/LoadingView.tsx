@@ -1,10 +1,10 @@
-import { YStack } from "tamagui";
-import LottieView from "lottie-react-native";
-import source from "@/assets/loading.json";
+import { YStack } from "tamagui"
+import LottieView from "lottie-react-native"
+import source from "@/assets/loading.json"
 
 type LoadingViewProps = {
-  small?: boolean;
-};
+  small?: boolean
+}
 
 export const LoadingView: React.FC<LoadingViewProps> = ({ small }) => {
   return (
@@ -22,5 +22,5 @@ export const LoadingView: React.FC<LoadingViewProps> = ({ small }) => {
         />
       </YStack>
     </YStack>
-  );
-};
+  )
+}

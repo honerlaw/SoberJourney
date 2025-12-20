@@ -1,1 +1,1 @@
-export { WebLayout } from "./WebLayout";
+export { WebLayout } from "./WebLayout"

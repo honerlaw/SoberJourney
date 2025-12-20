@@ -1,25 +1,25 @@
-import { useRouter } from "expo-router";
-import React from "react";
-import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
-import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider";
+import { useRouter } from "expo-router"
+import React from "react"
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
+import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider"
 
 export const EnterCodePage: React.FC = () => {
-  const router = useRouter();
+  const router = useRouter()
   const { emailAddress, code, setCode, errors, isSubmitting, onCodeSubmit } =
-    useForgotPasswordContext();
+    useForgotPasswordContext()
 
   const handleCodeSubmit = async () => {
-    const success = await onCodeSubmit();
+    const success = await onCodeSubmit()
     if (success) {
       // Navigate to the dedicated password reset route
-      router.push("/password/forgot/reset");
+      router.push("/password/forgot/reset")
     }
-  };
+  }
 
   const handleBackPress = () => {
-    router.back();
-  };
+    router.back()
+  }
   return (
     <KeyboardAvoiding>
       <Form
@@ -66,5 +66,5 @@ export const EnterCodePage: React.FC = () => {
         </YStack>
       </Form>
     </KeyboardAvoiding>
-  );
-};
+  )
+}

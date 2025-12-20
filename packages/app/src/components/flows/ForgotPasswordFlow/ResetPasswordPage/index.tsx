@@ -1,1 +1,1 @@
-export { ResetPasswordPage } from "./ResetPasswordPage";
+export { ResetPasswordPage } from "./ResetPasswordPage"

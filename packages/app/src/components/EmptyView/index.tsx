@@ -1,1 +1,1 @@
-export { EmptyView } from "./EmptyView";
+export { EmptyView } from "./EmptyView"

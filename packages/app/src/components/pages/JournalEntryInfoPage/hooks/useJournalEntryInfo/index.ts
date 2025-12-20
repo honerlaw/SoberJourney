@@ -1,2 +1,1 @@
-export { useJournalEntryInfo } from "./useJournalEntryInfo";
-
+export { useJournalEntryInfo } from "./useJournalEntryInfo"

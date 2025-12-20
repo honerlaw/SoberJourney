@@ -1,16 +1,16 @@
-import React from "react";
-import { YStack, Button, Separator, XStack, Text } from "tamagui";
-import { LogOut } from "@tamagui/lucide-icons";
-import { useAuth } from "@clerk/clerk-expo";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AlertModal, type AlertButton } from "../../../AlertModal";
-import { useQueryClient } from "@tanstack/react-query";
-import { DeleteAccountButton } from "./DeleteAccountButton";
+import React from "react"
+import { YStack, Button, Separator, XStack, Text } from "tamagui"
+import { LogOut } from "@tamagui/lucide-icons"
+import { useAuth } from "@clerk/clerk-expo"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { AlertModal, type AlertButton } from "../../../AlertModal"
+import { useQueryClient } from "@tanstack/react-query"
+import { DeleteAccountButton } from "./DeleteAccountButton"
 
 export const SignOutSection: React.FC = () => {
-  const { signOut } = useAuth();
-  const { bottom } = useSafeAreaInsets();
-  const client = useQueryClient();
+  const { signOut } = useAuth()
+  const { bottom } = useSafeAreaInsets()
+  const client = useQueryClient()
 
   const alertButtons: AlertButton[] = [
     {
@@ -21,12 +21,12 @@ export const SignOutSection: React.FC = () => {
       text: "Sign Out",
       style: "destructive",
       onPress: async () => {
-        await signOut();
-        client.invalidateQueries();
-        client.resetQueries();
+        await signOut()
+        client.invalidateQueries()
+        client.resetQueries()
       },
     },
-  ];
+  ]
 
   return (
     <YStack paddingBottom={bottom * 1.3} paddingHorizontal={"$4"}>
@@ -46,5 +46,5 @@ export const SignOutSection: React.FC = () => {
         </AlertModal>
       </XStack>
     </YStack>
-  );
-};
+  )
+}

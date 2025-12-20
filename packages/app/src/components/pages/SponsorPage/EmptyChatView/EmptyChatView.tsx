@@ -1,5 +1,5 @@
-import { YStack, H4, Paragraph } from "tamagui";
-import { MessageCircle } from "@tamagui/lucide-icons";
+import { YStack, H4, Paragraph } from "tamagui"
+import { MessageCircle } from "@tamagui/lucide-icons"
 
 export const EmptyChatView: React.FC = () => {
   return (
@@ -28,6 +28,5 @@ export const EmptyChatView: React.FC = () => {
         to get started.
       </Paragraph>
     </YStack>
-  );
-};
-
+  )
+}

@@ -1,20 +1,20 @@
-import { useLiquidGlass } from "@/src/hooks/useLiquidGlass";
-import React from "react";
-import { Platform } from "react-native";
-import { Button } from "tamagui";
+import { useLiquidGlass } from "@/src/hooks/useLiquidGlass"
+import React from "react"
+import { Platform } from "react-native"
+import { Button } from "tamagui"
 
 type HeaderButtonProps = {
-  onPress: () => void | Promise<void>;
-  icon: React.ComponentType<{ size?: string, pointerEvents?: "none" | "auto" }>;
-  disabled?: boolean;
-};
+  onPress: () => void | Promise<void>
+  icon: React.ComponentType<{ size?: string; pointerEvents?: "none" | "auto" }>
+  disabled?: boolean
+}
 
 export const HeaderButton: React.FC<HeaderButtonProps> = ({
   onPress,
   icon: IconComponent,
   disabled,
 }) => {
-  const { isLiquidGlassEnabled } = useLiquidGlass();
+  const { isLiquidGlassEnabled } = useLiquidGlass()
 
   return (
     <Button
@@ -36,5 +36,5 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
       onPress={onPress}
       disabled={disabled}
     />
-  );
-};
+  )
+}

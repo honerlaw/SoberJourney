@@ -1,15 +1,15 @@
-import { useWindowDimensions } from "react-native";
+import { useWindowDimensions } from "react-native"
 
 type UseScreenSizeReturn = {
-  isDesktop: boolean;
-};
+  isDesktop: boolean
+}
 
-const DESKTOP_BREAKPOINT = 768;
+const DESKTOP_BREAKPOINT = 768
 
 export const useScreenSize = (): UseScreenSizeReturn => {
-  const { width } = useWindowDimensions();
+  const { width } = useWindowDimensions()
 
   return {
     isDesktop: width >= DESKTOP_BREAKPOINT,
-  };
-};
+  }
+}

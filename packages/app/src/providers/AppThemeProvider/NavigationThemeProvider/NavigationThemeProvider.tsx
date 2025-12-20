@@ -1,19 +1,19 @@
-import { useTheme } from "tamagui";
+import { useTheme } from "tamagui"
 import {
   ThemeProvider,
   DarkTheme,
   DefaultTheme,
-} from "@react-navigation/native";
+} from "@react-navigation/native"
 
 export type NavigationThemeProviderProps = React.PropsWithChildren<{
-  theme: "light" | "dark";
-}>;
+  theme: "light" | "dark"
+}>
 
 export const NavigationThemeProvider: React.FC<
   NavigationThemeProviderProps
 > = ({ children, theme }) => {
-  const tamaguiTheme = useTheme();
-  const isDark = theme === "dark";
+  const tamaguiTheme = useTheme()
+  const isDark = theme === "dark"
 
   // Define fallback colors for light and dark themes
   const lightFallbacks = {
@@ -23,7 +23,7 @@ export const NavigationThemeProvider: React.FC<
     text: "#000000",
     border: "#C6C6C8",
     notification: "#FF3B30",
-  };
+  }
 
   const darkFallbacks = {
     primary: "#0A84FF",
@@ -32,9 +32,9 @@ export const NavigationThemeProvider: React.FC<
     text: "#FFFFFF",
     border: "#38383A",
     notification: "#FF453A",
-  };
+  }
 
-  const fallbacks = isDark ? darkFallbacks : lightFallbacks;
+  const fallbacks = isDark ? darkFallbacks : lightFallbacks
 
   const navigationTheme: typeof DefaultTheme = {
     dark: isDark,
@@ -50,7 +50,7 @@ export const NavigationThemeProvider: React.FC<
       notification: tamaguiTheme.red10?.val || fallbacks.notification,
     },
     fonts: isDark ? DarkTheme.fonts : DefaultTheme.fonts,
-  };
+  }
 
-  return <ThemeProvider value={navigationTheme}>{children}</ThemeProvider>;
-};
+  return <ThemeProvider value={navigationTheme}>{children}</ThemeProvider>
+}

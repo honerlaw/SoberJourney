@@ -1,1 +1,1 @@
-export { NavigationThemeProvider } from "./NavigationThemeProvider";
+export { NavigationThemeProvider } from "./NavigationThemeProvider"

@@ -1,2 +1,1 @@
-export { useJournalList } from "./useJournalList";
-
+export { useJournalList } from "./useJournalList"

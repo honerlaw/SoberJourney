@@ -1,10 +1,10 @@
-import React from "react";
-import { Button, Text, XStack } from "tamagui";
-import { useGoogleSignIn } from "./hooks";
-import GoogleIcon from "@/assets/google-icon.svg";
+import React from "react"
+import { Button, Text, XStack } from "tamagui"
+import { useGoogleSignIn } from "./hooks"
+import GoogleIcon from "@/assets/google-icon.svg"
 
 export const GoogleButton: React.FC = () => {
-  const { signIn, isLoading } = useGoogleSignIn();
+  const { signIn, isLoading } = useGoogleSignIn()
 
   return (
     <Button
@@ -20,5 +20,5 @@ export const GoogleButton: React.FC = () => {
         </Text>
       </XStack>
     </Button>
-  );
-};
+  )
+}

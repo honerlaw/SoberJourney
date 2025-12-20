@@ -1,2 +1,1 @@
-export { JournalDashboardPage } from "./JournalDashboardPage";
-
+export { JournalDashboardPage } from "./JournalDashboardPage"

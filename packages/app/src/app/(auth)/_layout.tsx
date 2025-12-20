@@ -1,46 +1,52 @@
-import { LoadingView } from "@/src/components/LoadingView";
-import { useAuth } from "@/src/hooks/useAuth";
-import { Redirect, Stack, useRouter, useSegments } from "expo-router";
-import { WebLayout } from "@/src/components/WebLayout";
-import React from "react";
-import { HeaderButton } from "@/src/components/HeaderButton";
-import { Pencil, PlusCircle, User } from "@tamagui/lucide-icons";
+import { LoadingView } from "@/src/components/LoadingView"
+import { useAuth } from "@/src/hooks/useAuth"
+import { Redirect, Stack, useRouter, useSegments } from "expo-router"
+import { WebLayout } from "@/src/components/WebLayout"
+import React from "react"
+import { HeaderButton } from "@/src/components/HeaderButton"
+import { Pencil, PlusCircle, User } from "@tamagui/lucide-icons"
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
-};
+}
 
 export default function AuthLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const router = useRouter();
-  const segments = useSegments();
+  const { isLoaded, isSignedIn } = useAuth()
+  const router = useRouter()
+  const segments = useSegments()
 
   // Determine which tab is active based on route segments
-  const isJournalTab = (segments as string[]).includes("journal");
-  const isSponsorTab = (segments as string[]).includes("sponsor");
+  const isJournalTab = (segments as string[]).includes("journal")
+  const isSponsorTab = (segments as string[]).includes("sponsor")
 
   if (!isLoaded) {
-    return <LoadingView />;
+    return <LoadingView />
   }
 
   if (!isSignedIn) {
-    return <Redirect href="/" />;
+    return <Redirect href="/" />
   }
 
   const renderHeaderRight = () => {
     if (isSponsorTab) {
-      return null;
+      return null
     }
     if (isJournalTab) {
       return (
-        <HeaderButton icon={Pencil} onPress={() => router.push("/journal-new")} />
-      );
+        <HeaderButton
+          icon={Pencil}
+          onPress={() => router.push("/journal-new")}
+        />
+      )
     }
     // Dashboard tab (default)
     return (
-      <HeaderButton icon={PlusCircle} onPress={() => router.push("/journeys-new")} />
-    );
-  };
+      <HeaderButton
+        icon={PlusCircle}
+        onPress={() => router.push("/journeys-new")}
+      />
+    )
+  }
 
   return (
     <WebLayout>
@@ -88,7 +94,7 @@ export default function AuthLayout() {
         <Stack.Screen
           name="journal-new"
           options={{
-            headerTitle: "New Entry"
+            headerTitle: "New Entry",
           }}
         />
         <Stack.Screen
@@ -101,5 +107,5 @@ export default function AuthLayout() {
         />
       </Stack>
     </WebLayout>
-  );
+  )
 }

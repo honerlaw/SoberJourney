@@ -1,20 +1,20 @@
-import { useReportError } from "@/src/hooks/useReportError";
-import { YStack, Text } from "tamagui";
-import LottieView from "lottie-react-native";
-import source from "@/assets/error.json";
+import { useReportError } from "@/src/hooks/useReportError"
+import { YStack, Text } from "tamagui"
+import LottieView from "lottie-react-native"
+import source from "@/assets/error.json"
 
 type ErrorViewProps = {
-  error: Error | string | null | unknown;
-  message?: string;
-  small?: boolean;
-};
+  error: Error | string | null | unknown
+  message?: string
+  small?: boolean
+}
 
 export const ErrorView: React.FC<ErrorViewProps> = ({
   error,
   small,
   message,
 }) => {
-  useReportError(error);
+  useReportError(error)
 
   return (
     <YStack flex={1} justifyContent="center" alignItems="center">
@@ -42,5 +42,5 @@ export const ErrorView: React.FC<ErrorViewProps> = ({
         )}
       </YStack>
     </YStack>
-  );
-};
+  )
+}

@@ -1,8 +1,8 @@
-import { useMemo } from "react";
-import { useTheme } from "tamagui";
+import { useMemo } from "react"
+import { useTheme } from "tamagui"
 
 export function useMarkdownStyles() {
-  const theme = useTheme();
+  const theme = useTheme()
 
   return useMemo(
     () => ({
@@ -143,7 +143,6 @@ export function useMarkdownStyles() {
         marginVertical: 16,
       },
     }),
-    [theme]
-  );
+    [theme],
+  )
 }
-

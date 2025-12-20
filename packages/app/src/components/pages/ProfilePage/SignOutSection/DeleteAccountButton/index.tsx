@@ -1,1 +1,1 @@
-export { DeleteAccountButton } from "./DeleteAccountButton";
+export { DeleteAccountButton } from "./DeleteAccountButton"

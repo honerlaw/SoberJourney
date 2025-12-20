@@ -15,7 +15,8 @@
     "web": "expo start --web --clear",
     "web:export": "npm run clean:dist && expo export --clear -p web",
     "lint": "expo lint",
-    "lint:format": "expo lint --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint:format": "expo lint --fix && npm run format",
     "test": "echo \"Error: no test specified\"",
     "eas:submit": "eas build --non-interactive --auto-submit --platform ios --no-wait"
   },
@@ -78,6 +79,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "prettier": "^3.6.2",
     "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.9.2"
   },

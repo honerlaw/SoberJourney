@@ -1,1 +1,1 @@
-export { useJourneyList } from "./useJourneyList";
+export { useJourneyList } from "./useJourneyList"

@@ -1,12 +1,12 @@
-import { useRouter } from "expo-router";
-import React from "react";
-import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui";
-import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding";
-import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider";
-import { ResetPasswordPage } from "../ResetPasswordPage";
+import { useRouter } from "expo-router"
+import React from "react"
+import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui"
+import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
+import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider"
+import { ResetPasswordPage } from "../ResetPasswordPage"
 
 export const ForgotPasswordPage: React.FC = () => {
-  const router = useRouter();
+  const router = useRouter()
   const {
     currentStep,
     emailAddress,
@@ -14,18 +14,18 @@ export const ForgotPasswordPage: React.FC = () => {
     errors,
     isSubmitting,
     onEmailSubmit,
-  } = useForgotPasswordContext();
+  } = useForgotPasswordContext()
 
   const handleEmailSubmit = async () => {
-    const success = await onEmailSubmit();
+    const success = await onEmailSubmit()
     if (success) {
-      router.push("/password/forgot/code");
+      router.push("/password/forgot/code")
     }
-  };
+  }
 
   // Show password reset step when user returns from code verification
   if (currentStep === "password") {
-    return <ResetPasswordPage />;
+    return <ResetPasswordPage />
   }
 
   // Default to email step
@@ -70,5 +70,5 @@ export const ForgotPasswordPage: React.FC = () => {
         </YStack>
       </Form>
     </KeyboardAvoiding>
-  );
-};
+  )
+}

@@ -1,30 +1,30 @@
-import { YStack, Text, Label, Input, Button, H5 } from "tamagui";
-import { Calendar, ChevronRight } from "@tamagui/lucide-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAvoiding } from "../../KeyboardAvoiding";
-import { DateTimeInput } from "./DateTimeInput";
-import { InputButton } from "./InputButton";
-import { useState } from "react";
-import { useCreateJourney } from "./hooks/useCreateJourney";
-import { useToastController } from "@tamagui/toast";
-import { useRouter } from "expo-router";
+import { YStack, Text, Label, Input, Button, H5 } from "tamagui"
+import { Calendar, ChevronRight } from "@tamagui/lucide-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { KeyboardAvoiding } from "../../KeyboardAvoiding"
+import { DateTimeInput } from "./DateTimeInput"
+import { InputButton } from "./InputButton"
+import { useState } from "react"
+import { useCreateJourney } from "./hooks/useCreateJourney"
+import { useToastController } from "@tamagui/toast"
+import { useRouter } from "expo-router"
 
 export const NewJourneyPage: React.FC = () => {
-  const { bottom } = useSafeAreaInsets();
-  const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false);
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [title, setTitle] = useState<string>("");
-  const toast = useToastController();
-  const router = useRouter();
-  const { createJourney, isPending } = useCreateJourney();
+  const { bottom } = useSafeAreaInsets()
+  const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false)
+  const [startDate, setStartDate] = useState<Date>(new Date())
+  const [title, setTitle] = useState<string>("")
+  const toast = useToastController()
+  const router = useRouter()
+  const { createJourney, isPending } = useCreateJourney()
 
   const onCreate = async () => {
-    const success = await createJourney(title, startDate);
+    const success = await createJourney(title, startDate)
     if (success) {
       toast.show("Your journey has been created.", {
         type: "success",
         native: false,
-      });
+      })
       router.back()
     }
   }
@@ -81,10 +81,16 @@ export const NewJourneyPage: React.FC = () => {
         </YStack>
 
         {/* Create Journey Button */}
-        <Button marginBottom={bottom} size="$5" onPress={onCreate} disabled={isPending} themeInverse>
+        <Button
+          marginBottom={bottom}
+          size="$5"
+          onPress={onCreate}
+          disabled={isPending}
+          themeInverse
+        >
           {isPending ? "Creating..." : "Create Journey"}
         </Button>
       </YStack>
     </KeyboardAvoiding>
-  );
-};
+  )
+}

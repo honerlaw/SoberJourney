@@ -1,11 +1,11 @@
-import { YStack, TextArea, Paragraph } from "tamagui";
-import { KeyboardAvoiding } from "../../KeyboardAvoiding";
-import { useState, useMemo } from "react";
-import { useCreateJournalEntry } from "./hooks/useCreateJournalEntry";
-import { useToastController } from "@tamagui/toast";
-import { useRouter, Stack } from "expo-router";
-import { HeaderButton } from "../../HeaderButton";
-import { Check } from "@tamagui/lucide-icons";
+import { YStack, TextArea, Paragraph } from "tamagui"
+import { KeyboardAvoiding } from "../../KeyboardAvoiding"
+import { useState, useMemo } from "react"
+import { useCreateJournalEntry } from "./hooks/useCreateJournalEntry"
+import { useToastController } from "@tamagui/toast"
+import { useRouter, Stack } from "expo-router"
+import { HeaderButton } from "../../HeaderButton"
+import { Check } from "@tamagui/lucide-icons"
 
 const JOURNAL_PROMPTS = [
   "What are three things you're grateful for in your sobriety journey today?",
@@ -18,37 +18,37 @@ const JOURNAL_PROMPTS = [
   "Describe a goal you're working toward and the progress you've made.",
   "What does living authentically mean to you in recovery?",
   "Reflect on how far you've come—what would you tell your past self?",
-];
+]
 
 const getRandomPrompt = () =>
-  JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
+  JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)]
 
 export const NewJournalEntryPage: React.FC = () => {
-  const [content, setContent] = useState<string>("");
-  const toast = useToastController();
-  const router = useRouter();
-  const { createEntry, isPending } = useCreateJournalEntry();
+  const [content, setContent] = useState<string>("")
+  const toast = useToastController()
+  const router = useRouter()
+  const { createEntry, isPending } = useCreateJournalEntry()
 
-  const prompt = useMemo(() => getRandomPrompt(), []);
+  const prompt = useMemo(() => getRandomPrompt(), [])
 
   const onCreate = async () => {
     if (!content.trim()) {
       toast.show("Please write something before saving.", {
         type: "error",
         native: false,
-      });
-      return;
+      })
+      return
     }
 
-    const success = await createEntry(content);
+    const success = await createEntry(content)
     if (success) {
       toast.show("Your journal entry has been saved.", {
         type: "success",
         native: false,
-      });
-      router.back();
+      })
+      router.back()
     }
-  };
+  }
 
   return (
     <>
@@ -64,33 +64,32 @@ export const NewJournalEntryPage: React.FC = () => {
         }}
       />
       <KeyboardAvoiding>
-      <YStack flex={1} width="100%">
-        <YStack flex={1} gap="$4">
-          <YStack gap="$2" padding="$4">
-            <Paragraph textAlign="center" color="$color12" size={"$6"}>
-              {prompt}
-            </Paragraph>
-            <Paragraph textAlign="center" color="$color10" size={"$2"}>
-              - or -
-            </Paragraph>
-            <Paragraph textAlign="center" color="$color12" size={"$5"}>
-              Let your thoughts flow freely.
-            </Paragraph>
+        <YStack flex={1} width="100%">
+          <YStack flex={1} gap="$4">
+            <YStack gap="$2" padding="$4">
+              <Paragraph textAlign="center" color="$color12" size={"$6"}>
+                {prompt}
+              </Paragraph>
+              <Paragraph textAlign="center" color="$color10" size={"$2"}>
+                - or -
+              </Paragraph>
+              <Paragraph textAlign="center" color="$color12" size={"$5"}>
+                Let your thoughts flow freely.
+              </Paragraph>
+            </YStack>
+
+            <TextArea
+              flex={1}
+              placeholder="What's on your mind today?"
+              value={content}
+              onChangeText={setContent}
+              padding="$4"
+              borderWidth={0}
+              borderRadius={0}
+            />
           </YStack>
-
-          <TextArea
-            flex={1}
-            placeholder="What's on your mind today?"
-            value={content}
-            onChangeText={setContent}
-            padding="$4"
-            borderWidth={0}
-            borderRadius={0}
-          />
         </YStack>
-      </YStack>
-    </KeyboardAvoiding>
+      </KeyboardAvoiding>
     </>
-  );
-};
-
+  )
+}

@@ -4,4 +4,4 @@ export {
   mockSystemMessage,
   mockErrorMessage,
   allMockMessages,
-} from "./mockChatMessage";
+} from "./mockChatMessage"

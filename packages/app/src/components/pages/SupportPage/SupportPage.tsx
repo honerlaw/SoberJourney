@@ -1,6 +1,6 @@
-import { ScrollView, H1, Paragraph, YStack, Anchor } from "tamagui";
-import { WebLayout } from "@/src/components/WebLayout";
-import Icon from "@/assets/logo/icon.svg";
+import { ScrollView, H1, Paragraph, YStack, Anchor } from "tamagui"
+import { WebLayout } from "@/src/components/WebLayout"
+import Icon from "@/assets/logo/icon.svg"
 
 export const SupportPage = () => {
   return (
@@ -33,5 +33,5 @@ export const SupportPage = () => {
         </YStack>
       </ScrollView>
     </WebLayout>
-  );
-};
+  )
+}

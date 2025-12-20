@@ -1,36 +1,35 @@
-import { useToastError } from "@/src/hooks/useToastError";
-import { useTRPC } from "@/src/providers/TRPCProvider";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToastError } from "@/src/hooks/useToastError"
+import { useTRPC } from "@/src/providers/TRPCProvider"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 type ReorderItem = {
-  id: string;
-  position: number;
-};
+  id: string
+  position: number
+}
 
 export function useJourneyReorder() {
-  const { handleError } = useToastError();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const { handleError } = useToastError()
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
 
   const { mutateAsync, isPending } = useMutation(
-    trpc.journey.reorder.mutationOptions()
-  );
+    trpc.journey.reorder.mutationOptions(),
+  )
 
   return {
     isPending,
     reorderJourneys: async (items: ReorderItem[]) => {
       try {
-        await mutateAsync({ items });
+        await mutateAsync({ items })
         // Invalidate the journey list query to refetch with new order
         await queryClient.invalidateQueries({
           queryKey: trpc.journey.list.queryKey(),
-        });
-        return true;
+        })
+        return true
       } catch (error) {
-        handleError(error, "Failed to reorder journeys.");
+        handleError(error, "Failed to reorder journeys.")
       }
-      return false;
+      return false
     },
-  };
+  }
 }
-

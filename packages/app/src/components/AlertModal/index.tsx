@@ -1,1 +1,1 @@
-export { AlertModal, type AlertButton, type AlertModalRef } from "./AlertModal";
+export { AlertModal, type AlertButton, type AlertModalRef } from "./AlertModal"

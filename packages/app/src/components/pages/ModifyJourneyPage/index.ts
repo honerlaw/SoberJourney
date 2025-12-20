@@ -1,2 +1,1 @@
-export { ModifyJourneyPage } from "./ModifyJourneyPage";
-
+export { ModifyJourneyPage } from "./ModifyJourneyPage"
