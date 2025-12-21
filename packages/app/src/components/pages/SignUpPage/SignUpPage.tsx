@@ -86,11 +86,7 @@ export function SignUpPage() {
           </Form.Trigger>
 
           <Stack justifyContent="center" alignItems="center">
-            <Text
-              onPress={() =>
-                router.canGoBack() ? router.back() : router.push("/signin")
-              }
-            >
+            <Text onPress={() => router.replace("/signin")}>
               Already have an account? Sign in.
             </Text>
           </Stack>
