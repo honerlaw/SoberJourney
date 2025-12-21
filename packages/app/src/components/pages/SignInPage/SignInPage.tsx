@@ -27,9 +27,65 @@ export function SignInPage() {
     errors,
     onSignInPress,
     isSigningIn,
+    needsSecondFactor,
+    secondFactorCode,
+    setSecondFactorCode,
+    onSecondFactorPress,
+    isVerifyingSecondFactor,
   } = useSignInForm()
 
   const insets = useSafeAreaInsets()
+
+  if (needsSecondFactor) {
+    return (
+      <KeyboardAvoiding>
+        <Form
+          onSubmit={onSecondFactorPress}
+          gap="$5"
+          width={"75%"}
+          maxWidth={"400px"}
+        >
+          <YStack borderRadius="$4" gap="$5">
+            <YStack gap="$2" alignItems="center">
+              <H3>Two-factor authentication</H3>
+            </YStack>
+            <Text color="$gray11" textAlign="center">
+              We&apos;ve sent a 6-digit verification code to your email. Enter
+              it below to continue.
+            </Text>
+            {errors &&
+              errors.map((e) => (
+                <Text color="$red10" key={e}>
+                  {e}
+                </Text>
+              ))}
+            <Input
+              keyboardType="number-pad"
+              autoCapitalize="none"
+              value={secondFactorCode}
+              placeholder="Enter 6-digit code"
+              maxLength={6}
+              onChangeText={(code) => setSecondFactorCode(code)}
+              textAlign="center"
+              fontSize="$6"
+              letterSpacing="$2"
+            />
+            <Form.Trigger asChild>
+              <Button
+                theme={"base"}
+                disabled={
+                  isVerifyingSecondFactor || secondFactorCode.length !== 6
+                }
+                fontWeight={"600"}
+              >
+                {isVerifyingSecondFactor ? "Verifying..." : "Verify"}
+              </Button>
+            </Form.Trigger>
+          </YStack>
+        </Form>
+      </KeyboardAvoiding>
+    )
+  }
 
   return (
     <>

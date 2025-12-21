@@ -44,7 +44,6 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
 
   return (
     <Card
-      elevate
       bordered
       borderRadius="$4"
       backgroundColor="$background"

@@ -16,13 +16,16 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
 }) => {
   const { isLiquidGlassEnabled } = useLiquidGlass()
 
+  const isAndroid = Platform.OS === "android"
+  const isWeb = Platform.OS === "web"
+
   return (
     <Button
       size="$3"
       circular
       icon={() => <IconComponent size={"$1.5"} pointerEvents="none" />}
-      marginHorizontal={Platform.OS === "web" ? "$4" : undefined}
-      backgroundColor={isLiquidGlassEnabled ? "transparent" : undefined}
+      marginHorizontal={isWeb || isAndroid ? "$2" : undefined}
+      backgroundColor={"transparent"}
       hoverStyle={
         isLiquidGlassEnabled
           ? { backgroundColor: "transparent", borderWidth: 0 }

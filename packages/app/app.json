@@ -32,7 +32,8 @@
         "monochromeImage": "./assets/logo/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.onerlaw.soberjourney"
     },
     "web": {
       "output": "static",
