@@ -6,14 +6,17 @@ import {
 import { type Content } from "@google/genai";
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
-import { MessageRole } from "../../../../util/database.mjs";
+import {
+  MessageRole,
+  type UserJourneyModelWithEntries,
+} from "../../../../util/database.mjs";
 
 const chatInput = z.object({
   conversationId: z.uuid(),
   text: z.string().min(1),
 });
 
-const SYSTEM_PROMPT = `You are a supportive sobriety sponsor. Your role is to provide guidance, encouragement, and accountability to someone on their recovery journey.
+const BASE_SYSTEM_PROMPT = `You are a supportive sobriety sponsor. Your role is to provide guidance, encouragement, and accountability to someone on their recovery journey.
 
 Guidelines:
 - Keep your responses short and to the point. Be concise and direct.
@@ -30,6 +33,60 @@ When the user is struggling or feels at risk of relapse:
 - Remind them that cravings and urges are temporary, and staying present in this conversation can help them ride it out.
 - If appropriate, guide them through simple coping techniques like deep breathing, playing the tape forward, or listing reasons they chose sobriety.`;
 
+function formatDuration(startDate: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - startDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours === 0) {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      return diffMinutes <= 1 ? "just started" : `${diffMinutes} minutes`;
+    }
+    return diffHours === 1 ? "1 hour" : `${diffHours} hours`;
+  }
+  if (diffDays === 1) return "1 day";
+  if (diffDays < 7) return `${diffDays} days`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return weeks === 1 ? "1 week" : `${weeks} weeks`;
+  }
+  if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return months === 1 ? "1 month" : `${months} months`;
+  }
+  const years = Math.floor(diffDays / 365);
+  const remainingMonths = Math.floor((diffDays % 365) / 30);
+  if (remainingMonths === 0) {
+    return years === 1 ? "1 year" : `${years} years`;
+  }
+  return `${years} year${years > 1 ? "s" : ""} and ${remainingMonths} month${remainingMonths > 1 ? "s" : ""}`;
+}
+
+function buildJourneyContext(journeys: UserJourneyModelWithEntries[]): string {
+  if (journeys.length === 0) {
+    return "";
+  }
+
+  const journeyDescriptions = journeys.map((journey) => {
+    // The most recent entry represents the current streak start date
+    const latestEntry = journey.entries[0];
+    if (!latestEntry) {
+      return `- ${journey.title}: just started`;
+    }
+    const duration = formatDuration(latestEntry.createdAt);
+    return `- ${journey.title}: ${duration}`;
+  });
+
+  return `
+
+User's Current Sobriety Journeys:
+${journeyDescriptions.join("\n")}
+
+Use this information to provide personalized support. Acknowledge their progress when appropriate, and be mindful of which specific journeys they're working on.`;
+}
+
 export const sponsorChat = procedure
   .input(chatInput)
   .mutation(async ({ ctx, input }) => {
@@ -37,15 +94,19 @@ export const sponsorChat = procedure
       throw new UnauthorizedError();
     }
 
-    // Fetch the conversation with all existing messages
-    const conversation = await ctx.database.conversation.get(
-      input.conversationId,
-      ctx.auth.user.id,
-    );
+    // Fetch the conversation and user's journeys in parallel
+    const [conversation, journeys] = await Promise.all([
+      ctx.database.conversation.get(input.conversationId, ctx.auth.user.id),
+      ctx.database.journey.list(ctx.auth.user.id),
+    ]);
 
     if (!conversation) {
       throw new NotFoundError("Conversation not found.");
     }
+
+    // Build the system prompt with journey context
+    const journeyContext = buildJourneyContext(journeys);
+    const systemPrompt = BASE_SYSTEM_PROMPT + journeyContext;
 
     // Convert existing messages to Gemini format
     const history: Content[] = conversation.messages.map((message) => ({
@@ -61,7 +122,7 @@ export const sponsorChat = procedure
 
     // Get AI response from Gemini with full conversation history
     const aiResponse = await ctx.datasource.gemini.chat(history, {
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: systemPrompt,
     });
 
     if (!aiResponse) {
