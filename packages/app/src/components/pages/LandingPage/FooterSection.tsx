@@ -26,7 +26,7 @@ export function FooterSection() {
           gap="$4"
         >
           <Text fontSize="$3" color="$gray11">
-            © 2025 Sobriety Tracker. All rights reserved.
+            © 2025 Onerlaw LLC
           </Text>
 
           <XStack gap="$6">

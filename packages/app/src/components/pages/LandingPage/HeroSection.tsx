@@ -4,9 +4,10 @@ import Logo from "@/assets/logo/icon.svg"
 
 interface HeroSectionProps {
   onGetStarted: () => void
+  onSignIn: () => void
 }
 
-export function HeroSection({ onGetStarted }: HeroSectionProps) {
+export function HeroSection({ onGetStarted, onSignIn }: HeroSectionProps) {
   const media = useMedia()
 
   return (
@@ -50,19 +51,35 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
           any habit, any goal, at your own pace. No judgment, just support.
         </Paragraph>
 
-        <Button
-          size={media.gtSm ? "$5" : "$4"}
-          backgroundColor="$gray12"
-          color="$gray1"
-          paddingHorizontal="$6"
-          borderRadius="$3"
-          pressStyle={{ opacity: 0.9 }}
-          onPress={onGetStarted}
-          fontWeight="600"
-          themeInverse
-        >
-          Get Started
-        </Button>
+        <XStack gap="$3">
+          <Button
+            size={media.gtSm ? "$5" : "$4"}
+            backgroundColor="$gray12"
+            color="$gray1"
+            paddingHorizontal="$6"
+            borderRadius="$3"
+            pressStyle={{ opacity: 0.9 }}
+            onPress={onGetStarted}
+            fontWeight="600"
+            themeInverse
+          >
+            Get Started
+          </Button>
+          <Button
+            size={media.gtSm ? "$5" : "$4"}
+            backgroundColor="transparent"
+            borderWidth={1}
+            borderColor="$color12"
+            color="$color12"
+            paddingHorizontal="$6"
+            borderRadius="$3"
+            pressStyle={{ opacity: 0.8 }}
+            onPress={onSignIn}
+            fontWeight="600"
+          >
+            Sign In
+          </Button>
+        </XStack>
       </YStack>
     </YStack>
   )

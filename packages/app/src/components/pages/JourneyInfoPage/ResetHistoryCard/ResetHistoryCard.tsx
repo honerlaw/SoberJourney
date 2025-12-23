@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { Card, Text, XStack, YStack, Separator } from "tamagui"
 import { differenceInDays, format } from "date-fns"
 
@@ -13,11 +13,40 @@ type ResetHistoryCardProps = {
   startEntry: JourneyEntry
 }
 
+const formatDuration = (days: number): string => {
+  if (days < 1) {
+    return "less than a day"
+  }
+  const years = Math.floor(days / 365)
+  const remainingDays = days % 365
+  const parts: string[] = []
+
+  if (years > 0) {
+    parts.push(`${years} ${years === 1 ? "year" : "years"}`)
+  }
+  if (remainingDays > 0 || parts.length === 0) {
+    parts.push(`${remainingDays} ${remainingDays === 1 ? "day" : "days"}`)
+  }
+
+  return parts.join(", ")
+}
+
 export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
   resets,
   entries,
   startEntry,
 }) => {
+  const [now, setNow] = useState(new Date())
+
+  // Update current time every minute to keep "would be" counter fresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 60000) // Update every minute
+
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <Card
       elevate
@@ -52,6 +81,9 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
               const previousDate = new Date(previousEntry.createdAt)
               const streakDays = differenceInDays(resetDate, previousDate)
 
+              // Calculate how long it would be now if they hadn't reset
+              const wouldBeDays = differenceInDays(now, previousDate)
+
               return (
                 <YStack key={reset.id} gap="$2">
                   {index > 0 && <Separator />}
@@ -71,12 +103,15 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
                         {format(resetDate, "h:mm a")}
                       </Text>
                     </YStack>
-                    <YStack alignItems="flex-end">
+                    <YStack alignItems="flex-end" gap="$1">
                       <Text fontSize="$3" color="$color11">
                         Streak before reset
                       </Text>
                       <Text fontSize="$4" fontWeight="500" color="$color12">
                         {streakDays} {streakDays === 1 ? "day" : "days"}
+                      </Text>
+                      <Text fontSize="$2" color="$color10" marginTop="$1">
+                        Would be {formatDuration(wouldBeDays)} now
                       </Text>
                     </YStack>
                   </XStack>

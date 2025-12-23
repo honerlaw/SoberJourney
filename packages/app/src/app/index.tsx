@@ -7,8 +7,6 @@ import { Platform } from "react-native"
 export default function Page() {
   const { isSignedIn, isLoaded } = useAuth()
 
-  console.log("Index", isSignedIn, isLoaded)
-
   if (!isLoaded) {
     return <LoadingView />
   }

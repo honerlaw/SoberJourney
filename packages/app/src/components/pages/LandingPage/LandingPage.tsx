@@ -13,10 +13,14 @@ export function LandingPage() {
     router.push("/signup")
   }
 
+  const handleSignIn = () => {
+    router.push("/signin")
+  }
+
   return (
     <ScrollView style={{ flex: 1 }}>
       <YStack flex={1} backgroundColor="$background">
-        <HeroSection onGetStarted={handleGetStarted} />
+        <HeroSection onGetStarted={handleGetStarted} onSignIn={handleSignIn} />
         <FeaturesSection />
         <FooterSection />
       </YStack>
