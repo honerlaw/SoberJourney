@@ -1,7 +1,7 @@
 import { YStack, Text } from "tamagui"
 
 export const ThinkingIndicator: React.FC = () => (
-  <YStack alignItems="flex-start">
+  <YStack alignItems="flex-start" paddingVertical={"$2"}>
     <YStack
       backgroundColor="$color4"
       paddingHorizontal="$3"

@@ -30,7 +30,7 @@ When the user is struggling or feels at risk of relapse:
 - Remind them that cravings and urges are temporary, and staying present in this conversation can help them ride it out.
 - If appropriate, guide them through simple coping techniques like deep breathing, playing the tape forward, or listing reasons they chose sobriety.`;
 
-export const chat = procedure
+export const sponsorChat = procedure
   .input(chatInput)
   .mutation(async ({ ctx, input }) => {
     if (!ctx.auth.user) {

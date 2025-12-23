@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useCreateConversation } from "../useCreateConversation"
-import { useConversation } from "../useConversation"
+import { useConversation, type Message } from "../useConversation"
 import { useSendMessage } from "../useSendMessage"
 
 export function useSponsorChat() {
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [pendingMessage, setPendingMessage] = useState<Message | null>(null)
 
   const { createConversation, isPending: isCreating } = useCreateConversation()
   const { conversation, isLoading: isLoadingConversation } =
@@ -27,7 +28,20 @@ export function useSponsorChat() {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isSending) return
+
+      // Optimistically add the user message immediately
+      const optimisticMessage: Message = {
+        id: `pending-${Date.now()}`,
+        role: "user",
+        content: text.trim(),
+        createdAt: new Date(),
+      }
+      setPendingMessage(optimisticMessage)
+
       await sendMessageMutation(text.trim())
+
+      // Clear pending message after response is received
+      setPendingMessage(null)
     },
     [isSending, sendMessageMutation],
   )
@@ -35,8 +49,24 @@ export function useSponsorChat() {
   const isInitializing = isCreating || (!conversationId && !conversation)
   const isLoading = isLoadingConversation && !conversation
 
+  // Combine conversation messages with pending message
+  // Only include pending message if conversation doesn't already have it
+  const messages = useMemo(() => {
+    const baseMessages = conversation?.messages ?? []
+    if (pendingMessage) {
+      // Check if the pending message is already in the conversation
+      const alreadyExists = baseMessages.some(
+        (msg) => msg.role === "user" && msg.content === pendingMessage.content,
+      )
+      if (!alreadyExists) {
+        return [...baseMessages, pendingMessage]
+      }
+    }
+    return baseMessages
+  }, [conversation?.messages, pendingMessage])
+
   return {
-    messages: conversation?.messages ?? [],
+    messages,
     sendMessage,
     isSending,
     isInitializing,

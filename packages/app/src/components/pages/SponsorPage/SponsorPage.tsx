@@ -19,14 +19,14 @@ export const SponsorPage: React.FC = () => {
   const { messages, sendMessage, isSending, isInitializing, isLoading } =
     useSponsorChat()
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change or when sending (to show thinking indicator)
   useEffect(() => {
-    if (messages.length) {
+    if (messages.length || isSending) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true })
       }, 100)
     }
-  }, [messages.length])
+  }, [messages.length, isSending])
 
   if (isInitializing || isLoading) {
     return (

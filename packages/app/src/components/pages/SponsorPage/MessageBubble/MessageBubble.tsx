@@ -16,7 +16,10 @@ export const MessageBubble = memo<MessageBubbleProps>(({ message }) => {
   const markdownStyles = useMarkdownStyles()
 
   return (
-    <XStack justifyContent={isUser ? "flex-end" : "flex-start"}>
+    <XStack
+      justifyContent={isUser ? "flex-end" : "flex-start"}
+      paddingVertical={"$2"}
+    >
       <YStack
         maxWidth="90%"
         paddingHorizontal="$3"

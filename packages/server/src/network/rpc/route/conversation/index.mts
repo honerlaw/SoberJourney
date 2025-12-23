@@ -1,4 +1,4 @@
 export { list } from "./list.mjs";
 export { get } from "./get.mjs";
-export { chat } from "./chat.mjs";
+export { sponsorChat } from "./sponsorChat.mjs";
 export { create } from "./create.mjs";

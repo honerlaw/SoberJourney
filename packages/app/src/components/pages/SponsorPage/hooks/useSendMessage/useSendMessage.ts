@@ -8,7 +8,7 @@ export function useSendMessage(conversationId: string | null) {
   const queryClient = useQueryClient()
 
   const { mutateAsync, isPending } = useMutation(
-    trpc.conversation.chat.mutationOptions(),
+    trpc.conversation.sponsorChat.mutationOptions(),
   )
 
   return {
