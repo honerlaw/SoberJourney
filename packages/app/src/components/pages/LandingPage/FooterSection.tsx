@@ -1,5 +1,5 @@
 import React from "react"
-import { useRouter } from "expo-router"
+import { Link, useRouter } from "expo-router"
 import { YStack, XStack, Text, Stack, useMedia } from "tamagui"
 
 export function FooterSection() {
@@ -30,37 +30,21 @@ export function FooterSection() {
           </Text>
 
           <XStack gap="$6">
-            <Text
-              fontSize="$3"
-              color="$gray11"
-              pressStyle={{ opacity: 0.7 }}
-              cursor="pointer"
-              onPress={() => {
-                router.push("/privacy")
-              }}
-            >
-              Privacy
-            </Text>
-            <Text
-              fontSize="$3"
-              color="$gray11"
-              pressStyle={{ opacity: 0.7 }}
-              cursor="pointer"
-              onPress={() => {
-                router.push("/terms")
-              }}
-            >
-              Terms
-            </Text>
-            <Text
-              fontSize="$3"
-              color="$gray11"
-              pressStyle={{ opacity: 0.7 }}
-              cursor="pointer"
-              onPress={() => router.push("/support")}
-            >
-              Support
-            </Text>
+            <Link href="/privacy">
+              <Text fontSize="$3" color="$gray11">
+                Privacy
+              </Text>
+            </Link>
+            <Link href="/terms">
+              <Text fontSize="$3" color="$gray11">
+                Terms
+              </Text>
+            </Link>
+            <Link href="/support">
+              <Text fontSize="$3" color="$gray11">
+                Support
+              </Text>
+            </Link>
           </XStack>
         </XStack>
       </Stack>
