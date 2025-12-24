@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.onerlaw.soberjourney",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "$(PRODUCT_NAME) needs access to your photo library to allow you to select and upload images for your profile.",
@@ -53,7 +54,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
