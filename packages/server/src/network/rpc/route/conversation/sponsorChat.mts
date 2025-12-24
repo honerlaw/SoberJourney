@@ -108,11 +108,21 @@ export const sponsorChat = procedure
     const journeyContext = buildJourneyContext(journeys);
     const systemPrompt = BASE_SYSTEM_PROMPT + journeyContext;
 
-    // Convert existing messages to Gemini format
-    const history: Content[] = conversation.messages.map((message) => ({
-      role: message.role === MessageRole.USER ? "user" : "model",
-      parts: [{ text: message.content }],
-    }));
+    // Decrypt existing messages and convert to Gemini format
+    const history: Content[] = await Promise.all(
+      conversation.messages.map(async (message) => ({
+        role: message.role === MessageRole.USER ? "user" : ("model" as const),
+        parts: [
+          {
+            text: await ctx.service.encryption.decrypt(
+              ctx,
+              ctx.service.encryption.DEKIdentifier.CONVERSATION,
+              message.content,
+            ),
+          },
+        ],
+      })),
+    );
 
     // Add the new user message to the history
     history.push({
@@ -129,24 +139,34 @@ export const sponsorChat = procedure
       throw new InternalServerError("Failed to generate response.");
     }
 
-    // Add user's message to conversation
+    // Encrypt and add user's message to conversation
+    const encryptedUserMessage = await ctx.service.encryption.encrypt(
+      ctx,
+      ctx.service.encryption.DEKIdentifier.CONVERSATION,
+      input.text,
+    );
     const userMessage = await ctx.database.conversation.addMessage(
       input.conversationId,
       ctx.auth.user.id,
       MessageRole.USER,
-      input.text,
+      encryptedUserMessage,
     );
 
     if (!userMessage) {
       throw new InternalServerError("Failed to save user message.");
     }
 
-    // Add AI response to conversation
+    // Encrypt and add AI response to conversation
+    const encryptedAiResponse = await ctx.service.encryption.encrypt(
+      ctx,
+      ctx.service.encryption.DEKIdentifier.CONVERSATION,
+      aiResponse,
+    );
     const modelMessage = await ctx.database.conversation.addMessage(
       input.conversationId,
       ctx.auth.user.id,
       MessageRole.MODEL,
-      aiResponse,
+      encryptedAiResponse,
     );
 
     if (!modelMessage) {

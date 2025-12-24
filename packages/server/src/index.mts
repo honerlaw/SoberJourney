@@ -8,6 +8,7 @@ import { getConfig } from "./util/config.mjs";
 import cors from "cors";
 import { register, logger } from "./util/logger/index.mjs";
 import { redirectToWwwMiddleware } from "./util/middleware/redirect.mjs";
+import * as dataMigrations from "./util/migrations/index.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
@@ -46,7 +47,12 @@ app.get("/{*splat}", (req, res) => {
   res.sendFile(path.join(process.cwd(), "static/index.html"));
 });
 
-// Start the server
+// run all data migrations on startup, this won't scale but its fine for now
+// when there is almost no data
+await Promise.all(
+  Object.values(dataMigrations).map((migration) => migration()),
+);
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

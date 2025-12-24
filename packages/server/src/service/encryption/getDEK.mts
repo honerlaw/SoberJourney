@@ -4,7 +4,8 @@ import Cryptr from "cryptr";
 import { getConfig } from "../../util/config.mjs";
 
 export enum DEKIdentifier {
-  TRANSACTIONS = "transactions",
+  JOURNAL = "journal",
+  CONVERSATION = "conversation",
 }
 
 /**

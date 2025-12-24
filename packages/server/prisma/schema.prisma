@@ -147,3 +147,17 @@ model ConversationMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/**
+ * Tracks data migrations that have been run.
+ * Used to ensure migrations only run once and to audit when they ran.
+ */
+model Migration {
+  id String @id @default(uuid())
+
+  // unique name of the migration (e.g., "encryptJournals")
+  name String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -16,9 +16,16 @@ export const create = procedure
       throw new UnauthorizedError();
     }
 
+    // Encrypt the journal content before storing
+    const encryptedContent = await ctx.service.encryption.encrypt(
+      ctx,
+      ctx.service.encryption.DEKIdentifier.JOURNAL,
+      input.content,
+    );
+
     const entry = await ctx.database.journal.create(
       ctx.auth.user.id,
-      input.content,
+      encryptedContent,
     );
 
     if (!entry) {
@@ -29,7 +36,7 @@ export const create = procedure
       success: true,
       entry: {
         id: entry.id,
-        content: entry.content,
+        content: input.content, // Return the original unencrypted content
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt,
       },

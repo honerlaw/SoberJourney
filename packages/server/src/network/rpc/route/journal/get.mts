@@ -25,10 +25,17 @@ export const get = procedure
       throw new NotFoundError("Journal entry not found.");
     }
 
+    // Decrypt the journal content before returning
+    const decryptedContent = await ctx.service.encryption.decrypt(
+      ctx,
+      ctx.service.encryption.DEKIdentifier.JOURNAL,
+      entry.content,
+    );
+
     return {
       entry: {
         id: entry.id,
-        content: entry.content,
+        content: decryptedContent,
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt,
       },

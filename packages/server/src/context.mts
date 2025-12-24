@@ -60,6 +60,10 @@ const options = {
       service: {
         encryption: encryptionService,
       },
+      clone: (
+        newUser: UserModel | null,
+        additional?: { [key: string]: unknown },
+      ) => options.create(newUser, childLogger, additional),
     };
   },
 };

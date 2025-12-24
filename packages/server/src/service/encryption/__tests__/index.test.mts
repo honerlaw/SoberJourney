@@ -56,8 +56,8 @@ describe("Encryption Service", () => {
       email: "john.doe@example.com",
     });
 
-    const encrypted = await encrypt(ctx, DEKIdentifier.TRANSACTIONS, data);
-    const decrypted = await decrypt(ctx, DEKIdentifier.TRANSACTIONS, encrypted);
+    const encrypted = await encrypt(ctx, DEKIdentifier.CONVERSATION, data);
+    const decrypted = await decrypt(ctx, DEKIdentifier.CONVERSATION, encrypted);
 
     assert.strictEqual(decrypted, data);
   });
@@ -72,7 +72,7 @@ describe("Encryption Service", () => {
     });
 
     // its like 35ms per opt to encrypt and decrypt a string...
-    const dek = await getDEK(ctx, DEKIdentifier.TRANSACTIONS);
+    const dek = await getDEK(ctx, DEKIdentifier.CONVERSATION);
 
     const start = performance.now();
     const totalRuns = 5000;

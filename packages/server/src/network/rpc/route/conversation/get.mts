@@ -25,18 +25,27 @@ export const get = procedure
       throw new NotFoundError("Conversation not found.");
     }
 
+    // Decrypt all message contents
+    const decryptedMessages = await Promise.all(
+      conversation.messages.map(async (message) => ({
+        id: message.id,
+        role: message.role,
+        content: await ctx.service.encryption.decrypt(
+          ctx,
+          ctx.service.encryption.DEKIdentifier.CONVERSATION,
+          message.content,
+        ),
+        createdAt: message.createdAt,
+      })),
+    );
+
     return {
       conversation: {
         id: conversation.id,
         title: conversation.title,
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
-        messages: conversation.messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          createdAt: message.createdAt,
-        })),
+        messages: decryptedMessages,
       },
     };
   });
