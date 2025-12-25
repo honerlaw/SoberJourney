@@ -1,4 +1,4 @@
-import { BookOpen, Home, Users } from "@tamagui/lucide-icons"
+import { BookOpen, Home, MessageCircle } from "@tamagui/lucide-icons"
 import { Tabs } from "expo-router"
 
 export default function TabsLayout() {
@@ -25,20 +25,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="sponsor"
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MessageCircle color={color} size={size} pointerEvents="none" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="journal"
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <BookOpen color={color} size={size} pointerEvents="none" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="sponsor"
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Users color={color} size={size} pointerEvents="none" />
           ),
         }}
       />
