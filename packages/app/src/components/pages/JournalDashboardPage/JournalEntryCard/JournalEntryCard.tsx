@@ -8,11 +8,13 @@ import { useJournalRemove } from "../hooks/useJournalRemove"
 type JournalEntryCardProps = {
   id: string
   createdAt: Date
+  preview: string
 }
 
 export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   id,
   createdAt,
+  preview,
 }) => {
   const formattedDate = format(new Date(createdAt), "EEEE, MMMM d, yyyy")
   const formattedTime = format(new Date(createdAt), "h:mm a")
@@ -40,6 +42,9 @@ export const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
           </Text>
           <Text fontSize="$3" color="$color11">
             {formattedTime}
+          </Text>
+          <Text fontSize="$3" color="$color11" numberOfLines={2}>
+            {preview}
           </Text>
         </YStack>
         <AlertModal

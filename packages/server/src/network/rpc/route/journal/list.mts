@@ -8,10 +8,22 @@ export const list = procedure.query(async ({ ctx }) => {
 
   const entries = await ctx.database.journal.list(ctx.auth.user.id);
 
+  const decryptedEntries = await Promise.all(
+    entries.map(async (entry) => {
+      const decryptedContent = await ctx.service.encryption.decrypt(
+        ctx,
+        ctx.service.encryption.DEKIdentifier.JOURNAL,
+        entry.content,
+      );
+      return {
+        id: entry.id,
+        createdAt: entry.createdAt,
+        preview: decryptedContent.slice(0, 150),
+      };
+    }),
+  );
+
   return {
-    entries: entries.map((entry) => ({
-      id: entry.id,
-      createdAt: entry.createdAt,
-    })),
+    entries: decryptedEntries,
   };
 });

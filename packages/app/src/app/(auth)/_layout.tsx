@@ -98,6 +98,12 @@ export default function AuthLayout() {
           }}
         />
         <Stack.Screen
+          name="journal-info"
+          options={{
+            headerTitle: "Journal Entry",
+          }}
+        />
+        <Stack.Screen
           name="profile"
           options={{
             headerTitle: "Profile",

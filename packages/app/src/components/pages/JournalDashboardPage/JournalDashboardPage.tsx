@@ -13,6 +13,7 @@ import { format, isSameDay } from "date-fns"
 type JournalEntry = {
   id: string
   createdAt: Date
+  preview: string
 }
 
 export const JournalDashboardPage: React.FC = () => {
@@ -47,7 +48,11 @@ export const JournalDashboardPage: React.FC = () => {
   const renderItem: ListRenderItem<JournalEntry> = useCallback(
     ({ item }) => (
       <YStack marginHorizontal="$4" marginVertical="$2">
-        <JournalEntryCard id={item.id} createdAt={item.createdAt} />
+        <JournalEntryCard
+          id={item.id}
+          createdAt={item.createdAt}
+          preview={item.preview}
+        />
       </YStack>
     ),
     [],
