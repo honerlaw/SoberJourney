@@ -1,0 +1,15 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main chat bubble - dark forest green -->
+  <path d="M170 90C170 55.442 141.558 27 107 27C72.442 27 44 55.442 44 90C44 124.558 72.442 153 107 153C115.5 153 123.6 151.3 131 148.1L162 165L154.5 136C164.8 123.5 170 107 170 90Z" fill="#1D5E3E"/>
+  
+  <!-- Chat bubble spine/depth (left edge) -->
+  <path d="M44 90C44 55.442 72.442 27 107 27C76 27 52 51 52 82C52 113 72 137 99 145C91 150 82 153 72 153C55.5 143 44 118 44 90Z" fill="#174D33"/>
+  
+  <!-- Golden circle accent (bottom left) - overlapping like book.svg -->
+  <circle cx="60" cy="140" r="32" fill="#F5C242"/>
+  
+  <!-- Typing dots -->
+  <circle cx="85" cy="88" r="8" fill="#FAF8F5" opacity="0.9"/>
+  <circle cx="107" cy="88" r="8" fill="#FAF8F5" opacity="0.9"/>
+  <circle cx="129" cy="88" r="8" fill="#FAF8F5" opacity="0.9"/>
+</svg>

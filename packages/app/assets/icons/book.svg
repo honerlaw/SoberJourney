@@ -1,0 +1,22 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Book cover (main shape) - dark forest green -->
+  <path d="M40 35C40 28.3726 45.3726 23 52 23H148C154.627 23 160 28.3726 160 35V165C160 171.627 154.627 177 148 177H52C45.3726 177 40 171.627 40 165V35Z" fill="#1D5E3E"/>
+  
+  <!-- Book spine highlight -->
+  <path d="M40 35C40 28.3726 45.3726 23 52 23H60V177H52C45.3726 177 40 171.627 40 165V35Z" fill="#174D33"/>
+  
+  <!-- Golden bookmark ribbon -->
+  <path d="M75 23V95L90 80L105 95V23" fill="#F5C242"/>
+  
+  <!-- Page edges (right side) - subtle cream -->
+  <rect x="155" y="35" width="8" height="130" rx="2" fill="#FAF8F5"/>
+  
+  <!-- Golden circle accent (bottom left) -->
+  <circle cx="55" cy="155" r="28" fill="#F5C242"/>
+  
+  <!-- Decorative lines on cover representing pages/text -->
+  <rect x="80" y="120" width="55" height="4" rx="2" fill="#FAF8F5" opacity="0.3"/>
+  <rect x="80" y="132" width="40" height="4" rx="2" fill="#FAF8F5" opacity="0.3"/>
+  <rect x="80" y="144" width="50" height="4" rx="2" fill="#FAF8F5" opacity="0.3"/>
+</svg>
+

@@ -26,7 +26,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       padding="$3"
       paddingBottom={bottomPadding}
       borderTopWidth={1}
-      borderBottomWidth={1}
+      borderBottomWidth={0}
       borderColor="$color3"
       backgroundColor="$background"
       animation="quick"
@@ -34,7 +34,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <XStack gap="$2" alignItems="center">
         <Input
           flex={1}
-          placeholder="Type a message..."
+          placeholder="Chat with your AI sponsor"
           value={text}
           onChangeText={setText}
           onSubmitEditing={handleSend}
