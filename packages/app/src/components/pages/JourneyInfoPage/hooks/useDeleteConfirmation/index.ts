@@ -1,0 +1,1 @@
+export { useDeleteConfirmation } from "./useDeleteConfirmation"

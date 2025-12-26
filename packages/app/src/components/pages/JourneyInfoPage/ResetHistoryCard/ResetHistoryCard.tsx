@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { Card, Text, XStack, YStack, Separator } from "tamagui"
 import { differenceInDays, format } from "date-fns"
-
-type JourneyEntry = {
-  id: string
-  createdAt: Date
-}
+import type { JourneyEntry } from "../types"
 
 type ResetHistoryCardProps = {
   resets: JourneyEntry[]

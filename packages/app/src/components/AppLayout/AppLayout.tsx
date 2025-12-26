@@ -14,6 +14,7 @@ import Head from "expo-router/head"
 import { CustomToast } from "../CustomToast"
 import { LoadingProvider } from "@/src/providers/LoadingProvider"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
+import * as Notifications from "expo-notifications"
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync()
@@ -32,6 +33,15 @@ Sentry.init({
     navigationIntegration,
   ],
   enableNativeFramesTracking: !isRunningInExpoGo(), // Tracks slow and frozen frames in the application
+})
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
 })
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {

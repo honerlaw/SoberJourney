@@ -4,12 +4,15 @@ import { useQuery } from "@tanstack/react-query"
 import { useFocusEffect } from "expo-router"
 import { useEffect } from "react"
 
-export function useJourneyInfo(journeyId: string) {
+export function useCheckIns(journeyId: string) {
   const { report } = useReportError()
   const trpc = useTRPC()
 
   const { data, error, isLoading, isRefetching, refetch } = useQuery(
-    trpc.journey.get.queryOptions({ journeyId }, { enabled: !!journeyId }),
+    trpc.checkin.getEntries.queryOptions(
+      { journeyId },
+      { enabled: !!journeyId },
+    ),
   )
 
   useFocusEffect(() => {
@@ -25,7 +28,7 @@ export function useJourneyInfo(journeyId: string) {
   }, [error, report])
 
   return {
-    journey: data?.journey ?? null,
+    entries: data?.entries ?? [],
     error,
     isLoading: isLoading && !isRefetching,
     refetch,
