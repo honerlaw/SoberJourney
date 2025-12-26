@@ -2,12 +2,11 @@ import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider"
 import { useQuery } from "@tanstack/react-query"
 import { useEffect } from "react"
+import type { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs"
 
-export type MoodOption = {
-  id: string
-  label: string
-  icon: string
-}
+export type MoodOption = NonNullable<
+  AppRouter["checkin"]["getMoods"]["_def"]["$types"]["output"]["moods"][number]
+>
 
 export function useMoods() {
   const { report } = useReportError()

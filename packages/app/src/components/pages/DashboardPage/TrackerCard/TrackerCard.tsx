@@ -87,14 +87,18 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
             </Text>
           </XStack>
           <XStack gap="$2" alignItems="center">
-            {/* TODO: Temporary check-in button */}
             <Button
               size="$3"
               icon={({ size }) => (
                 <ClipboardCheck size={size} pointerEvents="none" />
               )}
               circular
-              onPress={() => router.push("/checkin-new")}
+              onPress={() =>
+                router.push({
+                  pathname: "/checkin-new",
+                  params: { journeyId: model.id },
+                })
+              }
             />
             <Button
               size="$3"

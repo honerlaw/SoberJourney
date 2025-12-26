@@ -12,8 +12,8 @@ const ICON_MAP: Record<string, typeof Frown> = {
 }
 
 type MoodPulseProps = {
-  selectedMood: string | null
-  onMoodChange: (mood: string) => void
+  selectedMood: MoodOption | null
+  onMoodChange: (mood: MoodOption) => void
 }
 
 export const MoodPulse: React.FC<MoodPulseProps> = ({
@@ -22,7 +22,8 @@ export const MoodPulse: React.FC<MoodPulseProps> = ({
 }) => {
   const { moods, isLoading } = useMoods()
 
-  const selectedMoodLabel = moods.find((m) => m.id === selectedMood)?.label
+  const selectedMoodLabel =
+    moods.find((m) => m.id === selectedMood?.id)?.label ?? null
 
   return (
     <Card bordered padding="$4">
@@ -36,13 +37,13 @@ export const MoodPulse: React.FC<MoodPulseProps> = ({
           <XStack justifyContent="space-between" gap="$2">
             {moods.map((mood) => {
               const Icon = ICON_MAP[mood.icon] ?? Meh
-              const isSelected = selectedMood === mood.id
+              const isSelected = selectedMood?.id === mood.id
               return (
                 <Button
                   key={mood.id}
                   circular
                   size="$5"
-                  onPress={() => onMoodChange(mood.id)}
+                  onPress={() => onMoodChange(mood)}
                   themeInverse={isSelected}
                   icon={<Icon size={"$2"} pointerEvents="none" />}
                   aria-label={mood.label}
