@@ -1,0 +1,85 @@
+enum CheckInFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+/**
+ * Represents a check-in schedule for one or more journeys.
+ * Defines how often the user should be prompted to check in on their progress.
+ */
+model JourneyCheckIn {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // how often this check-in should be triggered
+  frequency CheckInFrequency
+
+  // which journeys this check-in is associated with
+  journeys JourneyCheckInJourney[]
+
+  // history of notifications sent for this check-in
+  notifications JourneyCheckInNotification[]
+
+  // user entries for this check-in
+  entries JourneyCheckInEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Junction table for many-to-many relationship between JourneyCheckIn and UserJourney.
+ * Allows a check-in to be associated with multiple journeys.
+ */
+model JourneyCheckInJourney {
+  id String @id @default(uuid())
+
+  checkInId String
+  checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  journeyId String
+  journey   UserJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([checkInId, journeyId])
+}
+
+/**
+ * Represents a notification that was sent for a check-in.
+ * Creates a history of when check-in notifications were triggered.
+ */
+model JourneyCheckInNotification {
+  id String @id @default(uuid())
+
+  checkInId String
+  checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  // when this notification was sent
+  sentAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Represents a user's response/entry for a check-in.
+ * Created when the user responds to a check-in notification.
+ */
+model JourneyCheckInEntry {
+  id String @id @default(uuid())
+
+  checkInId String
+  checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  // the user's check-in content/response
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

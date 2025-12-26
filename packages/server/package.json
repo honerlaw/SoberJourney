@@ -11,7 +11,7 @@
     "build:web": "rm -rf static && cd ../app && NODE_ENV=production npm run web:export && cd ../server && mv ../app/dist static",
     "build:prod": "npm run build:pre && npm run build",
     "start": "prisma migrate deploy && node dist/index.mjs",
-    "format": "prettier --write \"src/**/*.{js,ts,mjs,mts}\"",
+    "format": "prettier --write \"src/**/*.{js,ts,mjs,mts}\" && npx prisma format",
     "lint": "eslint \"src/**/*.{js,ts,mjs,mts}\" --fix",
     "lint:format": "npm run lint && npm run format",
     "clean": "rm -rf dist node_modules tsconfig.tsbuildinfo package-lock.json src/generated lcov.info static",

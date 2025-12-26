@@ -1,0 +1,45 @@
+/**
+ * Represents a new "journey" of sobriety
+ * basically whether its alcohol, nicotine, drugs, etc...
+ * Can be custom / renamed / whatever
+ */
+model UserJourney {
+  id String @id @default(uuid())
+
+  title String
+
+  // position for ordering journeys on the dashboard (lower = higher priority)
+  position Int @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entries UserJourneyEntry[]
+
+  // check-ins associated with this journey
+  checkIns JourneyCheckInJourney[]
+
+  // do we want goals along the way?
+  // e.g. 30 60 90 days of sobriety?`
+  // @todo for now this will be called milestones and be hardcoded
+  // in the future maybe we can allow custom "date" milestones
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Represents a new entry, e.g. if you acted out, this would reset
+ * the clock by creating a new entry. When a user journey is created,
+ * we also create a new entry for it. This way we have a historical record
+ * of entries as well.
+ */
+model UserJourneyEntry {
+  id String @id @default(uuid())
+
+  journeyId String
+  journey   UserJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
