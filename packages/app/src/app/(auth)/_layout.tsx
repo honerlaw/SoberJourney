@@ -103,6 +103,14 @@ export default function AuthLayout() {
             headerTitle: "Journal Entry",
           }}
         />
+
+        {/* Check-in Routes */}
+        <Stack.Screen
+          name="checkin-new"
+          options={{
+            headerTitle: "Daily Check-in",
+          }}
+        />
         <Stack.Screen
           name="profile"
           options={{
