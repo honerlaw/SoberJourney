@@ -16,8 +16,8 @@ model UserJourney {
 
   entries UserJourneyEntry[]
 
-  // check-ins associated with this journey
-  checkIns JourneyCheckInJourney[]
+  // check-in associated with this journey (one-to-one)
+  checkIn JourneyCheckIn?
 
   // do we want goals along the way?
   // e.g. 30 60 90 days of sobriety?`

@@ -1,15 +1,4 @@
-import {
-  YStack,
-  XStack,
-  H5,
-  Text,
-  Paragraph,
-  Button,
-  Slider,
-  Card,
-} from "tamagui"
-import { MessageCircle } from "@tamagui/lucide-icons"
-import { router } from "expo-router"
+import { YStack, XStack, Text, Slider, H6, Card } from "tamagui"
 
 type UrgeMeterProps = {
   value: number
@@ -20,16 +9,10 @@ export const UrgeMeter: React.FC<UrgeMeterProps> = ({
   value,
   onValueChange,
 }) => {
-  const showTalkToSponsor = value >= 7
-
-  const onTalkToSponsor = () => {
-    router.push("/(auth)/(tabs)/sponsor")
-  }
-
   return (
     <Card bordered padding="$4">
       <YStack gap="$4">
-        <H5 textAlign="center">Urge Strength</H5>
+        <H6 size={"$4"}>How strong is your urge right now?</H6>
         <XStack justifyContent="space-between">
           <Text fontSize="$2" color="$color11">
             Non-existent
@@ -44,25 +27,13 @@ export const UrgeMeter: React.FC<UrgeMeterProps> = ({
           min={1}
           max={10}
           step={1}
+          size="$4"
         >
-          <Slider.Track>
-            <Slider.TrackActive />
+          <Slider.Track backgroundColor={"$color4"}>
+            <Slider.TrackActive backgroundColor={"$color8"} />
           </Slider.Track>
-          <Slider.Thumb index={0} circular />
+          <Slider.Thumb index={0} circular size={"$2"} />
         </Slider>
-        <Paragraph textAlign="center" size="$6" fontWeight="600">
-          {value}
-        </Paragraph>
-
-        {showTalkToSponsor && (
-          <Button
-            size="$4"
-            icon={<MessageCircle size={18} />}
-            onPress={onTalkToSponsor}
-          >
-            Talk to AI Sponsor Now
-          </Button>
-        )}
       </YStack>
     </Card>
   )

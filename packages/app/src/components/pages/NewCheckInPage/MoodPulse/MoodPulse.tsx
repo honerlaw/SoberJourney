@@ -1,19 +1,15 @@
-import { YStack, XStack, H5, Paragraph, Button, Card } from "tamagui"
+import { YStack, XStack, Paragraph, Button, Card, H6, Spinner } from "tamagui"
 import { Frown, Meh, Smile, SmilePlus, Moon } from "@tamagui/lucide-icons"
+import { useMoods, type MoodOption } from "./hooks"
 
-type MoodOption = {
-  id: string
-  label: string
-  icon: typeof Frown
+// Map icon names to actual icon components
+const ICON_MAP: Record<string, typeof Frown> = {
+  Frown,
+  Moon,
+  Meh,
+  Smile,
+  SmilePlus,
 }
-
-const MOOD_OPTIONS: MoodOption[] = [
-  { id: "sad", label: "Sad", icon: Frown },
-  { id: "tired", label: "Tired", icon: Moon },
-  { id: "neutral", label: "Neutral", icon: Meh },
-  { id: "good", label: "Good", icon: Smile },
-  { id: "great", label: "Great", icon: SmilePlus },
-]
 
 type MoodPulseProps = {
   selectedMood: string | null
@@ -24,30 +20,40 @@ export const MoodPulse: React.FC<MoodPulseProps> = ({
   selectedMood,
   onMoodChange,
 }) => {
+  const { moods, isLoading } = useMoods()
+
+  const selectedMoodLabel = moods.find((m) => m.id === selectedMood)?.label
+
   return (
     <Card bordered padding="$4">
       <YStack gap="$4">
-        <H5 textAlign="center">How are you feeling?</H5>
-        <XStack justifyContent="space-between" gap="$2">
-          {MOOD_OPTIONS.map((mood) => {
-            const Icon = mood.icon
-            const isSelected = selectedMood === mood.id
-            return (
-              <Button
-                key={mood.id}
-                circular
-                size="$5"
-                onPress={() => onMoodChange(mood.id)}
-                themeInverse={isSelected}
-                icon={<Icon size={24} />}
-                aria-label={mood.label}
-              />
-            )
-          })}
-        </XStack>
-        {selectedMood && (
-          <Paragraph textAlign="center" color="$color11" size="$3">
-            Feeling {MOOD_OPTIONS.find((m) => m.id === selectedMood)?.label}
+        <H6 size={"$4"}>How are you feeling?</H6>
+        {isLoading ? (
+          <XStack justifyContent="center" padding="$4">
+            <Spinner />
+          </XStack>
+        ) : (
+          <XStack justifyContent="space-between" gap="$2">
+            {moods.map((mood) => {
+              const Icon = ICON_MAP[mood.icon] ?? Meh
+              const isSelected = selectedMood === mood.id
+              return (
+                <Button
+                  key={mood.id}
+                  circular
+                  size="$5"
+                  onPress={() => onMoodChange(mood.id)}
+                  themeInverse={isSelected}
+                  icon={<Icon size={"$2"} pointerEvents="none" />}
+                  aria-label={mood.label}
+                />
+              )
+            })}
+          </XStack>
+        )}
+        {selectedMood && selectedMoodLabel && (
+          <Paragraph fontSize={"$3"} color="$color11">
+            Feeling {selectedMoodLabel}
           </Paragraph>
         )}
       </YStack>

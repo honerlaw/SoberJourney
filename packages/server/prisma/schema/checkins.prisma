@@ -5,8 +5,16 @@ enum CheckInFrequency {
   MONTHLY
 }
 
+enum CheckInMood {
+  SAD
+  TIRED
+  NEUTRAL
+  GOOD
+  GREAT
+}
+
 /**
- * Represents a check-in schedule for one or more journeys.
+ * Represents a check-in schedule for a journey.
  * Defines how often the user should be prompted to check in on their progress.
  */
 model JourneyCheckIn {
@@ -15,16 +23,20 @@ model JourneyCheckIn {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // how often this check-in should be triggered
-  frequency CheckInFrequency
+  // the journey this check-in is associated with (one-to-one)
+  journeyId String      @unique
+  journey   UserJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
 
-  // which journeys this check-in is associated with
-  journeys JourneyCheckInJourney[]
+  // how often this check-in should be triggered
+  frequency CheckInFrequency?
 
   // history of notifications sent for this check-in
   notifications JourneyCheckInNotification[]
 
-  // user entries for this check-in
+  // journal entries associated with this check-in
+  journalEntries JournalEntry[]
+
+  // individual check-in entries (daily mood/urge data)
   entries JourneyCheckInEntry[]
 
   createdAt DateTime @default(now())
@@ -32,22 +44,23 @@ model JourneyCheckIn {
 }
 
 /**
- * Junction table for many-to-many relationship between JourneyCheckIn and UserJourney.
- * Allows a check-in to be associated with multiple journeys.
+ * Represents a single check-in entry containing the user's daily mood and urge data.
+ * Each entry captures how the user is feeling at a specific point in time.
  */
-model JourneyCheckInJourney {
+model JourneyCheckInEntry {
   id String @id @default(uuid())
 
   checkInId String
   checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
 
-  journeyId String
-  journey   UserJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  // mood rating
+  mood CheckInMood
+
+  // urge/craving intensity (e.g., 1-5 scale)
+  urge Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([checkInId, journeyId])
 }
 
 /**
@@ -62,23 +75,6 @@ model JourneyCheckInNotification {
 
   // when this notification was sent
   sentAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-/**
- * Represents a user's response/entry for a check-in.
- * Created when the user responds to a check-in notification.
- */
-model JourneyCheckInEntry {
-  id String @id @default(uuid())
-
-  checkInId String
-  checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
-
-  // the user's check-in content/response
-  content String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,9 +1,8 @@
 import { useState } from "react"
-import { YStack, Button, ScrollView } from "tamagui"
+import { YStack, Button } from "tamagui"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
-import { CheckInHeader } from "./CheckInHeader"
 import { MoodPulse } from "./MoodPulse"
 import { UrgeMeter } from "./UrgeMeter"
 import { MicroJournal } from "./MicroJournal"
@@ -21,21 +20,25 @@ export const NewCheckInPage: React.FC = () => {
   }
 
   return (
-    <KeyboardAvoiding>
-      <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-        <YStack flex={1} padding="$4" gap="$6" paddingBottom={bottom + 16}>
-          <CheckInHeader />
+    <YStack flex={1} width="100%">
+      <KeyboardAvoiding>
+        <YStack flex={1} padding="$4" gap="$4">
           <MoodPulse
             selectedMood={selectedMood}
             onMoodChange={setSelectedMood}
           />
           <UrgeMeter value={urgeStrength} onValueChange={setUrgeStrength} />
           <MicroJournal value={journalEntry} onValueChange={setJournalEntry} />
-          <Button size="$5" themeInverse onPress={onCompleteCheckIn}>
-            Complete Check-in
-          </Button>
         </YStack>
-      </ScrollView>
-    </KeyboardAvoiding>
+      </KeyboardAvoiding>
+      <Button
+        themeInverse
+        onPress={onCompleteCheckIn}
+        margin={"$4"}
+        marginBottom={bottom}
+      >
+        Complete Check-in
+      </Button>
+    </YStack>
   )
 }

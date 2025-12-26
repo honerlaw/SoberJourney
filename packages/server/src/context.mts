@@ -7,6 +7,7 @@ import * as userKeyDB from "./database/user/key/index.mjs";
 import * as journeyDB from "./database/journey/index.mjs";
 import * as journalDB from "./database/journal/index.mjs";
 import * as conversationDB from "./database/conversation/index.mjs";
+import * as checkinDB from "./database/checkin/index.mjs";
 
 import * as encryptionService from "./service/encryption/index.mjs";
 
@@ -55,6 +56,7 @@ const options = {
         journey: wrap(client, wrap(childLogger, journeyDB)),
         journal: wrap(client, wrap(childLogger, journalDB)),
         conversation: wrap(client, wrap(childLogger, conversationDB)),
+        checkin: wrap(client, wrap(childLogger, checkinDB)),
       },
       additional: additional || {},
       service: {

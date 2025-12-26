@@ -16,7 +16,8 @@
     "lint:format": "npm run lint && npm run format",
     "clean": "rm -rf dist node_modules tsconfig.tsbuildinfo package-lock.json src/generated lcov.info static",
     "generate:prisma": "npx prisma generate",
-    "codegen": "npm run generate:prisma"
+    "codegen": "npm run generate:prisma",
+    "knip": "knip"
   },
   "author": "",
   "license": "ISC",
@@ -26,11 +27,12 @@
     "@types/cryptr": "^4.0.3",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.10.4",
     "@types/pg": "^8.15.6",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
     "eslint": "^9.39.1",
+    "knip": "^5.77.1",
     "prettier": "^3.6.2",
     "prisma": "^7.1.0",
     "tsx": "^4.20.6",
