@@ -11,7 +11,7 @@ type ConfigContextType = {
   baseUrl: string
 }
 
-export const ConfigContext = React.createContext<ConfigContextType | null>(null)
+const ConfigContext = React.createContext<ConfigContextType | null>(null)
 
 function useBaseUrl() {
   const { report } = useReportError()

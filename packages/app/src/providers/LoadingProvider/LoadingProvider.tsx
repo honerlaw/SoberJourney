@@ -9,7 +9,7 @@ type LoadingContextType = {
   hideLoading: () => void
 }
 
-export const LoadingContext = React.createContext<LoadingContextType | null>(
+const LoadingContext = React.createContext<LoadingContextType | null>(
   null,
 )
 
