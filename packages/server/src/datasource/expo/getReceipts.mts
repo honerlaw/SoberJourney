@@ -4,13 +4,13 @@ import type { Logger } from "../../util/logger/logger.mjs";
 export async function getReceipts(
   logger: Logger,
   client: Expo,
-  ticketIds: ExpoPushReceiptId[],
+  receiptIds: ExpoPushReceiptId[],
 ): Promise<Record<ExpoPushReceiptId, ExpoPushReceipt>> {
-  if (ticketIds.length === 0) {
+  if (receiptIds.length === 0) {
     return {};
   }
 
-  const chunks = client.chunkPushNotificationReceiptIds(ticketIds);
+  const chunks = client.chunkPushNotificationReceiptIds(receiptIds);
   const receipts: Record<ExpoPushReceiptId, ExpoPushReceipt> = {};
 
   try {

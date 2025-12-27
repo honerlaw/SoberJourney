@@ -1,12 +1,46 @@
 import type { Context } from "../context.mjs";
+import { PushNotificationStatus } from "../util/database.mjs";
+import { handleError } from "./handlerError.mjs";
 
 export async function receipts(ctx: Context): Promise<void> {
-  // essentially, we now need to get all of the notifications that
-  // are in the "PENDING" status with a receiptId
-  // and then hit up expo to get the details back of those receipts
-  // then handle errors, if no errosr we simply mark the notification as COMPLETE
-  // we also should revoke a given token if the error indicates it is invalid
-  // @todo re-use the logic from handleError if we can
+  const notifications =
+    await ctx.database.notification.listPendingWithReceipt();
+  const receiptIds = notifications
+    .map((n) => n.receiptId)
+    .filter((id) => id !== null);
+  const receipts = await ctx.datasource.expo.getReceipts(receiptIds);
+  const entries = Object.entries(receipts);
 
-  console.log(ctx);
+  for (const [receiptId, receipt] of entries) {
+    const notification = notifications.find((n) => n.receiptId === receiptId);
+    if (!notification) {
+      ctx.logger.error(
+        {
+          attributes: { receiptId },
+          tags: ["cron", "receipts"],
+        },
+        "No notification found for receipt",
+      );
+      continue;
+    }
+
+    // mark complete, if the status is ok
+    if (receipt.status === "ok") {
+      await ctx.database.notification.upsert(
+        notification.pushTokenId,
+        notification.scheduleId,
+        null,
+        PushNotificationStatus.COMPLETE,
+        null,
+      );
+      continue;
+    }
+
+    await handleError(
+      ctx,
+      notification.scheduleId,
+      notification.pushTokenId,
+      receipt,
+    );
+  }
 }

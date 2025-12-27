@@ -4,9 +4,9 @@ import { type UserPushNotificationModel } from "../../generated/prisma/models.js
 import { PushNotificationStatus } from "../../generated/prisma/enums.js";
 
 /**
- * Create a notification record for a check-in
+ * Upsert a notification record for a check-in
  */
-export async function create(
+export async function upsert(
   logger: Logger,
   client: DBClient,
   pushTokenId: string,
@@ -16,10 +16,21 @@ export async function create(
   errorMessage: string | null,
 ): Promise<UserPushNotificationModel | null> {
   try {
-    return await client.userPushNotification.create({
-      data: {
+    return await client.userPushNotification.upsert({
+      where: {
+        pushTokenId_scheduleId: {
+          pushTokenId,
+          scheduleId,
+        },
+      },
+      create: {
         scheduleId,
         pushTokenId,
+        receiptId,
+        status,
+        errorMessage,
+      },
+      update: {
         receiptId,
         status,
         errorMessage,
@@ -29,9 +40,9 @@ export async function create(
     logger.error(
       {
         error: err,
-        tags: ["database", "notification", "create"],
+        tags: ["database", "notification", "upsert"],
       },
-      "Failed to create check-in notification",
+      "Failed to upsert check-in notification",
     );
     return null;
   }

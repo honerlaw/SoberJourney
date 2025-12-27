@@ -76,7 +76,12 @@ export async function notify(ctx: Context): Promise<void> {
     }
 
     if (notification.ticket.status === "error") {
-      await handleError(ctx, originalMessage.schedule, pushToken, notification);
+      await handleError(
+        ctx,
+        originalMessage.schedule.id,
+        pushToken.id,
+        notification.ticket,
+      );
       // @todo handle the error case here
       // this might be also updating the notification or creating it
       // with more details or revoking / etc
@@ -84,7 +89,7 @@ export async function notify(ctx: Context): Promise<void> {
     }
 
     // only store success to read later, errors are handled here
-    await ctx.database.notification.create(
+    await ctx.database.notification.upsert(
       originalMessage.schedule.id,
       pushToken.id,
       notification.ticket.id,
