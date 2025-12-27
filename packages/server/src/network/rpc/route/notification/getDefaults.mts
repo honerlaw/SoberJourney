@@ -24,7 +24,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
   minuteOfDay: 480, // 8:00 AM (8 * 60 = 480 minutes from midnight)
 };
 
-export const getNotificationDefaults = procedure.query(() => {
+export const getDefaults = procedure.query(() => {
   return {
     defaults: DEFAULT_NOTIFICATION_SETTINGS,
     frequencies,

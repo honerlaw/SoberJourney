@@ -5,7 +5,7 @@ export function useNotificationDefaults() {
   const trpc = useTRPC()
 
   const { data, isLoading, error } = useQuery(
-    trpc.checkin.getNotificationDefaults.queryOptions(),
+    trpc.notification.getDefaults.queryOptions(),
   )
 
   return {

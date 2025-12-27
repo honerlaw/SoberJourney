@@ -7,7 +7,7 @@ import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import { UserPushNotificationScheduleFrequency } from "../../../../generated/prisma/enums.js";
 
-const notificationSettingsSchema = z.object({
+const settingsSchema = z.object({
   enabled: z.boolean(),
   frequency: z.enum([
     UserPushNotificationScheduleFrequency.DAILY,
@@ -18,13 +18,13 @@ const notificationSettingsSchema = z.object({
   minuteOfDay: z.number().min(0).max(1439), // 0-1439 (24 hours * 60 minutes - 1)
 });
 
-const updateNotificationSettingsInput = z.object({
+const updateForJourneyInput = z.object({
   journeyId: z.string().min(1, "Journey ID is required."),
-  notificationSettings: notificationSettingsSchema,
+  settings: settingsSchema,
 });
 
-export const updateNotificationSettings = procedure
-  .input(updateNotificationSettingsInput)
+export const updateForJourney = procedure
+  .input(updateForJourneyInput)
   .mutation(async ({ ctx, input }) => {
     if (!ctx.auth.user) {
       throw new UnauthorizedError();
@@ -40,10 +40,10 @@ export const updateNotificationSettings = procedure
       throw new NotFoundError("Journey not found.");
     }
 
-    const { notificationSettings } = input;
+    const { settings } = input;
 
     // If disabling notifications
-    if (!notificationSettings.enabled) {
+    if (!settings.enabled) {
       // Get the check-in for this journey
       const checkIn = await ctx.database.checkin.getByJourneyId(
         input.journeyId,
@@ -59,8 +59,8 @@ export const updateNotificationSettings = procedure
         success: true,
         notificationSettings: {
           enabled: false,
-          frequency: notificationSettings.frequency,
-          minuteOfDay: notificationSettings.minuteOfDay,
+          frequency: settings.frequency,
+          minuteOfDay: settings.minuteOfDay,
         },
       };
     }
@@ -79,8 +79,8 @@ export const updateNotificationSettings = procedure
     const schedule = await ctx.database.notification.schedule.upsert(
       ctx.auth.user.id,
       checkIn.id,
-      notificationSettings.frequency,
-      notificationSettings.minuteOfDay,
+      settings.frequency,
+      settings.minuteOfDay,
     );
 
     if (!schedule) {
@@ -89,7 +89,7 @@ export const updateNotificationSettings = procedure
 
     return {
       success: true,
-      notificationSettings: {
+      settings: {
         enabled: true,
         frequency: schedule.frequency,
         minuteOfDay: schedule.minuteOfDay ?? 480,

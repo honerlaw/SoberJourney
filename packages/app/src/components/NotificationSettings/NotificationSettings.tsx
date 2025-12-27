@@ -6,7 +6,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker"
 import { useNotificationDefaults } from "./hooks/useNotificationDefaults"
-import { useNotificationSettings } from "./hooks/useNotificationSettings"
+import { useNotificationSettingsForJourney } from "./hooks/useNotificationSettingsForJourney"
 import { useExpoNotifications } from "../../hooks/useExpoNotifications"
 import { minuteOfDayToDate, dateToMinuteOfDay, formatTime } from "./utils"
 import type { NotificationSettingsValue, NotificationFrequency } from "./types"
@@ -35,7 +35,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
     isLoading: isLoadingSettings,
     updateNotificationSettings,
     isUpdating,
-  } = useNotificationSettings(journeyId)
+  } = useNotificationSettingsForJourney(journeyId)
 
   // Internal state - initialized once defaults load
   const [value, setValue] = useState<NotificationSettingsValue | null>(null)

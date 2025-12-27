@@ -4,8 +4,7 @@ import type { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/in
 type RouterOutput = inferRouterOutputs<AppRouter>
 
 // Infer types from tRPC router outputs
-type NotificationDefaultsOutput =
-  RouterOutput["checkin"]["getNotificationDefaults"]
+type NotificationDefaultsOutput = RouterOutput["notification"]["getDefaults"]
 
 export type NotificationFrequency =
   NotificationDefaultsOutput["frequencies"][number]["value"]

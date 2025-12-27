@@ -5,12 +5,12 @@ import {
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
 
-const getNotificationSettingsInput = z.object({
+const getSettingsForJourneyInput = z.object({
   journeyId: z.string().min(1, "Journey ID is required."),
 });
 
-export const getNotificationSettings = procedure
-  .input(getNotificationSettingsInput)
+export const getSettingsForJourney = procedure
+  .input(getSettingsForJourneyInput)
   .query(async ({ ctx, input }) => {
     if (!ctx.auth.user) {
       throw new UnauthorizedError();

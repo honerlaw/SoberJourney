@@ -3,12 +3,14 @@ import { useTRPC } from "@/src/providers/TRPCProvider"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { NotificationSettingsValue } from "../../types"
 
-export function useNotificationSettings(journeyId: string | undefined) {
+export function useNotificationSettingsForJourney(
+  journeyId: string | undefined,
+) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const { handleError } = useToastError()
 
-  const queryOptions = trpc.checkin.getNotificationSettings.queryOptions(
+  const queryOptions = trpc.notification.getSettingsForJourney.queryOptions(
     { journeyId: journeyId ?? "" },
     { enabled: !!journeyId },
   )
@@ -16,7 +18,7 @@ export function useNotificationSettings(journeyId: string | undefined) {
   const { data, isLoading, error } = useQuery(queryOptions)
 
   const { mutateAsync, isPending: isUpdating } = useMutation(
-    trpc.checkin.updateNotificationSettings.mutationOptions({
+    trpc.notification.updateForJourney.mutationOptions({
       onSuccess: () => {
         // Invalidate the query to refetch the latest data
         queryClient.invalidateQueries({ queryKey: queryOptions.queryKey })
@@ -32,7 +34,7 @@ export function useNotificationSettings(journeyId: string | undefined) {
     try {
       await mutateAsync({
         journeyId,
-        notificationSettings: {
+        settings: {
           enabled: settings.enabled,
           frequency: settings.frequency,
           minuteOfDay: settings.minuteOfDay,
