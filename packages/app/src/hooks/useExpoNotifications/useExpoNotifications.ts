@@ -26,19 +26,28 @@ async function getNotificationPermissionStatus() {
 }
 
 /**
+ * Check if the device is eligible for push notifications.
+ * Must be a physical device (not simulator/emulator).
+ */
+function getIsEligible(): boolean {
+  return Device.isDevice
+}
+
+/**
  * We want to conditionally ask for permissions / enable this in the create / edit
  * screen of a journey.
  */
 export function useExpoNotifications(enabled: boolean = false) {
   const { report } = useReportError()
   const trpc = useTRPC()
+  const isEligible = getIsEligible()
 
   const { mutateAsync: addPushToken } = useMutation(
     trpc.user.addPushToken.mutationOptions(),
   )
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !isEligible) {
       return
     }
 
@@ -50,11 +59,6 @@ export function useExpoNotifications(enabled: boolean = false) {
           vibrationPattern: [0, 250, 250, 250],
           lightColor: "#FF231F7C",
         })
-      }
-
-      if (!Device.isDevice) {
-        report(new Error("Must use physical device for push notifications"))
-        return
       }
 
       const status = await getNotificationPermissionStatus()
@@ -87,5 +91,7 @@ export function useExpoNotifications(enabled: boolean = false) {
     }
 
     init()
-  }, [report, addPushToken, enabled])
+  }, [report, addPushToken, enabled, isEligible])
+
+  return { isEligible }
 }

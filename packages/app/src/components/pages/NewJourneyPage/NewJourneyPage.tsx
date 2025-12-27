@@ -93,9 +93,6 @@ export const NewJourneyPage: React.FC = () => {
 
             {/* Notification Settings */}
             <YStack>
-              <Label fontWeight={"400"} marginBottom="$2">
-                Check-in Notifications
-              </Label>
               <NotificationSettings
                 onChange={(settings) => {
                   notificationSettingsRef.current = settings

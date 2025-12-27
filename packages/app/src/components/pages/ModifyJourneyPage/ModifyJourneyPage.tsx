@@ -57,9 +57,6 @@ export const ModifyJourneyPage: React.FC = () => {
             {/* Notification Settings - auto-saves when changed */}
             {journeyId && (
               <YStack>
-                <Label fontWeight={"400"} marginBottom="$2">
-                  Check-in Notifications
-                </Label>
                 <NotificationSettings journeyId={journeyId} />
               </YStack>
             )}

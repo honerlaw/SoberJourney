@@ -67,7 +67,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   }, [journeyId])
 
   // Request notification permissions when enabled
-  useExpoNotifications(value?.enabled ?? false)
+  const { isEligible } = useExpoNotifications(value?.enabled ?? false)
 
   const [showTimePicker, setShowTimePicker] = useState(false)
 
@@ -123,123 +123,136 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
     )
   }
 
+  // Render nothing if device is not eligible for notifications
+  if (!isEligible) {
+    return null
+  }
+
   // Render nothing if defaults failed to load
   if (!defaults || !frequencies || !value) {
     return null
   }
 
   return (
-    <YStack gap="$3">
-      {/* Toggle for enabling notifications */}
-      <XStack
-        alignItems="center"
-        justifyContent="space-between"
-        backgroundColor="$color2"
-        borderWidth={1}
-        borderColor="$color5"
-        borderRadius="$4"
-        padding="$3"
-        opacity={isUpdating ? 0.7 : 1}
-      >
-        <XStack gap="$2" alignItems="center">
-          <Bell size={20} color="$color11" />
-          <YStack>
-            <Text fontSize="$4" fontWeight="500">
-              Check-in Reminders
-            </Text>
-            <Text fontSize="$2" color="$color11">
-              Get notified to track your progress
-            </Text>
-          </YStack>
-        </XStack>
-        <Switch
-          size="$3"
-          checked={value.enabled}
-          onCheckedChange={handleToggle}
-          backgroundColor="$color8"
-          disabled={isUpdating}
-        >
-          <Switch.Thumb animation="quick" />
-        </Switch>
-      </XStack>
-
-      {/* Frequency and Time settings (only shown when enabled) */}
-      {value.enabled && (
-        <YStack
-          gap="$3"
-          animation="quick"
-          enterStyle={{ opacity: 0, y: -10 }}
+    <>
+      <Label fontWeight={"400"} marginBottom="$2">
+        Check-in Notifications
+      </Label>
+      <YStack gap="$3">
+        {/* Toggle for enabling notifications */}
+        <XStack
+          alignItems="center"
+          justifyContent="space-between"
+          backgroundColor="$color2"
+          borderWidth={1}
+          borderColor="$color5"
+          borderRadius="$4"
+          padding="$3"
           opacity={isUpdating ? 0.7 : 1}
         >
-          {/* Frequency selector */}
-          <YStack gap="$2">
-            <Label fontWeight="400" fontSize="$3" color="$color11">
-              How often?
-            </Label>
-            <XStack gap="$2" flexWrap="wrap">
-              {frequencies.map(({ value: freq, label }) => {
-                const isSelected = value.frequency === freq
-                return (
-                  <Button
-                    key={freq}
-                    size="$3"
-                    flex={1}
-                    minWidth={70}
-                    themeInverse={isSelected}
-                    onPress={() => handleFrequencyChange(freq)}
-                    backgroundColor={isSelected ? undefined : "$color2"}
-                    borderWidth={1}
-                    borderColor={isSelected ? undefined : "$color5"}
-                    disabled={isUpdating}
-                  >
-                    <Text fontSize="$3" fontWeight={isSelected ? "600" : "400"}>
-                      {label}
-                    </Text>
-                  </Button>
-                )
-              })}
-            </XStack>
-          </YStack>
+          <XStack gap="$2" alignItems="center">
+            <Bell size={20} color="$color11" />
+            <YStack>
+              <Text fontSize="$4" fontWeight="500">
+                Check-in Reminders
+              </Text>
+              <Text fontSize="$2" color="$color11">
+                Get notified to track your progress
+              </Text>
+            </YStack>
+          </XStack>
+          <Switch
+            size="$3"
+            checked={value.enabled}
+            onCheckedChange={handleToggle}
+            backgroundColor="$color8"
+            disabled={isUpdating}
+          >
+            <Switch.Thumb animation="quick" />
+          </Switch>
+        </XStack>
 
-          {/* Time picker */}
-          <YStack gap="$2">
-            <Label fontWeight="400" fontSize="$3" color="$color11">
-              What time? <Text color="$color10">(optional)</Text>
-            </Label>
-            <Button
-              onPress={() => setShowTimePicker(!showTimePicker)}
-              flex={1}
-              justifyContent="flex-start"
-              paddingHorizontal="$3"
-              backgroundColor="$color2"
-              borderWidth={1}
-              borderColor="$color5"
-              disabled={isUpdating}
-            >
-              <XStack
-                flex={1}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <XStack gap="$2" alignItems="center">
-                  <Clock size={20} />
-                  <Text fontSize="$4">{formatTime(value.minuteOfDay)}</Text>
-                </XStack>
-                <ChevronDown size={20} />
+        {/* Frequency and Time settings (only shown when enabled) */}
+        {value.enabled && (
+          <YStack
+            gap="$3"
+            animation="quick"
+            enterStyle={{ opacity: 0, y: -10 }}
+            opacity={isUpdating ? 0.7 : 1}
+          >
+            {/* Frequency selector */}
+            <YStack gap="$2">
+              <Label fontWeight="400" fontSize="$3" color="$color11">
+                How often?
+              </Label>
+              <XStack gap="$2" flexWrap="wrap">
+                {frequencies.map(({ value: freq, label }) => {
+                  const isSelected = value.frequency === freq
+                  return (
+                    <Button
+                      key={freq}
+                      size="$3"
+                      flex={1}
+                      minWidth={70}
+                      themeInverse={isSelected}
+                      onPress={() => handleFrequencyChange(freq)}
+                      backgroundColor={isSelected ? undefined : "$color2"}
+                      borderWidth={1}
+                      borderColor={isSelected ? undefined : "$color5"}
+                      disabled={isUpdating}
+                    >
+                      <Text
+                        fontSize="$3"
+                        fontWeight={isSelected ? "600" : "400"}
+                      >
+                        {label}
+                      </Text>
+                    </Button>
+                  )
+                })}
               </XStack>
-            </Button>
-            {showTimePicker && (
-              <DateTimePicker
-                value={timeDate}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleTimeChange}
-                minuteInterval={15}
-              />
-            )}
+            </YStack>
+
+            {/* Time picker */}
+            <YStack gap="$2">
+              <Label fontWeight="400" fontSize="$3" color="$color11">
+                What time? <Text color="$color10">(optional)</Text>
+              </Label>
+              <Button
+                onPress={() => setShowTimePicker(!showTimePicker)}
+                flex={1}
+                justifyContent="flex-start"
+                paddingHorizontal="$3"
+                backgroundColor="$color2"
+                borderWidth={1}
+                borderColor="$color5"
+                disabled={isUpdating}
+              >
+                <XStack
+                  flex={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <XStack gap="$2" alignItems="center">
+                    <Clock size={20} />
+                    <Text fontSize="$4">{formatTime(value.minuteOfDay)}</Text>
+                  </XStack>
+                  <ChevronDown size={20} />
+                </XStack>
+              </Button>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={timeDate}
+                  mode="time"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={handleTimeChange}
+                  minuteInterval={15}
+                />
+              )}
+            </YStack>
           </YStack>
-        </YStack>
-      )}
-    </YStack>
+        )}
+      </YStack>
+    </>
   )
 }
