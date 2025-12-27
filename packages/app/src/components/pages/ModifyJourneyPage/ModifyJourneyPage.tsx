@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useUpdateJourney } from "./hooks/useUpdateJourney"
 import { useToastController } from "@tamagui/toast"
 import { useLocalSearchParams, useRouter } from "expo-router"
+import { NotificationSettings } from "../../NotificationSettings"
 
 export const ModifyJourneyPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
@@ -31,39 +32,52 @@ export const ModifyJourneyPage: React.FC = () => {
   }
 
   return (
-    <KeyboardAvoiding>
-      <YStack flex={1} padding="$4" width="100%">
-        <YStack flex={1} gap="$4">
-          {/* Header */}
-          <YStack gap="$2">
-            <H5 textAlign="center">Update your journey details</H5>
-          </YStack>
+    <>
+      <KeyboardAvoiding>
+        <YStack flex={1} padding="$4" width="100%">
+          <YStack gap="$4" paddingBottom="$4">
+            {/* Header */}
+            <YStack gap="$2">
+              <H5 textAlign="center">Update your journey details</H5>
+            </YStack>
 
-          {/* Journey Name */}
-          <YStack>
-            <Label htmlFor="journey-name" fontWeight={"400"}>
-              Journey Name
-            </Label>
-            <Input
-              id="journey-name"
-              placeholder="What are you staying sober from?"
-              value={title}
-              onChangeText={setTitle}
-            />
+            {/* Journey Name */}
+            <YStack>
+              <Label htmlFor="journey-name" fontWeight={"400"}>
+                Journey Name
+              </Label>
+              <Input
+                id="journey-name"
+                placeholder="What are you staying sober from?"
+                value={title}
+                onChangeText={setTitle}
+              />
+            </YStack>
+
+            {/* Notification Settings - auto-saves when changed */}
+            {journeyId && (
+              <YStack>
+                <Label fontWeight={"400"} marginBottom="$2">
+                  Check-in Notifications
+                </Label>
+                <NotificationSettings journeyId={journeyId} />
+              </YStack>
+            )}
           </YStack>
         </YStack>
+      </KeyboardAvoiding>
 
-        {/* Update Journey Button */}
-        <Button
-          marginBottom={bottom}
-          size="$5"
-          onPress={onUpdate}
-          disabled={isPending || !title.trim()}
-          themeInverse
-        >
-          {isPending ? "Updating..." : "Update Journey"}
-        </Button>
-      </YStack>
-    </KeyboardAvoiding>
+      {/* Update Journey Button */}
+      <Button
+        margin="$4"
+        marginBottom={bottom}
+        size="$5"
+        onPress={onUpdate}
+        disabled={isPending || !title.trim()}
+        themeInverse
+      >
+        {isPending ? "Updating..." : "Update Journey"}
+      </Button>
+    </>
   )
 }

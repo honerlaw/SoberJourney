@@ -25,7 +25,11 @@ async function getNotificationPermissionStatus() {
   return status
 }
 
-export function useExpoNotifications() {
+/**
+ * We want to conditionally ask for permissions / enable this in the create / edit
+ * screen of a journey.
+ */
+export function useExpoNotifications(enabled: boolean = false) {
   const { report } = useReportError()
   const trpc = useTRPC()
 
@@ -34,6 +38,10 @@ export function useExpoNotifications() {
   )
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     async function init() {
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
@@ -79,5 +87,5 @@ export function useExpoNotifications() {
     }
 
     init()
-  }, [report, addPushToken])
+  }, [report, addPushToken, enabled])
 }
