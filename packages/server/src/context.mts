@@ -4,6 +4,7 @@ import { getConfig } from "./util/config.mjs";
 
 import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
+import * as userPushTokenDB from "./database/user/pushToken/index.mjs";
 import * as journeyDB from "./database/journey/index.mjs";
 import * as journalDB from "./database/journal/index.mjs";
 import * as conversationDB from "./database/conversation/index.mjs";
@@ -13,6 +14,7 @@ import * as encryptionService from "./service/encryption/index.mjs";
 
 import * as clerkDS from "./datasource/clerk/index.mjs";
 import * as geminiDS from "./datasource/gemini/index.mjs";
+import * as expoDS from "./datasource/expo/index.mjs";
 
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
 import { client, type UserModel } from "./util/database.mjs";
@@ -31,6 +33,7 @@ const options = {
   ) => {
     const { clerkClient, ...clerkDSRemaining } = clerkDS;
     const { geminiClient, ...geminiDSRemaining } = geminiDS;
+    const { expoClient, ...expoDSRemaining } = expoDS;
 
     return {
       logger: childLogger,
@@ -46,12 +49,17 @@ const options = {
           client: geminiClient,
           ...wrap(geminiClient, wrap(childLogger, geminiDSRemaining)),
         },
+        expo: {
+          client: expoClient,
+          ...wrap(expoClient, wrap(childLogger, expoDSRemaining)),
+        },
       },
       database: {
         client,
         user: {
           ...wrap(client, wrap(childLogger, userDB)),
           key: wrap(client, wrap(childLogger, userKeyDB)),
+          pushToken: wrap(client, wrap(childLogger, userPushTokenDB)),
         },
         journey: wrap(client, wrap(childLogger, journeyDB)),
         journal: wrap(client, wrap(childLogger, journalDB)),
@@ -77,7 +85,7 @@ export type CTXRequest =
   | undefined;
 
 export const createContext = async (
-  req: CTXRequest,
+  req?: CTXRequest,
   additional?: { [key: string]: unknown },
 ) => {
   // if we receive a token from clerk, we need to verify / parse it

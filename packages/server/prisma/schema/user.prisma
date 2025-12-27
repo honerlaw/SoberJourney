@@ -19,6 +19,9 @@ model User {
   // journey check-ins
   journeyCheckIns JourneyCheckIn[]
 
+  // push notification tokens
+  pushTokens UserPushToken[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -35,4 +38,51 @@ model UserKey {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UserPushToken {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token String
+
+  // whether the token has been revoked (e.g., user logged out, token expired, etc.)
+  revoked Boolean @default(false)
+
+  // receipts for push notifications sent to this token
+  receipts UserPushTokenReceipt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token])
+}
+
+model UserPushTokenReceipt {
+  id String @id @default(uuid())
+
+  pushTokenId String
+  pushToken   UserPushToken @relation(fields: [pushTokenId], references: [id], onDelete: Cascade)
+
+  // the ticket ID returned from the push notification service
+  ticketId String?
+
+  // the receipt ID returned from the push notification service
+  receiptId String?
+
+  // status of the push notification (e.g., "ok", "error")
+  status String
+
+  // error message if the push notification failed
+  errorMessage String?
+
+  // error details/code if the push notification failed
+  errorDetails String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pushTokenId])
 }
