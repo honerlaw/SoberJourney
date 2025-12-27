@@ -16,7 +16,7 @@ export const addPushToken = procedure
       throw new UnauthorizedError();
     }
 
-    const pushToken = await ctx.database.user.pushToken.upsert(
+    const pushToken = await ctx.database.notification.pushToken.upsert(
       ctx.auth.user.id,
       input.token,
     );

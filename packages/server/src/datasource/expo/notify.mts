@@ -5,11 +5,16 @@ import {
 } from "expo-server-sdk";
 import type { Logger } from "../../util/logger/logger.mjs";
 
-export async function sendNotifications(
+export type NotificationResult = {
+  message: ExpoPushMessage;
+  ticket: ExpoPushTicket | undefined;
+};
+
+export async function notify(
   logger: Logger,
   client: Expo,
   messages: ExpoPushMessage[],
-): Promise<ExpoPushTicket[]> {
+): Promise<NotificationResult[] | null> {
   const validMessages = messages.filter((message) => {
     const token = Array.isArray(message.to) ? message.to[0] : message.to;
     if (!Expo.isExpoPushToken(token)) {
@@ -20,24 +25,30 @@ export async function sendNotifications(
   });
 
   if (validMessages.length === 0) {
-    return [];
+    return null;
   }
 
   const chunks = client.chunkPushNotifications(validMessages);
-  const tickets: ExpoPushTicket[] = [];
-
   try {
-    for (const chunk of chunks) {
-      const ticketChunk = await client.sendPushNotificationsAsync(chunk);
-      tickets.push(...ticketChunk);
-    }
-
-    return tickets;
+    // @todo should we do this sequentially to not overwhelm the expo servers?
+    return (
+      await Promise.all(
+        chunks.map(async (chunk) => {
+          const tickets = await client.sendPushNotificationsAsync(chunk);
+          return chunk.map((message, index) => {
+            return {
+              message,
+              ticket: tickets[index],
+            };
+          });
+        }),
+      )
+    ).flat();
   } catch (error) {
     logger.error(
-      { error, tags: ["datasource", "expo", "sendNotifications"] },
+      { error, tags: ["datasource", "expo", "notify"] },
       "Error sending notifications",
     );
-    return [];
+    return null;
   }
 }

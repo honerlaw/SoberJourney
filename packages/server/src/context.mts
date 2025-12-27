@@ -4,11 +4,13 @@ import { getConfig } from "./util/config.mjs";
 
 import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
-import * as userPushTokenDB from "./database/user/pushToken/index.mjs";
 import * as journeyDB from "./database/journey/index.mjs";
 import * as journalDB from "./database/journal/index.mjs";
 import * as conversationDB from "./database/conversation/index.mjs";
 import * as checkinDB from "./database/checkin/index.mjs";
+import * as notificationDB from "./database/notification/index.mjs";
+import * as notificationPushTokenDB from "./database/notification/pushToken/index.mjs";
+import * as notificationScheduleDB from "./database/notification/schedule/index.mjs";
 
 import * as encryptionService from "./service/encryption/index.mjs";
 
@@ -59,7 +61,11 @@ const options = {
         user: {
           ...wrap(client, wrap(childLogger, userDB)),
           key: wrap(client, wrap(childLogger, userKeyDB)),
-          pushToken: wrap(client, wrap(childLogger, userPushTokenDB)),
+        },
+        notification: {
+          ...wrap(client, wrap(childLogger, notificationDB)),
+          pushToken: wrap(client, wrap(childLogger, notificationPushTokenDB)),
+          schedule: wrap(client, wrap(childLogger, notificationScheduleDB)),
         },
         journey: wrap(client, wrap(childLogger, journeyDB)),
         journal: wrap(client, wrap(childLogger, journalDB)),

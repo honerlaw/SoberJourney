@@ -20,7 +20,7 @@ export async function upsert(
     });
   } catch (err) {
     logger.error(
-      { error: err, tags: ["database", "user", "pushToken", "upsert"] },
+      { error: err, tags: ["database", "notification", "pushToken", "upsert"] },
       "Failed to upsert user push token",
     );
     return null;
