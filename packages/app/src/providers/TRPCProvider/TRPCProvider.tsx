@@ -21,6 +21,7 @@ import type { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/in
 import { useConfig } from "@/src/providers/ConfigProvider"
 import { useReportError } from "@/src/hooks/useReportError"
 import { useAuth as useAuthHelpers } from "@/src/hooks/useAuth"
+import { useCalendars } from "expo-localization"
 
 // Polyfills for React Native SSE support
 import "@azure/core-asynciterator-polyfill"
@@ -46,6 +47,7 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
   const { getToken } = useAuth()
   const { logout } = useAuthHelpers()
   const { report } = useReportError()
+  const calendars = useCalendars()
 
   // Handle auth errors globally
   const handleError = useCallback(
@@ -103,19 +105,25 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
   )
 
   const getHeaders = useCallback(async () => {
+    const timeZone = calendars[0]?.timeZone ?? "America/New_York"
     try {
       const token = await getToken()
       if (!token) {
-        return {}
+        return {
+          "X-IANA-Time-Zone": timeZone,
+        }
       }
       return {
         Authorization: `Bearer ${token}`,
+        "X-IANA-Time-Zone": timeZone,
       }
     } catch (err) {
       report(err)
-      return {}
+      return {
+        "X-IANA-Time-Zone": timeZone,
+      }
     }
-  }, [getToken, report])
+  }, [getToken, report, calendars])
 
   const options = useMemo(
     () => ({

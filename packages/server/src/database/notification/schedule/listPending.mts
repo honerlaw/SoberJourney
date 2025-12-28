@@ -6,6 +6,7 @@ import { UserPushNotificationScheduleFrequency } from "../../../generated/prisma
 export type PendingSchedule = UserPushNotificationScheduleModel & {
   user: {
     id: string;
+    timezone: string;
     pushTokens: {
       id: string;
       token: string;
@@ -25,7 +26,6 @@ export type PendingSchedule = UserPushNotificationScheduleModel & {
 };
 
 /**
-/**
  * Map of frequency to interval in milliseconds
  */
 const FREQUENCY_INTERVAL_MS_MAP = {
@@ -34,6 +34,63 @@ const FREQUENCY_INTERVAL_MS_MAP = {
   [UserPushNotificationScheduleFrequency.BIWEEKLY]: 14 * 24 * 60 * 60 * 1000,
   [UserPushNotificationScheduleFrequency.MONTHLY]: 30 * 24 * 60 * 60 * 1000,
 };
+
+/**
+ * Get the current minute of day in the specified timezone
+ */
+function getCurrentMinuteOfDayInTimezone(date: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+  const minute = parseInt(
+    parts.find((p) => p.type === "minute")?.value ?? "0",
+    10,
+  );
+
+  return hour * 60 + minute;
+}
+
+/**
+ * Get the start of day in the specified timezone as a Date object
+ */
+function getStartOfDayInTimezone(date: Date, timezone: string): Date {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+
+  // Create a date string in the timezone and parse it
+  // This gives us midnight in the user's timezone
+  const dateStr = `${year}-${month}-${day}T00:00:00`;
+
+  // Create a formatter that can give us the offset
+  const offsetFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "longOffset",
+  });
+
+  const offsetParts = offsetFormatter.formatToParts(date);
+  const tzOffset = offsetParts.find((p) => p.type === "timeZoneName")?.value;
+
+  // Parse the offset (e.g., "GMT-05:00" -> "-05:00")
+  const offsetMatch = tzOffset?.match(/GMT([+-]\d{2}:\d{2})/);
+  const offset = offsetMatch ? offsetMatch[1] : "+00:00";
+
+  return new Date(`${dateStr}${offset}`);
+}
 
 /**
  * List all UserPushNotificationSchedule records that are pending notification.
@@ -49,7 +106,6 @@ export async function listPending(
 ): Promise<PendingSchedule[]> {
   try {
     const now = new Date();
-    const currentMinuteOfDay = now.getHours() * 60 + now.getMinutes();
 
     // Get all schedules with their latest notification
     const schedules = await client.userPushNotificationSchedule.findMany({
@@ -57,8 +113,7 @@ export async function listPending(
         user: {
           select: {
             id: true,
-          },
-          include: {
+            timezone: true,
             pushTokens: {
               select: {
                 id: true,
@@ -105,10 +160,17 @@ export async function listPending(
 
     for (const schedule of schedules) {
       const lastNotification = schedule.notifications[0];
+      const userTimezone = schedule.user.timezone;
+
+      // Calculate current minute of day in the user's timezone
+      const currentMinuteOfDay = getCurrentMinuteOfDayInTimezone(
+        now,
+        userTimezone,
+      );
 
       // Case 1: No notifications have been sent for this schedule
       if (!lastNotification) {
-        // If minuteOfDay is defined, check if we've reached that time
+        // If minuteOfDay is defined, check if we've reached that time in user's timezone
         if (schedule.minuteOfDay !== null) {
           if (currentMinuteOfDay >= schedule.minuteOfDay) {
             pendingSchedules.push({
@@ -146,15 +208,18 @@ export async function listPending(
       const nextNotificationTime = lastNotificationTime + frequencyIntervalMs;
 
       // If minuteOfDay is defined, adjust the next notification time
-      // to be at the specified minute of the day
+      // to be at the specified minute of the day in the user's timezone
       if (schedule.minuteOfDay !== null) {
         const nextDate = new Date(nextNotificationTime);
-        // Set to the beginning of the day, then add minuteOfDay
-        nextDate.setHours(0, 0, 0, 0);
-        nextDate.setMinutes(schedule.minuteOfDay);
+        // Get the start of day in the user's timezone
+        const startOfDay = getStartOfDayInTimezone(nextDate, userTimezone);
+        // Add the minuteOfDay offset
+        const targetTime = new Date(
+          startOfDay.getTime() + schedule.minuteOfDay * 60 * 1000,
+        );
 
         // If the adjusted time is in the past relative to now, it's pending
-        if (nextDate.getTime() <= now.getTime()) {
+        if (targetTime.getTime() <= now.getTime()) {
           pendingSchedules.push({
             id: schedule.id,
             userId: schedule.userId,

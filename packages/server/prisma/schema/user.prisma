@@ -4,6 +4,9 @@ model User {
   // clerk id
   authId String @unique
 
+  // IANA timezone for the user (e.g., "America/New_York")
+  timezone String @default("America/New_York")
+
   // encryption key for the user
   userKey UserKey?
 
