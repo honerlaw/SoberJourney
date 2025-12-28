@@ -6,6 +6,7 @@
     "build": "npm run build --workspaces",
     "build:prod": "npm run build:prod --workspace=@onerlaw/soberjourney-server",
     "start": "npm run start --workspace=@onerlaw/soberjourney-server",
+    "start:cron": "npm run start:cron --workspace=@onerlaw/soberjourney-server",
     "test": "npm run test --workspaces",
     "clean": "npm run clean --workspaces && rm -rf package-lock.json node_modules",
     "lint:format": "npm run lint:format --workspaces",
