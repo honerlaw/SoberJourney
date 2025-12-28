@@ -1,7 +1,7 @@
 {
   "name": "@onerlaw/soberjourney-app",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scripts": {
     "clean": "rm -rf node_modules .vscode package-lock.json ios android .expo-env.d.ts .tamagui .expo dist expo-env.d.ts tamagui-web.css",
     "clean:dist": "rm -rf .expo .tamagui tamagui-web.css ios android .expo-env.d.ts dist $TMPDIR/react-*",
@@ -95,7 +95,10 @@
   "private": true,
   "expo": {
     "install": {
-      "exclude": ["react", "react-dom"]
+      "exclude": [
+        "react",
+        "react-dom"
+      ]
     }
   }
 }
