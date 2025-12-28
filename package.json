@@ -10,7 +10,8 @@
     "clean": "npm run clean --workspaces && rm -rf package-lock.json node_modules",
     "lint:format": "npm run lint:format --workspaces",
     "clean:install": "npm run clean && npm install",
-    "eas:submit": "npm run eas:submit --workspace=@onerlaw/soberjourney-app"
+    "eas:submit": "npm run eas:submit --workspace=@onerlaw/soberjourney-app",
+    "eas:submit:dev": "npm run eas:submit:dev --workspace=@onerlaw/soberjourney-app"
   },
   "author": "",
   "license": "ISC",

@@ -19,6 +19,7 @@
     "lint:format": "expo lint --fix && npm run format",
     "test": "echo \"Error: no test specified\"",
     "eas:submit": "eas build --non-interactive --auto-submit --platform ios --no-wait",
+    "eas:submit:dev": "eas build --non-interactive --auto-submit --platform ios --no-wait --profile development",
     "doctor": "npx -y expo-doctor",
     "doctor:fix": "npx expo install --check",
     "knip": "knip"
