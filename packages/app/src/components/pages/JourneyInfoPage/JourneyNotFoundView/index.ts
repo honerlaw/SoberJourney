@@ -1,0 +1,1 @@
+export { JourneyNotFoundView } from "./JourneyNotFoundView"

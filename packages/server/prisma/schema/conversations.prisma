@@ -1,0 +1,44 @@
+/**
+ * Represents a conversation thread for a user.
+ * Users can have multiple conversations (e.g., with an AI assistant).
+ */
+model Conversation {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // optional title for the conversation
+  title String?
+
+  // messages in this conversation
+  messages ConversationMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MessageRole {
+  USER
+  MODEL
+}
+
+/**
+ * Represents a single message within a conversation.
+ * Messages can be from the user or from the model (AI).
+ */
+model ConversationMessage {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // who sent the message
+  role MessageRole
+
+  // the message content
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -6,6 +6,8 @@ import * as userRoutes from "./route/user/index.mjs";
 import * as journeyRoutes from "./route/journey/index.mjs";
 import * as journalRoutes from "./route/journal/index.mjs";
 import * as conversationRoutes from "./route/conversation/index.mjs";
+import * as checkinRoutes from "./route/checkin/index.mjs";
+import * as notificationRoutes from "./route/notification/index.mjs";
 import type { UserModel } from "../../util/database.mjs";
 
 const appRouter = router({
@@ -13,6 +15,8 @@ const appRouter = router({
   journey: router(journeyRoutes),
   journal: router(journalRoutes),
   conversation: router(conversationRoutes),
+  checkin: router(checkinRoutes),
+  notification: router(notificationRoutes),
 });
 
 export type AppRouter = typeof appRouter;

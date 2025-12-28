@@ -1,0 +1,21 @@
+/**
+ * Represents a journal entry for a user.
+ * Users can write personal reflections, thoughts, or notes
+ * as part of their recovery journey.
+ * Can optionally be associated with a journey check-in.
+ */
+model JournalEntry {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // optional association with a journey check-in
+  checkInId String?
+  checkIn   JourneyCheckIn? @relation(fields: [checkInId], references: [id], onDelete: SetNull)
+
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

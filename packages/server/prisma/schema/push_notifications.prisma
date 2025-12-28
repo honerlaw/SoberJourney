@@ -1,0 +1,85 @@
+model UserPushToken {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token String
+
+  // whether the token has been revoked (mainly if apple / google tells us to)
+  // or if the user has disabled notifications or something along those lines
+  revoked Boolean @default(false)
+
+  // push notifications sent with this token
+  notifications UserPushNotification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token])
+}
+
+enum PushNotificationStatus {
+  PENDING
+  COMPLETE
+  ERROR
+}
+
+model UserPushNotification {
+  id String @id @default(uuid())
+
+  pushTokenId String
+  pushToken   UserPushToken @relation(fields: [pushTokenId], references: [id], onDelete: Cascade)
+
+  // schedules are always required, ONCE schedules would allow one offs
+  scheduleId String
+  schedule   UserPushNotificationSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  // the receipt ID returned from the push notification service
+  receiptId String?
+
+  // status of the push notification
+  status PushNotificationStatus
+
+  // error message if the push notification failed
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pushTokenId, scheduleId])
+  @@index([pushTokenId])
+  @@index([scheduleId])
+}
+
+// @todo implement a ONCE frequency if we ever need it
+enum UserPushNotificationScheduleFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model UserPushNotificationSchedule {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // the check-in this schedule is associated with (one-to-one)
+  // this is optional because in the future we can have different types of schedules
+  checkInId String?         @unique
+  checkIn   JourneyCheckIn? @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  // how often this scheduled should be triggered
+  frequency UserPushNotificationScheduleFrequency
+
+  // the minute  of the day to trigger the notification
+  minuteOfDay Int?
+
+  // push notifications sent for this schedule
+  notifications UserPushNotification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

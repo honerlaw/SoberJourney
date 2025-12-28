@@ -1,0 +1,44 @@
+model User {
+  id String @id @default(uuid())
+
+  // clerk id
+  authId String @unique
+
+  // encryption key for the user
+  userKey UserKey?
+
+  // user journeys
+  journies UserJourney[]
+
+  // journal entries
+  journalEntries JournalEntry[]
+
+  // conversations
+  conversations Conversation[]
+
+  // journey check-ins
+  journeyCheckIns JourneyCheckIn[]
+
+  // push notification tokens
+  pushTokens UserPushToken[]
+
+  // push notification schedules
+  pushNotificationSchedules UserPushNotificationSchedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// used for data encryption
+// if it doesn't exist, we will generate a new one
+model UserKey {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  key String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,7 +1,12 @@
 import React from "react"
 import { Pressable } from "react-native-gesture-handler"
 import { Card, Text, XStack, YStack, Button } from "tamagui"
-import { GripVertical, Info, RotateCcw } from "@tamagui/lucide-icons"
+import {
+  GripVertical,
+  Info,
+  RotateCcw,
+  ClipboardCheck,
+} from "@tamagui/lucide-icons"
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs"
 import { router } from "expo-router"
 import { AlertModal } from "@/src/components/AlertModal"
@@ -82,6 +87,19 @@ export const TrackerCard: React.FC<TrackerCardProps> = ({
             </Text>
           </XStack>
           <XStack gap="$2" alignItems="center">
+            <Button
+              size="$3"
+              icon={({ size }) => (
+                <ClipboardCheck size={size} pointerEvents="none" />
+              )}
+              circular
+              onPress={() =>
+                router.push({
+                  pathname: "/checkin-new",
+                  params: { journeyId: model.id },
+                })
+              }
+            />
             <Button
               size="$3"
               icon={({ size }) => <Info size={size} pointerEvents="none" />}

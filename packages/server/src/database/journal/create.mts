@@ -7,12 +7,14 @@ export async function create(
   client: DBClient,
   userId: string,
   content: string,
+  checkInId?: string | null,
 ): Promise<JournalEntryModel | null> {
   try {
     return await client.journalEntry.create({
       data: {
         userId,
         content,
+        checkInId: checkInId ?? null,
       },
     });
   } catch (err) {

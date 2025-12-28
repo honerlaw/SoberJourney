@@ -4,22 +4,33 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
 import { DateTimeInput } from "./DateTimeInput"
 import { InputButton } from "./InputButton"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useCreateJourney } from "./hooks/useCreateJourney"
 import { useToastController } from "@tamagui/toast"
 import { useRouter } from "expo-router"
+import {
+  NotificationSettings,
+  type NotificationSettingsValue,
+} from "../../NotificationSettings"
 
 export const NewJourneyPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
   const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false)
   const [startDate, setStartDate] = useState<Date>(new Date())
   const [title, setTitle] = useState<string>("")
+  // Use ref to track latest notification settings without causing re-renders
+  const notificationSettingsRef = useRef<NotificationSettingsValue | null>(null)
   const toast = useToastController()
   const router = useRouter()
   const { createJourney, isPending } = useCreateJourney()
 
   const onCreate = async () => {
-    const success = await createJourney(title, startDate)
+    const settings = notificationSettingsRef.current
+    const success = await createJourney(
+      title,
+      startDate,
+      settings?.enabled ? settings : undefined,
+    )
     if (success) {
       toast.show("Your journey has been created.", {
         type: "success",
@@ -30,67 +41,78 @@ export const NewJourneyPage: React.FC = () => {
   }
 
   return (
-    <KeyboardAvoiding>
-      <YStack flex={1} padding="$4" width="100%">
-        <YStack flex={1} gap="$4">
-          {/* Header */}
-          <YStack gap="$2">
-            <H5 textAlign="center">
-              Take the first step towards a healthier you
-            </H5>
-          </YStack>
+    <>
+      <KeyboardAvoiding>
+        <YStack flex={1} padding="$4" width="100%">
+          <YStack gap="$4" paddingBottom="$4">
+            {/* Header */}
+            <YStack gap="$2">
+              <H5 textAlign="center">
+                Take the first step towards a healthier you
+              </H5>
+            </YStack>
 
-          {/* Journey Name */}
-          <YStack>
-            <Label htmlFor="journey-name" fontWeight={"400"}>
-              Journey Name
-            </Label>
-            <Input
-              id="journey-name"
-              placeholder="What are you staying sober from?"
-              value={title}
-              onChangeText={setTitle}
-            />
-          </YStack>
+            {/* Journey Name */}
+            <YStack>
+              <Label htmlFor="journey-name" fontWeight={"400"}>
+                Journey Name
+              </Label>
+              <Input
+                id="journey-name"
+                placeholder="What are you staying sober from?"
+                value={title}
+                onChangeText={setTitle}
+              />
+            </YStack>
 
-          {/* Start Date & Time */}
-          <YStack>
-            <Label fontWeight={"400"}>
-              Start Date & Time <Text color="$color11">(optional)</Text>
-            </Label>
-            {!showDateTimePicker && (
-              <>
-                <InputButton
-                  value="Now"
-                  onPress={() => setShowDateTimePicker(true)}
-                  icon={Calendar}
-                  iconRight={ChevronRight}
-                />
-                <Text
-                  fontSize="$3"
-                  color="$color11"
-                  textAlign="center"
-                  marginTop="$3"
-                >
-                  If left empty, your journey will start now.
-                </Text>
-              </>
-            )}
-            {showDateTimePicker && <DateTimeInput onChange={setStartDate} />}
+            {/* Start Date & Time */}
+            <YStack>
+              <Label fontWeight={"400"}>
+                Start Date & Time <Text color="$color11">(optional)</Text>
+              </Label>
+              {!showDateTimePicker && (
+                <>
+                  <InputButton
+                    value="Now"
+                    onPress={() => setShowDateTimePicker(true)}
+                    icon={Calendar}
+                    iconRight={ChevronRight}
+                  />
+                  <Text
+                    fontSize="$3"
+                    color="$color11"
+                    textAlign="center"
+                    marginTop="$3"
+                  >
+                    If left empty, your journey will start now.
+                  </Text>
+                </>
+              )}
+              {showDateTimePicker && <DateTimeInput onChange={setStartDate} />}
+            </YStack>
+
+            {/* Notification Settings */}
+            <YStack>
+              <NotificationSettings
+                onChange={(settings) => {
+                  notificationSettingsRef.current = settings
+                }}
+              />
+            </YStack>
           </YStack>
         </YStack>
-
-        {/* Create Journey Button */}
-        <Button
-          marginBottom={bottom}
-          size="$5"
-          onPress={onCreate}
-          disabled={isPending}
-          themeInverse
-        >
-          {isPending ? "Creating..." : "Create Journey"}
-        </Button>
-      </YStack>
-    </KeyboardAvoiding>
+      </KeyboardAvoiding>
+      {/* Create Journey Button */}
+      <Button
+        margin="$4"
+        marginBottom={bottom}
+        size="$5"
+        onPress={onCreate}
+        disabled={isPending}
+        themeInverse
+      >
+        {isPending ? "Creating..." : "Create Journey"}
+      </Button>
+    </>
   )
 }

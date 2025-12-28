@@ -1,0 +1,54 @@
+enum CheckInMood {
+  SAD
+  TIRED
+  NEUTRAL
+  GOOD
+  GREAT
+}
+
+/**
+ * Represents a check-in schedule for a journey.
+ * Defines how often the user should be prompted to check in on their progress.
+ */
+model JourneyCheckIn {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // the journey this check-in is associated with (one-to-one)
+  journeyId String      @unique
+  journey   UserJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  // journal entries associated with this check-in
+  journalEntries JournalEntry[]
+
+  // individual check-in entries (daily mood/urge data)
+  entries JourneyCheckInEntry[]
+
+  // push notification schedule for this check-in (one-to-one)
+  pushNotificationSchedule UserPushNotificationSchedule?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Represents a single check-in entry containing the user's daily mood and urge data.
+ * Each entry captures how the user is feeling at a specific point in time.
+ */
+model JourneyCheckInEntry {
+  id String @id @default(uuid())
+
+  checkInId String
+  checkIn   JourneyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  // mood rating
+  mood CheckInMood
+
+  // urge/craving intensity (e.g., 1-5 scale)
+  urge Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
