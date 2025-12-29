@@ -13,10 +13,9 @@ export function checkin(
     to: token,
     sound: "default",
     title: "Time to check in! 📊",
-    body: `How are you doing on your ${schedule.checkIn.journey.title} journey today?`,
+    body: `How are you doing on your journey today?`,
     data: {
-      type: "checkin",
-      checkInId: schedule.checkInId,
+      url: `/(auth)/checkin-new?journeyId=${schedule.checkIn.journey.id}`,
     },
   };
 }
