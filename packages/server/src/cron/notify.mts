@@ -90,8 +90,8 @@ export async function notify(ctx: Context): Promise<void> {
 
     // only store success to read later, errors are handled here
     await ctx.database.notification.upsert(
-      originalMessage.schedule.id,
       pushToken.id,
+      originalMessage.schedule.id,
       notification.ticket.id,
       PushNotificationStatus.PENDING,
       null,

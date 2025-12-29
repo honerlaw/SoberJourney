@@ -20,8 +20,8 @@ export async function handleError(
   // in general, go ahead and upsert a notification record that it errored for the
   // given token
   await ctx.database.notification.upsert(
-    scheduleId,
     pushTokenId,
+    scheduleId,
     null,
     PushNotificationStatus.ERROR,
     error.details.error ?? null,
