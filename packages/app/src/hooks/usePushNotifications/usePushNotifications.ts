@@ -11,25 +11,26 @@ type NotificationData = {
 export function usePushNotifications() {
   const router = useRouter()
   const { report } = useReportError()
+  const lastNotificationResponse = Notifications.useLastNotificationResponse()
 
   useEffect(() => {
-    const listener = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content
-          .data as NotificationData
+    if (
+      lastNotificationResponse &&
+      lastNotificationResponse.actionIdentifier ===
+        Notifications.DEFAULT_ACTION_IDENTIFIER
+    ) {
+      const data = lastNotificationResponse.notification.request.content
+        .data as NotificationData
 
-        if (data?.url && typeof data.url === "string") {
-          try {
-            router.push(data.url as RelativePathString)
-          } catch (error) {
-            report(error)
-          }
+      if (data?.url && typeof data.url === "string") {
+        try {
+          router.push(data.url as RelativePathString)
+        } catch (error) {
+          report(error)
+        } finally {
+          Notifications.clearLastNotificationResponse()
         }
-      },
-    )
-
-    return () => {
-      listener.remove()
+      }
     }
-  }, [router, report])
+  }, [lastNotificationResponse, router, report])
 }
