@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 export const JournalEntryInfoPage: React.FC = () => {
   const { entryId } = useLocalSearchParams<{ entryId: string }>()
-  const { entry, isLoading, error } = useJournalEntryInfo(entryId || "")
+  const { entry, isLoading, error } = useJournalEntryInfo(entryId)
   const { removeEntry, isPending } = useJournalRemove()
   const alertModalRef = useRef<AlertModalRef>(null)
   const { bottom } = useSafeAreaInsets()
@@ -39,7 +39,7 @@ export const JournalEntryInfoPage: React.FC = () => {
   const formattedTime = format(createdDate, "h:mm a")
 
   const onDelete = async () => {
-    await removeEntry(entryId || "")
+    await removeEntry(entryId)
     router.back()
   }
 

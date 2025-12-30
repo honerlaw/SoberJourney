@@ -16,7 +16,7 @@ export const ModifyJourneyPage: React.FC = () => {
     journeyId: string
     currentTitle: string
   }>()
-  const [title, setTitle] = useState<string>(currentTitle || "")
+  const [title, setTitle] = useState<string>(currentTitle)
   const toast = useToastController()
   const router = useRouter()
   const { updateJourney, isPending } = useUpdateJourney()
