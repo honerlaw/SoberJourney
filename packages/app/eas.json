@@ -21,6 +21,11 @@
       "ios": {
         "ascAppId": "6755921947"
       }
+    },
+    "development": {
+      "ios": {
+        "ascAppId": "6755921947"
+      }
     }
   }
 }

@@ -60,7 +60,13 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-notifications",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "most-recent"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

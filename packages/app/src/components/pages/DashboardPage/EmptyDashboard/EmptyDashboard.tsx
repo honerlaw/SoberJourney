@@ -1,12 +1,10 @@
-import { YStack, Text, Button, H4 } from "tamagui"
-import { useHeaderHeight } from "@react-navigation/elements"
+import { Button } from "tamagui"
 import { useRouter } from "expo-router"
 import Icon from "@/assets/logo/icon.svg"
 import { EmptyPageView } from "@/src/components/EmptyPageView"
 
 export const EmptyDashboard: React.FC = () => {
   const router = useRouter()
-  const headerHeight = useHeaderHeight()
   const handleCreateJourney = () => {
     router.push("/journeys-new")
   }

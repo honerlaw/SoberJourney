@@ -1,4 +1,3 @@
-import { MessageCircle } from "@tamagui/lucide-icons"
 import { EmptyPageView } from "@/src/components/EmptyPageView"
 import ChatIcon from "@/assets/icons/chat.svg"
 
