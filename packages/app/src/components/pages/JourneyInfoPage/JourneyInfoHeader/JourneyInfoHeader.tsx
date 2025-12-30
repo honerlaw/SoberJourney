@@ -18,6 +18,7 @@ export const JourneyInfoHeader: React.FC<JourneyInfoHeaderProps> = ({
   return (
     <Stack.Screen
       options={{
+        headerTitle: journeyTitle,
         headerRight: () => (
           <XStack gap="$2">
             <HeaderButton

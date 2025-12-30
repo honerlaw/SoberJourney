@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { YStack, Button } from "tamagui"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useToastController } from "@tamagui/toast"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
 import { MoodPulse } from "./MoodPulse"
@@ -9,6 +9,7 @@ import { UrgeMeter } from "./UrgeMeter"
 import { MicroJournal } from "./MicroJournal"
 import { useCreateCheckIn } from "./hooks"
 import { MoodOption } from "./MoodPulse/hooks"
+import { useJourneyInfo } from "../JourneyInfoPage/hooks/useJourneyInfo"
 
 export const NewCheckInPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
@@ -16,6 +17,7 @@ export const NewCheckInPage: React.FC = () => {
   const router = useRouter()
   const toast = useToastController()
   const { createCheckIn, isPending } = useCreateCheckIn()
+  const { journey } = useJourneyInfo(journeyId || "")
 
   const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null)
   const [urgeStrength, setUrgeStrength] = useState<number>(1)
@@ -54,27 +56,37 @@ export const NewCheckInPage: React.FC = () => {
     }
   }
 
+  const headerTitle = journey?.title
+    ? `${journey.title} - Daily Check-in`
+    : "Daily Check-in"
+
   return (
-    <YStack flex={1} width="100%">
-      <KeyboardAvoiding>
-        <YStack flex={1} padding="$4" gap="$4">
-          <MoodPulse
-            selectedMood={selectedMood}
-            onMoodChange={setSelectedMood}
-          />
-          <UrgeMeter value={urgeStrength} onValueChange={setUrgeStrength} />
-          <MicroJournal value={journalEntry} onValueChange={setJournalEntry} />
-        </YStack>
-      </KeyboardAvoiding>
-      <Button
-        themeInverse
-        onPress={onCompleteCheckIn}
-        margin={"$4"}
-        marginBottom={bottom}
-        disabled={isPending}
-      >
-        {isPending ? "Saving..." : "Complete Check-in"}
-      </Button>
-    </YStack>
+    <>
+      <Stack.Screen options={{ headerTitle }} />
+      <YStack flex={1} width="100%">
+        <KeyboardAvoiding>
+          <YStack flex={1} padding="$4" gap="$4">
+            <MoodPulse
+              selectedMood={selectedMood}
+              onMoodChange={setSelectedMood}
+            />
+            <UrgeMeter value={urgeStrength} onValueChange={setUrgeStrength} />
+            <MicroJournal
+              value={journalEntry}
+              onValueChange={setJournalEntry}
+            />
+          </YStack>
+        </KeyboardAvoiding>
+        <Button
+          themeInverse
+          onPress={onCompleteCheckIn}
+          margin={"$4"}
+          marginBottom={bottom}
+          disabled={isPending}
+        >
+          {isPending ? "Saving..." : "Complete Check-in"}
+        </Button>
+      </YStack>
+    </>
   )
 }
