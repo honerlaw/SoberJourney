@@ -21,8 +21,6 @@ import type { NotificationSettingsValue, NotificationFrequency } from "./types"
 type NotificationSettingsProps = {
   // Optional journeyId - if provided, fetches existing settings for the journey
   journeyId?: string
-  // Optional callback - emits whenever the internal value changes
-  onChange?: (value: NotificationSettingsValue) => void
 }
 
 export type NotificationSettingsRef = {
@@ -33,7 +31,7 @@ export type NotificationSettingsRef = {
 export const NotificationSettings = forwardRef<
   NotificationSettingsRef,
   NotificationSettingsProps
->(({ journeyId, onChange }, ref) => {
+>(({ journeyId }, ref) => {
   // Fetch default settings and frequencies from the server
   const {
     defaults,
@@ -99,9 +97,6 @@ export const NotificationSettings = forwardRef<
 
   const handleChange = (newValue: NotificationSettingsValue) => {
     setValue(newValue)
-
-    // Emit change to parent
-    onChange?.(newValue)
   }
 
   const handleToggle = (enabled: boolean) => {
