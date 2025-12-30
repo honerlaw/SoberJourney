@@ -7,7 +7,9 @@ import { type Content } from "@google/genai";
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import {
+  CheckInMood,
   MessageRole,
+  type JourneyCheckInEntryModel,
   type UserJourneyModelWithEntries,
 } from "../../../../util/database.mjs";
 
@@ -71,19 +73,80 @@ function formatDuration(startDate: Date): string {
   return `${years} year${years > 1 ? "s" : ""} and ${remainingMonths} month${remainingMonths > 1 ? "s" : ""}`;
 }
 
-function buildJourneyContext(journeys: UserJourneyModelWithEntries[]): string {
-  if (journeys.length === 0) {
+function formatMood(mood: CheckInMood): string {
+  switch (mood) {
+    case CheckInMood.SAD:
+      return "sad";
+    case CheckInMood.TIRED:
+      return "tired";
+    case CheckInMood.NEUTRAL:
+      return "neutral";
+    case CheckInMood.GOOD:
+      return "good";
+    case CheckInMood.GREAT:
+      return "great";
+    default:
+      return "unknown";
+  }
+}
+
+function formatUrge(urge: number): string {
+  if (urge <= 1) return "none";
+  if (urge <= 2) return "mild";
+  if (urge <= 3) return "moderate";
+  if (urge <= 4) return "strong";
+  return "intense";
+}
+
+function formatCheckInAge(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+  if (diffHours < 1) return "just now";
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "yesterday";
+  return `${diffDays} days ago`;
+}
+
+type JourneyWithCheckIns = {
+  journey: UserJourneyModelWithEntries;
+  recentCheckIns: JourneyCheckInEntryModel[];
+};
+
+function buildJourneyContext(journeysWithCheckIns: JourneyWithCheckIns[]): string {
+  if (journeysWithCheckIns.length === 0) {
     return "";
   }
 
-  const journeyDescriptions = journeys.map((journey) => {
+  const journeyDescriptions = journeysWithCheckIns.map(({ journey, recentCheckIns }) => {
     // The most recent entry represents the current streak start date
     const latestEntry = journey.entries[0];
-    if (!latestEntry) {
-      return `- ${journey.title}: just started`;
+    const duration = latestEntry ? formatDuration(latestEntry.createdAt) : "just started";
+    
+    let description = `- ${journey.title}: ${duration}`;
+    
+    // Add recent check-in context if available
+    if (recentCheckIns.length > 0) {
+      const latestCheckIn = recentCheckIns[0];
+      if (latestCheckIn) {
+        const age = formatCheckInAge(latestCheckIn.createdAt);
+        const mood = formatMood(latestCheckIn.mood);
+        const urge = formatUrge(latestCheckIn.urge);
+        description += `\n  Recent check-in (${age}): mood is ${mood}, urge level is ${urge}`;
+        
+        // If there are multiple recent check-ins, show a brief trend
+        if (recentCheckIns.length >= 2) {
+          const moods = recentCheckIns.slice(0, 3).map(c => formatMood(c.mood));
+          const urges = recentCheckIns.slice(0, 3).map(c => c.urge);
+          const avgUrge = urges.reduce((a, b) => a + b, 0) / urges.length;
+          description += `\n  Recent pattern: moods have been ${moods.join(" → ")}, avg urge level ${formatUrge(avgUrge)}`;
+        }
+      }
     }
-    const duration = formatDuration(latestEntry.createdAt);
-    return `- ${journey.title}: ${duration}`;
+    
+    return description;
   });
 
   return `
@@ -91,7 +154,7 @@ function buildJourneyContext(journeys: UserJourneyModelWithEntries[]): string {
 User's Current Sobriety Journeys:
 ${journeyDescriptions.join("\n")}
 
-Use this information to provide personalized support. Acknowledge their progress when appropriate, and be mindful of which specific journeys they're working on.`;
+Use this information to provide personalized support. Acknowledge their progress when appropriate, and be mindful of which specific journeys they're working on. Pay attention to their recent check-in data - if they've reported high urges or negative moods recently, be especially supportive and proactive in offering coping strategies.`;
 }
 
 export const sponsorChat = procedure
@@ -111,8 +174,19 @@ export const sponsorChat = procedure
       throw new NotFoundError("Conversation not found.");
     }
 
-    // Build the system prompt with journey context
-    const journeyContext = buildJourneyContext(journeys);
+    // Fetch recent check-in entries for each journey in parallel
+    const journeysWithCheckIns: JourneyWithCheckIns[] = await Promise.all(
+      journeys.map(async (journey) => ({
+        journey,
+        recentCheckIns: await ctx.database.checkin.getEntriesByJourneyId(
+          journey.id,
+          ctx.auth.user!.id,
+        ).then(entries => entries.slice(0, 5)), // Limit to 5 most recent
+      })),
+    );
+
+    // Build the system prompt with journey and check-in context
+    const journeyContext = buildJourneyContext(journeysWithCheckIns);
     const systemPrompt = BASE_SYSTEM_PROMPT + journeyContext;
 
     // Decrypt existing messages and convert to Gemini format
