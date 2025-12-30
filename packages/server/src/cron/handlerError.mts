@@ -17,6 +17,18 @@ export async function handleError(
     return;
   }
 
+  ctx.logger.error(
+    {
+      attributes: {
+        scheduleId,
+        pushTokenId,
+        error: error.details.error,
+      },
+      tags: ["cron", "handleError"],
+    },
+    "Error occurred while processing notification",
+  );
+
   // in general, go ahead and upsert a notification record that it errored for the
   // given token
   await ctx.database.notification.upsert(
@@ -39,7 +51,7 @@ export async function handleError(
             pushTokenId,
             error: error.details.error,
           },
-          tags: ["cron", "notify", "handleError"],
+          tags: ["cron", "handleError"],
         },
         "Unknown error type",
       );

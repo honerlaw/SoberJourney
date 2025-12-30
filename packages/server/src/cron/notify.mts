@@ -40,7 +40,7 @@ export async function notify(ctx: Context): Promise<void> {
       ctx.logger.error(
         {
           attributes: { notificationId: notification.message.to },
-          tags: ["cron", "notify", "processResults"],
+          tags: ["cron", "notify", "notify"],
         },
         "No ticket found for notification",
       );
@@ -54,7 +54,7 @@ export async function notify(ctx: Context): Promise<void> {
       ctx.logger.error(
         {
           attributes: { notificationId: notification.message.to },
-          tags: ["cron", "notify", "processResults"],
+          tags: ["cron", "notify", "notify"],
         },
         "No original message found for notification",
       );
@@ -68,7 +68,7 @@ export async function notify(ctx: Context): Promise<void> {
       ctx.logger.error(
         {
           attributes: { notificationId: notification.message.to },
-          tags: ["cron", "notify", "processResults"],
+          tags: ["cron", "notify", "notify"],
         },
         "No push token found for notification",
       );
@@ -87,6 +87,17 @@ export async function notify(ctx: Context): Promise<void> {
       // with more details or revoking / etc
       continue;
     }
+
+    ctx.logger.info(
+      {
+        attributes: {
+          notificationId: notification.message.to,
+          ticket: notification.ticket,
+        },
+        tags: ["cron", "notify", "notify"],
+      },
+      "Notification processed",
+    );
 
     // only store success to read later, errors are handled here
     await ctx.database.notification.upsert(

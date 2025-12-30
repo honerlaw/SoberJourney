@@ -26,6 +26,13 @@ export async function receipts(ctx: Context): Promise<void> {
 
     // mark complete, if the status is ok
     if (receipt.status === "ok") {
+      ctx.logger.info(
+        {
+          attributes: { receiptId },
+          tags: ["cron", "receipts"],
+        },
+        "Notification completed",
+      );
       await ctx.database.notification.upsert(
         notification.pushTokenId,
         notification.scheduleId,
