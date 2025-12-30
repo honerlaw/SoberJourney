@@ -24,10 +24,10 @@ const TABS = [
 
 export const JourneyInfoPage: React.FC = () => {
   const { journeyId } = useLocalSearchParams<{ journeyId: string }>()
-  const { journey, isLoading, error } = useJourneyInfo(journeyId || "")
-  const { entries: checkInEntries } = useCheckIns(journeyId || "")
+  const { journey, isLoading, error } = useJourneyInfo(journeyId)
+  const { entries: checkInEntries } = useCheckIns(journeyId)
   const { showConfirmation, modalProps } = useDeleteConfirmation(
-    journeyId || "",
+    journeyId,
   )
   const { bottom } = useSafeAreaInsets()
   const [activeTab, setActiveTab] = useState<TabValue>("checkins")
@@ -55,7 +55,7 @@ export const JourneyInfoPage: React.FC = () => {
   return (
     <>
       <JourneyInfoHeader
-        journeyId={journeyId || ""}
+        journeyId={journeyId}
         journeyTitle={journey.title}
         onDeletePress={showConfirmation}
       />

@@ -17,7 +17,7 @@ export const NewCheckInPage: React.FC = () => {
   const router = useRouter()
   const toast = useToastController()
   const { createCheckIn, isPending } = useCreateCheckIn()
-  const { journey } = useJourneyInfo(journeyId || "")
+  const { journey } = useJourneyInfo(journeyId)
 
   const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null)
   const [urgeStrength, setUrgeStrength] = useState<number>(1)
