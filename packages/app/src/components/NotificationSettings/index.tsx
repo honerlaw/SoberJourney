@@ -1,4 +1,7 @@
-export { NotificationSettings } from "./NotificationSettings"
+export {
+  NotificationSettings,
+  type NotificationSettingsRef,
+} from "./NotificationSettings"
 export type {
   NotificationSettingsValue,
   NotificationFrequency,

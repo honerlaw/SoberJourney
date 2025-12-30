@@ -1,9 +1,8 @@
 import React from "react"
-import { Link, useRouter } from "expo-router"
+import { Link } from "expo-router"
 import { YStack, XStack, Text, Stack, useMedia } from "tamagui"
 
 export function FooterSection() {
-  const router = useRouter()
   const media = useMedia()
 
   return (

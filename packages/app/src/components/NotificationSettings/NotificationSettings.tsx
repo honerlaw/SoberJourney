@@ -1,6 +1,13 @@
 import { YStack, XStack, Text, Switch, Label, Button, Spinner } from "tamagui"
 import { Bell, Clock, ChevronDown } from "@tamagui/lucide-icons"
-import { useState, useMemo, useEffect, useRef } from "react"
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react"
 import { Platform } from "react-native"
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -12,16 +19,21 @@ import { minuteOfDayToDate, dateToMinuteOfDay, formatTime } from "./utils"
 import type { NotificationSettingsValue, NotificationFrequency } from "./types"
 
 type NotificationSettingsProps = {
-  // Optional journeyId - if provided, fetches settings and auto-saves changes
+  // Optional journeyId - if provided, fetches existing settings for the journey
   journeyId?: string
   // Optional callback - emits whenever the internal value changes
   onChange?: (value: NotificationSettingsValue) => void
 }
 
-export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
-  journeyId,
-  onChange,
-}) => {
+export type NotificationSettingsRef = {
+  notificationSettings: NotificationSettingsValue | null
+  save: () => Promise<boolean>
+}
+
+export const NotificationSettings = forwardRef<
+  NotificationSettingsRef,
+  NotificationSettingsProps
+>(({ journeyId, onChange }, ref) => {
   // Fetch default settings and frequencies from the server
   const {
     defaults,
@@ -29,12 +41,10 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
     isLoading: isLoadingDefaults,
   } = useNotificationDefaults()
 
-  // Use the hook to fetch/update settings when journeyId is provided
+  // Use the hook to fetch settings when journeyId is provided
   const {
     notificationSettings: fetchedSettings,
     isLoading: isLoadingSettings,
-    updateNotificationSettings,
-    isUpdating,
   } = useNotificationSettingsForJourney(journeyId)
 
   // Internal state - initialized once defaults load
@@ -43,6 +53,17 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   // Track if we've synced with fetched settings
   const hasSyncedRef = useRef(false)
   const hasSyncedDefaultsRef = useRef(false)
+
+  // Expose notificationSettings to parent via ref
+  useImperativeHandle(
+    ref,
+    () => ({
+      notificationSettings: value,
+      // save is no longer needed as notification settings are saved via the journey update mutation
+      save: async () => true,
+    }),
+    [value],
+  )
 
   // Sync internal state with server defaults when they load (for new journeys)
   useEffect(() => {
@@ -81,11 +102,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
 
     // Emit change to parent
     onChange?.(newValue)
-
-    // Auto-save if journeyId is provided
-    if (journeyId) {
-      updateNotificationSettings(newValue)
-    }
   }
 
   const handleToggle = (enabled: boolean) => {
@@ -148,7 +164,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           borderColor="$color5"
           borderRadius="$4"
           padding="$3"
-          opacity={isUpdating ? 0.7 : 1}
         >
           <XStack gap="$2" alignItems="center">
             <Bell size={20} color="$color11" />
@@ -166,7 +181,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
             checked={value.enabled}
             onCheckedChange={handleToggle}
             backgroundColor="$color8"
-            disabled={isUpdating}
           >
             <Switch.Thumb animation="quick" />
           </Switch>
@@ -178,7 +192,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
             gap="$3"
             animation="quick"
             enterStyle={{ opacity: 0, y: -10 }}
-            opacity={isUpdating ? 0.7 : 1}
           >
             {/* Frequency selector */}
             <YStack gap="$2">
@@ -199,7 +212,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                       backgroundColor={isSelected ? undefined : "$color2"}
                       borderWidth={1}
                       borderColor={isSelected ? undefined : "$color5"}
-                      disabled={isUpdating}
                     >
                       <Text
                         fontSize="$3"
@@ -226,7 +238,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                 backgroundColor="$color2"
                 borderWidth={1}
                 borderColor="$color5"
-                disabled={isUpdating}
               >
                 <XStack
                   flex={1}
@@ -255,4 +266,6 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
       </YStack>
     </>
   )
-}
+})
+
+NotificationSettings.displayName = "NotificationSettings"

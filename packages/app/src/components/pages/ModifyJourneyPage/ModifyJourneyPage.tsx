@@ -1,11 +1,14 @@
 import { YStack, Label, Input, Button, H5 } from "tamagui"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useUpdateJourney } from "./hooks/useUpdateJourney"
 import { useToastController } from "@tamagui/toast"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { NotificationSettings } from "../../NotificationSettings"
+import {
+  NotificationSettings,
+  NotificationSettingsRef,
+} from "../../NotificationSettings"
 
 export const ModifyJourneyPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
@@ -17,11 +20,14 @@ export const ModifyJourneyPage: React.FC = () => {
   const toast = useToastController()
   const router = useRouter()
   const { updateJourney, isPending } = useUpdateJourney()
+  const notificationSettingsRef = useRef<NotificationSettingsRef>(null)
 
   const onUpdate = async () => {
     if (!journeyId) return
 
-    const success = await updateJourney(journeyId, title)
+    const notificationSettings =
+      notificationSettingsRef.current?.notificationSettings ?? undefined
+    const success = await updateJourney(journeyId, title, notificationSettings)
     if (success) {
       toast.show("Your journey has been updated.", {
         type: "success",
@@ -54,10 +60,13 @@ export const ModifyJourneyPage: React.FC = () => {
               />
             </YStack>
 
-            {/* Notification Settings - auto-saves when changed */}
+            {/* Notification Settings */}
             {journeyId && (
               <YStack>
-                <NotificationSettings journeyId={journeyId} />
+                <NotificationSettings
+                  ref={notificationSettingsRef}
+                  journeyId={journeyId}
+                />
               </YStack>
             )}
           </YStack>

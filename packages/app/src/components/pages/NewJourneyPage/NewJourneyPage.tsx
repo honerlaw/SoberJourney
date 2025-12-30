@@ -10,7 +10,7 @@ import { useToastController } from "@tamagui/toast"
 import { useRouter } from "expo-router"
 import {
   NotificationSettings,
-  type NotificationSettingsValue,
+  NotificationSettingsRef,
 } from "../../NotificationSettings"
 
 export const NewJourneyPage: React.FC = () => {
@@ -18,14 +18,13 @@ export const NewJourneyPage: React.FC = () => {
   const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false)
   const [startDate, setStartDate] = useState<Date>(new Date())
   const [title, setTitle] = useState<string>("")
-  // Use ref to track latest notification settings without causing re-renders
-  const notificationSettingsRef = useRef<NotificationSettingsValue | null>(null)
+  const notificationSettingsRef = useRef<NotificationSettingsRef>(null)
   const toast = useToastController()
   const router = useRouter()
   const { createJourney, isPending } = useCreateJourney()
 
   const onCreate = async () => {
-    const settings = notificationSettingsRef.current
+    const settings = notificationSettingsRef.current?.notificationSettings
     const success = await createJourney(
       title,
       startDate,
@@ -93,11 +92,7 @@ export const NewJourneyPage: React.FC = () => {
 
             {/* Notification Settings */}
             <YStack>
-              <NotificationSettings
-                onChange={(settings) => {
-                  notificationSettingsRef.current = settings
-                }}
-              />
+              <NotificationSettings ref={notificationSettingsRef} />
             </YStack>
           </YStack>
         </YStack>
