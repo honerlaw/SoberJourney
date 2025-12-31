@@ -33,10 +33,10 @@ export async function receipts(ctx: Context): Promise<void> {
         },
         "Notification completed",
       );
-      await ctx.database.notification.upsert(
+      await ctx.database.notification.update(
         notification.pushTokenId,
         notification.scheduleId,
-        null,
+        receiptId,
         PushNotificationStatus.COMPLETE,
         null,
       );
@@ -48,6 +48,7 @@ export async function receipts(ctx: Context): Promise<void> {
       notification.scheduleId,
       notification.pushTokenId,
       receipt,
+      receiptId,
     );
   }
 }

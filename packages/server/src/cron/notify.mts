@@ -76,15 +76,14 @@ export async function notify(ctx: Context): Promise<void> {
     }
 
     if (notification.ticket.status === "error") {
+      // Ticket errors don't have a receiptId - the notification was never sent successfully
       await handleError(
         ctx,
         originalMessage.schedule.id,
         pushToken.id,
         notification.ticket,
+        null,
       );
-      // @todo handle the error case here
-      // this might be also updating the notification or creating it
-      // with more details or revoking / etc
       continue;
     }
 
@@ -99,10 +98,8 @@ export async function notify(ctx: Context): Promise<void> {
       "Notification processed",
     );
 
-    // only store success to read later, errors are handled here
-    // @todo this needs to be a create, not upsert, as we should cretae a new record for each notification
-    // when we do the "notify", but we should upsert on the receipts
-    await ctx.database.notification.upsert(
+    // Create a new notification record for each send
+    await ctx.database.notification.create(
       pushToken.id,
       originalMessage.schedule.id,
       notification.ticket.id,

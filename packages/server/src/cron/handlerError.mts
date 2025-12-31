@@ -7,11 +7,17 @@ import { PushNotificationStatus } from "../util/database.mjs";
 
 type ExpoPushError = ExpoPushErrorReceipt | ExpoPushErrorTicket;
 
+/**
+ * Handle errors from push notification sends.
+ * @param receiptId - The receipt ID if this is a receipt error (has existing notification record),
+ *                    or null if this is a ticket error (no notification record exists yet)
+ */
 export async function handleError(
   ctx: Context,
   scheduleId: string,
   pushTokenId: string,
   error: ExpoPushError,
+  receiptId: string | null,
 ) {
   if (error.status !== "error" || !error.details) {
     return;
@@ -22,6 +28,7 @@ export async function handleError(
       attributes: {
         scheduleId,
         pushTokenId,
+        receiptId,
         error: error.details.error,
       },
       tags: ["cron", "handleError"],
@@ -29,15 +36,18 @@ export async function handleError(
     "Error occurred while processing notification",
   );
 
-  // in general, go ahead and upsert a notification record that it errored for the
-  // given token
-  await ctx.database.notification.upsert(
-    pushTokenId,
-    scheduleId,
-    null,
-    PushNotificationStatus.ERROR,
-    error.details.error ?? null,
-  );
+  // If we have a receiptId, update the existing notification record
+  // Otherwise, this is a ticket error and we don't create a record
+  // (the notification was never sent successfully, so there's nothing to track)
+  if (receiptId) {
+    await ctx.database.notification.update(
+      pushTokenId,
+      scheduleId,
+      receiptId,
+      PushNotificationStatus.ERROR,
+      error.details.error ?? null,
+    );
+  }
 
   switch (error.details.error) {
     case "DeviceNotRegistered":
