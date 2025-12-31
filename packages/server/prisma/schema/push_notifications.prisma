@@ -48,6 +48,7 @@ model UserPushNotification {
   updatedAt DateTime @updatedAt
 
   @@unique([pushTokenId, scheduleId])
+  @@unique([pushTokenId, scheduleId, receiptId])
   @@index([pushTokenId])
   @@index([scheduleId])
 }

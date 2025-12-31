@@ -17,12 +17,21 @@ export async function upsert(
 ): Promise<UserPushNotificationModel | null> {
   try {
     return await client.userPushNotification.upsert({
-      where: {
-        pushTokenId_scheduleId: {
-          pushTokenId,
-          scheduleId,
-        },
-      },
+      where:
+        receiptId === null
+          ? {
+              pushTokenId_scheduleId: {
+                pushTokenId,
+                scheduleId,
+              },
+            }
+          : {
+              pushTokenId_scheduleId_receiptId: {
+                pushTokenId,
+                scheduleId,
+                receiptId,
+              },
+            },
       create: {
         scheduleId,
         pushTokenId,

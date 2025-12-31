@@ -115,39 +115,47 @@ type JourneyWithCheckIns = {
   recentCheckIns: JourneyCheckInEntryModel[];
 };
 
-function buildJourneyContext(journeysWithCheckIns: JourneyWithCheckIns[]): string {
+function buildJourneyContext(
+  journeysWithCheckIns: JourneyWithCheckIns[],
+): string {
   if (journeysWithCheckIns.length === 0) {
     return "";
   }
 
-  const journeyDescriptions = journeysWithCheckIns.map(({ journey, recentCheckIns }) => {
-    // The most recent entry represents the current streak start date
-    const latestEntry = journey.entries[0];
-    const duration = latestEntry ? formatDuration(latestEntry.createdAt) : "just started";
-    
-    let description = `- ${journey.title}: ${duration}`;
-    
-    // Add recent check-in context if available
-    if (recentCheckIns.length > 0) {
-      const latestCheckIn = recentCheckIns[0];
-      if (latestCheckIn) {
-        const age = formatCheckInAge(latestCheckIn.createdAt);
-        const mood = formatMood(latestCheckIn.mood);
-        const urge = formatUrge(latestCheckIn.urge);
-        description += `\n  Recent check-in (${age}): mood is ${mood}, urge level is ${urge}`;
-        
-        // If there are multiple recent check-ins, show a brief trend
-        if (recentCheckIns.length >= 2) {
-          const moods = recentCheckIns.slice(0, 3).map(c => formatMood(c.mood));
-          const urges = recentCheckIns.slice(0, 3).map(c => c.urge);
-          const avgUrge = urges.reduce((a, b) => a + b, 0) / urges.length;
-          description += `\n  Recent pattern: moods have been ${moods.join(" → ")}, avg urge level ${formatUrge(avgUrge)}`;
+  const journeyDescriptions = journeysWithCheckIns.map(
+    ({ journey, recentCheckIns }) => {
+      // The most recent entry represents the current streak start date
+      const latestEntry = journey.entries[0];
+      const duration = latestEntry
+        ? formatDuration(latestEntry.createdAt)
+        : "just started";
+
+      let description = `- ${journey.title}: ${duration}`;
+
+      // Add recent check-in context if available
+      if (recentCheckIns.length > 0) {
+        const latestCheckIn = recentCheckIns[0];
+        if (latestCheckIn) {
+          const age = formatCheckInAge(latestCheckIn.createdAt);
+          const mood = formatMood(latestCheckIn.mood);
+          const urge = formatUrge(latestCheckIn.urge);
+          description += `\n  Recent check-in (${age}): mood is ${mood}, urge level is ${urge}`;
+
+          // If there are multiple recent check-ins, show a brief trend
+          if (recentCheckIns.length >= 2) {
+            const moods = recentCheckIns
+              .slice(0, 3)
+              .map((c) => formatMood(c.mood));
+            const urges = recentCheckIns.slice(0, 3).map((c) => c.urge);
+            const avgUrge = urges.reduce((a, b) => a + b, 0) / urges.length;
+            description += `\n  Recent pattern: moods have been ${moods.join(" → ")}, avg urge level ${formatUrge(avgUrge)}`;
+          }
         }
       }
-    }
-    
-    return description;
-  });
+
+      return description;
+    },
+  );
 
   return `
 
@@ -178,10 +186,9 @@ export const sponsorChat = procedure
     const journeysWithCheckIns: JourneyWithCheckIns[] = await Promise.all(
       journeys.map(async (journey) => ({
         journey,
-        recentCheckIns: await ctx.database.checkin.getEntriesByJourneyId(
-          journey.id,
-          ctx.auth.user!.id,
-        ).then(entries => entries.slice(0, 5)), // Limit to 5 most recent
+        recentCheckIns: await ctx.database.checkin
+          .getEntriesByJourneyId(journey.id, ctx.auth.user!.id)
+          .then((entries) => entries.slice(0, 5)), // Limit to 5 most recent
       })),
     );
 

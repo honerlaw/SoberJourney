@@ -100,6 +100,8 @@ export async function notify(ctx: Context): Promise<void> {
     );
 
     // only store success to read later, errors are handled here
+    // @todo this needs to be a create, not upsert, as we should cretae a new record for each notification
+    // when we do the "notify", but we should upsert on the receipts
     await ctx.database.notification.upsert(
       pushToken.id,
       originalMessage.schedule.id,
