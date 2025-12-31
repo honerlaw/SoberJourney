@@ -8,8 +8,11 @@ export function useSponsorChat() {
   const [pendingMessage, setPendingMessage] = useState<Message | null>(null)
 
   const { createConversation, isPending: isCreating } = useCreateConversation()
-  const { conversation, isLoading: isLoadingConversation } =
-    useConversation(conversationId)
+  const {
+    conversation,
+    isLoading: isLoadingConversation,
+    isRefetching: isRefetchingConversation,
+  } = useConversation(conversationId)
   const { sendMessage: sendMessageMutation, isPending: isSending } =
     useSendMessage(conversationId)
 
@@ -71,5 +74,6 @@ export function useSponsorChat() {
     isSending,
     isInitializing,
     isLoading,
+    isThinking: isSending || isRefetchingConversation,
   }
 }

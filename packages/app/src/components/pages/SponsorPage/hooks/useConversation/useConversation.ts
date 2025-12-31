@@ -39,6 +39,7 @@ export function useConversation(conversationId: string | null) {
     conversation: (data?.conversation as Conversation | null) ?? null,
     error,
     isLoading: isLoading && !isRefetching,
+    isRefetching,
     refetch,
   }
 }

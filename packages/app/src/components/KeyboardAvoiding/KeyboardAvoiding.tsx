@@ -21,6 +21,7 @@ export const KeyboardAvoiding = React.forwardRef<
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={true}
       >
         <Stack
           flex={1}

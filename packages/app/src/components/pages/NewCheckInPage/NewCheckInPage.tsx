@@ -63,9 +63,9 @@ export const NewCheckInPage: React.FC = () => {
   return (
     <>
       <Stack.Screen options={{ headerTitle }} />
-      <YStack flex={1} width="100%">
-        <KeyboardAvoiding>
-          <YStack flex={1} padding="$4" gap="$4">
+      <KeyboardAvoiding>
+        <YStack flex={1} padding="$4" gap="$4">
+          <YStack gap="$4" flex={1}>
             <MoodPulse
               selectedMood={selectedMood}
               onMoodChange={setSelectedMood}
@@ -76,17 +76,16 @@ export const NewCheckInPage: React.FC = () => {
               onValueChange={setJournalEntry}
             />
           </YStack>
-        </KeyboardAvoiding>
-        <Button
-          themeInverse
-          onPress={onCompleteCheckIn}
-          margin={"$4"}
-          marginBottom={bottom}
-          disabled={isPending}
-        >
-          {isPending ? "Saving..." : "Complete Check-in"}
-        </Button>
-      </YStack>
+          <Button
+            themeInverse
+            onPress={onCompleteCheckIn}
+            marginBottom={bottom}
+            disabled={isPending}
+          >
+            {isPending ? "Saving..." : "Complete Check-in"}
+          </Button>
+        </YStack>
+      </KeyboardAvoiding>
     </>
   )
 }

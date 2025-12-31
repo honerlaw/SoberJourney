@@ -16,8 +16,14 @@ export const SponsorPage: React.FC = () => {
   const tabBarHeight = useBottomTabBarHeight()
   const keyboardHeight = useKeyboardHeight()
 
-  const { messages, sendMessage, isSending, isInitializing, isLoading } =
-    useSponsorChat()
+  const {
+    messages,
+    sendMessage,
+    isSending,
+    isInitializing,
+    isLoading,
+    isThinking,
+  } = useSponsorChat()
 
   // Scroll to bottom when messages change or when sending (to show thinking indicator)
   useEffect(() => {
@@ -55,7 +61,7 @@ export const SponsorPage: React.FC = () => {
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
-            {isSending && <ThinkingIndicator />}
+            {isThinking && <ThinkingIndicator />}
           </YStack>
         </ScrollView>
       ) : (
