@@ -69,7 +69,7 @@ export const sponsorChat = procedure
       ctx,
       input.conversationId,
       ctx.auth.user.id,
-      history,
+      input.text,
       conversation.title,
     );
 

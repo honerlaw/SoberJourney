@@ -4,7 +4,7 @@ import type { ScrollView as ScrollViewType } from "react-native"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs"
 
 import { LoadingView } from "@/src/components/LoadingView"
-import { useSponsorChat } from "./hooks/useSponsorChat"
+import { useConversation } from "@/src/providers/ConversationProvider"
 import { useKeyboardHeight } from "./hooks/useKeyboardHeight"
 import { MessageBubble } from "./MessageBubble"
 import { ChatInput } from "./ChatInput"
@@ -23,7 +23,7 @@ export const SponsorPage: React.FC = () => {
     isInitializing,
     isLoading,
     isThinking,
-  } = useSponsorChat()
+  } = useConversation()
 
   // Scroll to bottom when messages change or when sending (to show thinking indicator)
   // or scroll when the keyboard opens

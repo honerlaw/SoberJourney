@@ -1,4 +1,4 @@
-import { type Message } from "../../hooks/useConversation"
+import { type Message } from "@/src/providers/ConversationProvider"
 
 export const mockChatMessage: Message = {
   id: "mock-comprehensive-markdown-message",
