@@ -26,13 +26,18 @@ export const SponsorPage: React.FC = () => {
   } = useSponsorChat()
 
   // Scroll to bottom when messages change or when sending (to show thinking indicator)
+  // or scroll when the keyboard opens
   useEffect(() => {
-    if (messages.length || isSending) {
+    if (
+      messages.length ||
+      isSending ||
+      (keyboardHeight > 0 && messages.length)
+    ) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true })
       }, 100)
     }
-  }, [messages.length, isSending])
+  }, [messages.length, isSending, keyboardHeight])
 
   if (isInitializing || isLoading) {
     return (
