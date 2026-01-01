@@ -2,7 +2,7 @@ import { z } from "zod";
 import type {
   JourneyCheckInEntryModel,
   UserJourneyModelWithEntries,
-} from "../../../../../util/database.mjs";
+} from "../../../../../../util/database.mjs";
 
 export const chatInput = z.object({
   conversationId: z.uuid(),

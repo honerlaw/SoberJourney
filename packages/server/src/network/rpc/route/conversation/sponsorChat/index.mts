@@ -6,9 +6,10 @@ import {
 import { type Content } from "@google/genai";
 import { procedure } from "../../../router.mjs";
 import { MessageRole } from "../../../../../util/database.mjs";
-import { chatInput, type JourneyWithCheckIns } from "./types.mjs";
-import { BASE_SYSTEM_PROMPT } from "./systemPrompt.mjs";
-import { buildJourneyContext } from "./buildJourneyContext.mjs";
+import { chatInput, type JourneyWithCheckIns } from "./utils/types.mjs";
+import { BASE_SYSTEM_PROMPT } from "./utils/systemPrompt.mjs";
+import { buildJourneyContext } from "./utils/index.mjs";
+import { generateTitle } from "./utils/generateTitle.mjs";
 
 export const sponsorChat = procedure
   .input(chatInput)
@@ -63,6 +64,15 @@ export const sponsorChat = procedure
       parts: [{ text: input.text }],
     });
 
+    // Start title generation concurrently (will skip if title already exists)
+    const titlePromise = generateTitle(
+      ctx,
+      input.conversationId,
+      ctx.auth.user.id,
+      history,
+      conversation.title,
+    );
+
     // Get AI response from Gemini with full conversation history
     const aiResponse = await ctx.datasource.gemini.chat(history, {
       systemInstruction: systemPrompt,
@@ -106,29 +116,8 @@ export const sponsorChat = procedure
       throw new InternalServerError("Failed to save response.");
     }
 
-    // Generate a title for the conversation if one doesn't exist
-    if (!conversation.title) {
-      const titleResponse = await ctx.datasource.gemini.chat(
-        [
-          {
-            role: "user",
-            parts: [{ text: input.text }],
-          },
-        ],
-        {
-          systemInstruction:
-            "Generate a short, concise title (5 words or less) for a conversation that starts with the following message. Return only the title, nothing else.",
-        },
-      );
-
-      if (titleResponse) {
-        await ctx.database.conversation.updateTitle(
-          input.conversationId,
-          ctx.auth.user.id,
-          titleResponse.trim(),
-        );
-      }
-    }
+    // Wait for title generation to complete before returning
+    await titlePromise;
 
     return {
       response: aiResponse,

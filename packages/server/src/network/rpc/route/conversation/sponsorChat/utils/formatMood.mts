@@ -1,4 +1,4 @@
-import { CheckInMood } from "../../../../../util/database.mjs";
+import { CheckInMood } from "../../../../../../util/database.mjs";
 
 export function formatMood(mood: CheckInMood): string {
   switch (mood) {
