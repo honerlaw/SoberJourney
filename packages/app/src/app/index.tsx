@@ -12,7 +12,7 @@ export default function Page() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(auth)/(tabs)/dashboard" />
+    return <Redirect href="/(auth)/(drawer)/(tabs)/dashboard" />
   }
 
   // native, so go ahead and show the signin page
