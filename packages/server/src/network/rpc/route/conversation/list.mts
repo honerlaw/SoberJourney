@@ -11,7 +11,7 @@ export const list = procedure.query(async ({ ctx }) => {
   return {
     conversations: conversations.map((conversation) => ({
       id: conversation.id,
-      title: conversation.title,
+      title: conversation.title || "New conversation",
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
     })),

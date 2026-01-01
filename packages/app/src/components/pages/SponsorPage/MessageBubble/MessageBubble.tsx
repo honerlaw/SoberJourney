@@ -2,7 +2,7 @@ import React, { memo } from "react"
 import { XStack, YStack } from "tamagui"
 import Markdown from "react-native-markdown-display"
 import MarkdownIt from "markdown-it"
-import { type Message } from "../hooks/useConversation"
+import { type Message } from "@/src/providers/ConversationProvider"
 import { useMarkdownStyles } from "./useMarkdownStyles"
 
 const md = new MarkdownIt({ breaks: true })
