@@ -64,8 +64,8 @@ export const sponsorChat = procedure
       parts: [{ text: input.text }],
     });
 
-    // Start title generation concurrently (will skip if title already exists)
-    const titlePromise = generateTitle(
+    // generate a title, don't wait for it to complete
+    generateTitle(
       ctx,
       input.conversationId,
       ctx.auth.user.id,
@@ -115,9 +115,6 @@ export const sponsorChat = procedure
     if (!modelMessage) {
       throw new InternalServerError("Failed to save response.");
     }
-
-    // Wait for title generation to complete before returning
-    await titlePromise;
 
     return {
       response: aiResponse,

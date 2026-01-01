@@ -61,6 +61,20 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     }
   }, [conversationError, report])
 
+  // Clear pending message once it appears in the fetched conversation data
+  // This prevents flickering by only clearing after the refetch completes
+  useEffect(() => {
+    if (pendingMessage && conversationData?.conversation?.messages) {
+      const messageExists = conversationData.conversation.messages.some(
+        (msg: Message) =>
+          msg.role === "user" && msg.content === pendingMessage.content,
+      )
+      if (messageExists) {
+        setPendingMessage(null)
+      }
+    }
+  }, [conversationData?.conversation?.messages, pendingMessage])
+
   // Initialize conversation on mount
   useEffect(() => {
     const init = async () => {
@@ -74,8 +88,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       }
     }
     init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [getOrCreateConversationMutation, handleError, setConversationId])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -93,15 +106,15 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       try {
         await sendMessageMutation({ conversationId, text: text.trim() })
         // Invalidate the conversation query to refetch with new messages
+        // Note: pendingMessage is cleared by useEffect once the message appears in conversation
         await queryClient.invalidateQueries({
           queryKey: trpc.conversation.get.queryKey({ conversationId }),
         })
       } catch (error) {
+        // Clear pending message on error since it won't be added to the conversation
+        setPendingMessage(null)
         handleError(error, "Failed to send message.")
       }
-
-      // Clear pending message after response is received
-      setPendingMessage(null)
     },
     [
       isSending,
