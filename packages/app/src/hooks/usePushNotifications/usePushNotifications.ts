@@ -24,6 +24,11 @@ export function usePushNotifications() {
 
       if (data?.url && typeof data.url === "string") {
         try {
+          // Ensure dashboard is in the navigation stack before navigating to the target URL
+          // This guarantees the back button works even when app is opened from notification
+          if (!router.canGoBack()) {
+            router.replace("/(auth)/(tabs)/dashboard")
+          }
           router.push(data.url as RelativePathString)
         } catch (error) {
           report(error)
