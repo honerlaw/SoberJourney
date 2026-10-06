@@ -14,6 +14,9 @@ import {
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
 import { useSignInForm } from "./hooks/useSignInForm"
 import type { SecondFactorStrategy } from "./hooks/useSignInForm"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { AppleButton } from "@/src/components/pages/SignInPage/AppleButton"
+import { GoogleButton } from "./GoogleButton"
 
 function getSecondFactorInstructions(
   strategy: SecondFactorStrategy | null,
@@ -31,9 +34,6 @@ function getSecondFactorInstructions(
       return `We've sent a 6-digit verification code to ${destination ?? "your email"}. Enter it below to continue.`
   }
 }
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { AppleButton } from "@/src/components/pages/SignInPage/AppleButton"
-import { GoogleButton } from "./GoogleButton"
 
 export function SignInPage() {
   const router = useRouter()
@@ -87,7 +87,9 @@ export function SignInPage() {
               autoCapitalize="none"
               autoCorrect={false}
               value={secondFactorCode}
-              placeholder={isBackupCode ? "Enter backup code" : "Enter 6-digit code"}
+              placeholder={
+                isBackupCode ? "Enter backup code" : "Enter 6-digit code"
+              }
               maxLength={isBackupCode ? undefined : 6}
               onChangeText={(code) => setSecondFactorCode(code)}
               textAlign="center"

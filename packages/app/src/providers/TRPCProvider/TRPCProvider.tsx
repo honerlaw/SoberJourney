@@ -4,13 +4,7 @@ import {
   QueryCache,
   MutationCache,
 } from "@tanstack/react-query"
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useAuth } from "@clerk/clerk-expo"
 import superjson from "superjson"
@@ -155,7 +149,9 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
               return true
             }
             verifiedUnauthorizedCount.current += 1
-            return verifiedUnauthorizedCount.current >= MAX_VERIFIED_UNAUTHORIZED
+            return (
+              verifiedUnauthorizedCount.current >= MAX_VERIFIED_UNAUTHORIZED
+            )
           })
           .catch(() => false) // offline etc.: never log out on a failed check
           .finally(() => {

@@ -6,13 +6,8 @@ import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider"
 
 export const ForgotPasswordPage: React.FC = () => {
   const router = useRouter()
-  const {
-    emailAddress,
-    setEmailAddress,
-    errors,
-    isSubmitting,
-    onEmailSubmit,
-  } = useForgotPasswordContext()
+  const { emailAddress, setEmailAddress, errors, isSubmitting, onEmailSubmit } =
+    useForgotPasswordContext()
 
   const handleEmailSubmit = async () => {
     const success = await onEmailSubmit()
