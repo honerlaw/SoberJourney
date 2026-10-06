@@ -25,7 +25,7 @@ phone until someone else registered the token, and a rotated token stopped remin
 - `usePushTokenSync` runs from `usePushNotifications.native.ts` in `Routes`. On every
   signed-out → signed-in transition or user change (`sessionTransition`, with the last
   `userId` recorded as null while signed out) it calls `startSession()` and registers if
-  permission is **already** granted. It retries on foreground and never prompts. It
+  permission is **already** granted. It retries on foreground (at most every 6 h after a success) and never prompts. It
   registers the revoke as an `endSession` sign-out task
   ([[2026-10-06-pattern-session-teardown-endsession]]); tasks are bounded at 3 s.
 - Server calls use `trpc.user.*.mutationOptions().mutationFn` directly, with a

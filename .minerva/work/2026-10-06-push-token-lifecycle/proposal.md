@@ -1,7 +1,7 @@
 # Proposal: 2026-10-06-push-token-lifecycle
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #32
 
 ## Goal
@@ -35,7 +35,9 @@ module with injected dependencies, one platform module for permission/token, and
 hook mounted from the existing `usePushNotifications()` call in `Routes`.
 
 1. **`hooks/useAuth/endSession.ts`** — add `registerSignOutTask(task: () => Promise<void>): () => void`
-   (returns an unregister function; module-private set, plus a test-only reset). `endSession`
+   (returns an unregister function; module-private set; the verify script uses the
+   unregister functions, so no test-only reset was needed). `queryClient` is typed as
+   `Pick<QueryClient, "cancelQueries" | "clear">` so the script can pass a fake. `endSession`
    runs all registered tasks in parallel BEFORE `signOut()`, as one bounded step:
    `Promise.allSettled` raced against a **3 s** timeout, errors swallowed (tasks report their
    own errors). `allSettled` returns as soon as tasks settle, so the bound only costs time when
@@ -61,8 +63,10 @@ hook mounted from the existing `usePushNotifications()` call in `Routes`.
    - `register()`: no-op while latched; dedupes concurrent calls; fetches the token; **skips the
      server call when the fetched token equals the token already registered in this
      generation** (so a foreground re-run costs no server write); otherwise calls
-     `addPushToken` and remembers the token on success, but only if the generation is unchanged
-     and not latched when the call returns.
+     `addPushToken` and remembers the token on success if the generation is unchanged — even
+     when `revoke()` latched meanwhile, so the waiting revoke reuses it instead of fetching it
+     again (review fix). A `revoke()` that lands during the token fetch stops the register
+     before `addPushToken`.
    - `revoke()`: captures the current generation, then sets the "ended" latch FIRST (so no
      later `register()` — AppState foreground, permission grant, effect re-run — can re-enable
      the token via `addPushToken`, which un-revokes; knowledge entry
@@ -81,7 +85,10 @@ hook mounted from the existing `usePushNotifications()` call in `Routes`.
    `readPermission()` (`getPermissionsAsync` → `{ status, canAskAgain }`, never prompts),
    `requestPermission()` (prompts only if not granted and `canAskAgain`), Android channel
    setup, and `fetchExpoPushToken()` (projectId from Constants; Android channel first). Moves
-   `setNotificationHandler` here. Holds the one module-level lifecycle instance.
+   `setNotificationHandler` here (it now runs at app start, via usePushNotifications.native,
+   so foreground notifications show from launch). Holds the one module-level lifecycle
+   instance. `requestPermission()` creates the Android channel first: Android 13+ shows the
+   prompt only once a channel exists (review fix).
 4. **`hooks/useExpoNotifications/useExpoNotifications.ts`** — replaced by hooks over that
    module:
    - `usePushTokenSync()`: one effect keyed on Clerk `isLoaded`/`isSignedIn`/`userId`: records
@@ -90,12 +97,15 @@ hook mounted from the existing `usePushNotifications()` call in `Routes`.
      `status === "granted"`, which Expo also reports for iOS provisional authorization),
      `register()`. Also re-runs the
      read + `register()` when the app returns to the foreground (covers a launch-time failure
-     and permission granted in system settings). Server calls go through
+     and permission granted in system settings), throttled to once per 6 h after a successful
+     registration (review fix). Server calls go through
      `trpc.user.addPushToken` / `trpc.user.revokePushToken` `mutationOptions().mutationFn`
      invoked directly (verified: in the installed `@trpc/tanstack-react-query` 11.8.1 it is a
      plain async function that does not touch MutationCache, so a 401 from revoking on a dead
      session or after account deletion does not re-enter TRPCProvider's auto-logout handler;
-     `mutationFn` is optional in the type, so guarded; one-line comment explains why). Read
+     `mutationFn` is optional in the type, so guarded; the app's @tanstack/react-query types it
+     `(variables, context)`, so a real `MutationFunctionContext` built from `useQueryClient()` is
+     passed; a comment explains why). A 401 from the sign-out revoke is not reported to Sentry. Read
      through a ref updated in an effect. Registers `lifecycle.revoke` as an `endSession`
      sign-out task on mount, unregisters on unmount (`Routes` lives for the app's lifetime).
    - `useNotificationPermission()`: `{ isSupported, status, canAskAgain, request() }`;
@@ -114,7 +124,9 @@ hook mounted from the existing `usePushNotifications()` call in `Routes`.
    the existing toast if not granted; when reminders are on but permission is not granted: if
    `canAskAgain`, a short note plus an "Allow notifications" button (prompt only on press),
    else the existing "blocked in device settings" note. No prompt on mount. A pure
-   `permissionView(status, canAskAgain)` helper decides which. The only old-hook caller is
+   `permissionView(status, canAskAgain)` helper decides which. The component's web-only
+   branches (the `WebDateTimeField` time picker) are now unreachable but kept for a future
+   web-push enablement. The only old-hook caller is
    `NotificationSettings` (journey pages import only the component/types), so no journey page
    changes.
 7. **Account deletion and 401 auto-logout**: on both, the session is already gone (user
