@@ -13,9 +13,27 @@ import {
 } from "tamagui"
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
 import { useSignInForm } from "./hooks/useSignInForm"
+import type { SecondFactorStrategy } from "./hooks/useSignInForm"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppleButton } from "@/src/components/pages/SignInPage/AppleButton"
 import { GoogleButton } from "./GoogleButton"
+
+function getSecondFactorInstructions(
+  strategy: SecondFactorStrategy | null,
+  destination: string | null,
+): string {
+  switch (strategy) {
+    case "phone_code":
+      return `We've sent a 6-digit verification code to ${destination ?? "your phone"}. Enter it below to continue.`
+    case "totp":
+      return "Enter the 6-digit code from your authenticator app to continue."
+    case "backup_code":
+      return "Enter one of your backup codes to continue."
+    case "email_code":
+    default:
+      return `We've sent a 6-digit verification code to ${destination ?? "your email"}. Enter it below to continue.`
+  }
+}
 
 export function SignInPage() {
   const router = useRouter()
@@ -28,6 +46,8 @@ export function SignInPage() {
     onSignInPress,
     isSigningIn,
     needsSecondFactor,
+    secondFactorStrategy,
+    secondFactorDestination,
     secondFactorCode,
     setSecondFactorCode,
     onSecondFactorPress,
@@ -37,6 +57,7 @@ export function SignInPage() {
   const insets = useSafeAreaInsets()
 
   if (needsSecondFactor) {
+    const isBackupCode = secondFactorStrategy === "backup_code"
     return (
       <KeyboardAvoiding>
         <Form
@@ -50,8 +71,10 @@ export function SignInPage() {
               <H3>Two-factor authentication</H3>
             </YStack>
             <Text color="$gray11" textAlign="center">
-              We&apos;ve sent a 6-digit verification code to your email. Enter
-              it below to continue.
+              {getSecondFactorInstructions(
+                secondFactorStrategy,
+                secondFactorDestination,
+              )}
             </Text>
             {errors &&
               errors.map((e) => (
@@ -60,11 +83,14 @@ export function SignInPage() {
                 </Text>
               ))}
             <Input
-              keyboardType="number-pad"
+              keyboardType={isBackupCode ? "default" : "number-pad"}
               autoCapitalize="none"
+              autoCorrect={false}
               value={secondFactorCode}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
+              placeholder={
+                isBackupCode ? "Enter backup code" : "Enter 6-digit code"
+              }
+              maxLength={isBackupCode ? undefined : 6}
               onChangeText={(code) => setSecondFactorCode(code)}
               textAlign="center"
               fontSize="$6"
@@ -74,7 +100,10 @@ export function SignInPage() {
               <Button
                 theme={"base"}
                 disabled={
-                  isVerifyingSecondFactor || secondFactorCode.length !== 6
+                  isVerifyingSecondFactor ||
+                  (isBackupCode
+                    ? secondFactorCode.trim().length === 0
+                    : secondFactorCode.length !== 6)
                 }
                 fontWeight={"600"}
               >

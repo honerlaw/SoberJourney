@@ -17,11 +17,18 @@ export const ResetPasswordPage: React.FC = () => {
   } = useForgotPasswordContext()
 
   const handleSubmit = async () => {
-    const success = await onPasswordSubmit()
-    if (success) {
+    const result = await onPasswordSubmit()
+    if (result === "sign_in_required") {
+      // Leave the forgot-password flow for the existing sign-in screen.
       router.dismissAll()
-      router.back()
+      if (router.canGoBack()) {
+        router.back()
+      } else {
+        router.replace("/signin")
+      }
     }
+    // "signed_in": the session is active, so the Stack.Protected guards move
+    // the user into the app. "failed": stay here with the error shown.
   }
 
   const handleBackPress = () => {

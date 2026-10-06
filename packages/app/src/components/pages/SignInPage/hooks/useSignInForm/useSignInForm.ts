@@ -1,6 +1,27 @@
-import { useSignIn } from "@clerk/clerk-expo"
+import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo"
 import React from "react"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
+
+export type SecondFactorStrategy =
+  | "email_code"
+  | "phone_code"
+  | "totp"
+  | "backup_code"
+
+// Preferred order when the account has several second factors.
+const SECOND_FACTOR_PREFERENCE: SecondFactorStrategy[] = [
+  "email_code",
+  "phone_code",
+  "totp",
+  "backup_code",
+]
+
+type SupportedSecondFactor = {
+  strategy: string
+  emailAddressId?: string
+  phoneNumberId?: string
+  safeIdentifier?: string
+}
 
 type UseSignInFormReturn = {
   emailAddress: string
@@ -11,17 +32,48 @@ type UseSignInFormReturn = {
   onSignInPress: () => Promise<void>
   isSigningIn: boolean
   needsSecondFactor: boolean
+  secondFactorStrategy: SecondFactorStrategy | null
+  secondFactorDestination: string | null
   secondFactorCode: string
   setSecondFactorCode: (value: string) => void
   onSecondFactorPress: () => Promise<void>
   isVerifyingSecondFactor: boolean
 }
 
+// Clerk's own message for the user (wrong password, unknown account, locked,
+// rate limited, ...) or `fallback` for anything unexpected.
+function getClerkErrorMessages(err: unknown, fallback: string): string[] {
+  if (isClerkAPIResponseError(err) && err.errors?.length) {
+    return err.errors.map((e) => e.longMessage || e.message || fallback)
+  }
+  return [fallback]
+}
+
+function pickSecondFactor(
+  factors: SupportedSecondFactor[] | null | undefined,
+): SupportedSecondFactor | null {
+  for (const strategy of SECOND_FACTOR_PREFERENCE) {
+    const factor = factors?.find((f) => f.strategy === strategy)
+    if (factor) {
+      return factor
+    }
+  }
+  return null
+}
+
+const UNSUPPORTED_STATUS_MESSAGE =
+  "Additional verification is required to sign in to this account. Please try another sign-in method or contact support."
+
 export function useSignInForm(): UseSignInFormReturn {
   const { signIn, setActive, isLoaded } = useSignIn()
   const [errors, setErrors] = React.useState<string[] | null>(null)
   const [isSigningIn, setIsSigningIn] = React.useState(false)
   const [needsSecondFactor, setNeedsSecondFactor] = React.useState(false)
+  const [secondFactorStrategy, setSecondFactorStrategy] =
+    React.useState<SecondFactorStrategy | null>(null)
+  const [secondFactorDestination, setSecondFactorDestination] = React.useState<
+    string | null
+  >(null)
   const [secondFactorCode, setSecondFactorCode] = React.useState("")
   const [isVerifyingSecondFactor, setIsVerifyingSecondFactor] =
     React.useState(false)
@@ -52,26 +104,50 @@ export function useSignInForm(): UseSignInFormReturn {
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId })
       } else if (signInAttempt.status === "needs_second_factor") {
-        // User has 2FA enabled, send email code and show the second factor input
-        await signIn.prepareSecondFactor({
-          strategy: "email_code",
-        })
+        const factor = pickSecondFactor(signInAttempt.supportedSecondFactors)
+        if (!factor) {
+          report(
+            new Error(
+              `Unsupported second factors: ${JSON.stringify(
+                signInAttempt.supportedSecondFactors?.map((f) => f.strategy),
+              )}`,
+            ),
+          )
+          setErrors([UNSUPPORTED_STATUS_MESSAGE])
+          return
+        }
+
+        const strategy = factor.strategy as SecondFactorStrategy
+        // Code-delivery factors need a code sent first; TOTP / backup codes
+        // come from the user's authenticator app or saved codes.
+        if (strategy === "email_code") {
+          await signIn.prepareSecondFactor({
+            strategy,
+            emailAddressId: factor.emailAddressId,
+          })
+        } else if (strategy === "phone_code") {
+          await signIn.prepareSecondFactor({
+            strategy,
+            phoneNumberId: factor.phoneNumberId,
+          })
+        }
+        setSecondFactorStrategy(strategy)
+        setSecondFactorDestination(factor.safeIdentifier ?? null)
+        setSecondFactorCode("")
         setNeedsSecondFactor(true)
       } else {
-        report(
-          new Error(
-            JSON.stringify(
-              {
-                status: signInAttempt.status,
-              },
-              null,
-              2,
-            ),
-          ),
-        )
+        // needs_first_factor / needs_new_password / needs_identifier: flows
+        // this form doesn't support. Tell the user instead of doing nothing.
+        report(new Error(`Unhandled sign-in status: ${signInAttempt.status}`))
+        setErrors([UNSUPPORTED_STATUS_MESSAGE])
       }
     } catch (err) {
-      report(err, "Invalid email or password.")
+      // Clerk API errors are user errors (wrong password, ...): show them,
+      // don't send them to Sentry. Anything else is unexpected.
+      if (!isClerkAPIResponseError(err)) {
+        report(err)
+      }
+      setErrors(getClerkErrorMessages(err, "Invalid email or password."))
     } finally {
       setIsSigningIn(false)
     }
@@ -82,35 +158,28 @@ export function useSignInForm(): UseSignInFormReturn {
     setErrors(null)
     setIsVerifyingSecondFactor(true)
 
-    if (!isLoaded) {
+    if (!isLoaded || !secondFactorStrategy) {
       setIsVerifyingSecondFactor(false)
       return
     }
 
     try {
       const signInAttempt = await signIn.attemptSecondFactor({
-        strategy: "email_code",
-        code: secondFactorCode,
+        strategy: secondFactorStrategy,
+        code: secondFactorCode.trim(),
       })
 
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId })
       } else {
-        report(
-          new Error(
-            JSON.stringify(
-              {
-                status: signInAttempt.status,
-              },
-              null,
-              2,
-            ),
-          ),
-        )
+        report(new Error(`Unhandled 2FA status: ${signInAttempt.status}`))
+        setErrors([UNSUPPORTED_STATUS_MESSAGE])
       }
     } catch (err) {
-      setErrors(["Invalid verification code."])
-      report(err)
+      if (!isClerkAPIResponseError(err)) {
+        report(err)
+      }
+      setErrors(getClerkErrorMessages(err, "Invalid verification code."))
     } finally {
       setIsVerifyingSecondFactor(false)
     }
@@ -125,6 +194,8 @@ export function useSignInForm(): UseSignInFormReturn {
     onSignInPress,
     isSigningIn,
     needsSecondFactor,
+    secondFactorStrategy,
+    secondFactorDestination,
     secondFactorCode,
     setSecondFactorCode,
     onSecondFactorPress,
