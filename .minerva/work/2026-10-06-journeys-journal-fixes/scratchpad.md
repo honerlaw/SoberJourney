@@ -14,3 +14,10 @@
 
 ## Work notes
 - Primary/epic base 3629e6e; baseline `npm run build` green in worktree.
+- Web datetimepicker: confirmed `@react-native-community/datetimepicker@8.4.4` `src/datetimepicker.js` (non iOS/Android/Windows) returns null + console.warn → pickers invisible on web. Fixed with a no-dep DOM `<input>` (`NotificationSettings/WebDateTimeField`).
+- `@onerlaw/framework` has `frontend/utils/errors/isNotFoundError` but packages/app does not depend on the framework directly → local `isNotFoundError` helper (reads `data.code`/`shape.data.code`).
+- Page-local hooks (`pages/*/hooks/*`) are inside #30 ownership; only top-level `src/hooks/*` (except useDurationSections) belong to #29.
+- Verification: `TZ=America/New_York npx tsx .minerva/work/2026-10-06-journeys-journal-fixes/verify-date-math.ts` → 26 checks passed. First run tripped on sub-second remainder in the sweep (test fixture added +1234ms); recompose check now allows <1000ms remainder (seconds are whole).
+- Local: `npm run build` green (server tsc + app tsc --noEmit), `npm run test` green (server 2/2; app no-op), `npx expo lint` 0 errors (3 pre-existing warnings in ConversationDrawerContent, not ours), knip output identical to baseline.
+- KeyboardAvoiding: not changed — iOS double inset (KAV padding + automaticallyAdjustKeyboardInsets) plausible but needs a device; manual verification item.
+- Notification permission: NotificationSettings now reads/requests permission itself before enabling (duplicates the read in #29's useExpoNotifications, which is untouched) — consolidation note for #29/#32.
