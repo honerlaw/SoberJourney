@@ -14,7 +14,11 @@ export const DurationProgressBar: React.FC<DurationProgressBarProps> = ({
   label,
   singularLabel,
 }) => {
-  const progress = Math.min((value / max) * 100, 100)
+  // Clamp to [0, 100]: never a negative or overflowing bar width
+  const ratio = max > 0 ? (value / max) * 100 : 0
+  const progress = Number.isFinite(ratio)
+    ? Math.min(Math.max(ratio, 0), 100)
+    : 0
   const displayLabel = value === 1 ? singularLabel : label
 
   return (

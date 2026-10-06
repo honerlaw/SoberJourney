@@ -16,26 +16,52 @@ import {
 export const NewJourneyPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
   const [showDateTimePicker, setShowDateTimePicker] = useState<boolean>(false)
-  const [startDate, setStartDate] = useState<Date>(new Date())
+  // null = "Now", resolved at submit time (not at mount)
+  const [startDate, setStartDate] = useState<Date | null>(null)
   const [title, setTitle] = useState<string>("")
   const notificationSettingsRef = useRef<NotificationSettingsRef>(null)
+  const isSubmittingRef = useRef(false)
   const toast = useToastController()
   const router = useRouter()
   const { createJourney, isPending } = useCreateJourney()
 
+  const trimmedTitle = title.trim()
+
+  const onUseNow = () => {
+    setStartDate(null)
+    setShowDateTimePicker(false)
+  }
+
   const onCreate = async () => {
-    const settings = notificationSettingsRef.current?.notificationSettings
-    const success = await createJourney(
-      title,
-      startDate,
-      settings?.enabled ? settings : undefined,
-    )
-    if (success) {
-      toast.show("Your journey has been created.", {
-        type: "success",
+    if (!trimmedTitle) {
+      toast.show("Please name your journey.", {
+        type: "error",
         native: false,
       })
-      router.back()
+      return
+    }
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+
+    try {
+      const settings = notificationSettingsRef.current?.notificationSettings
+      const now = new Date()
+      // Never send a future start date
+      const start = startDate && startDate < now ? startDate : now
+      const success = await createJourney(
+        trimmedTitle,
+        start,
+        settings?.enabled ? settings : undefined,
+      )
+      if (success) {
+        toast.show("Your journey has been created.", {
+          type: "success",
+          native: false,
+        })
+        router.back()
+      }
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 
@@ -87,7 +113,20 @@ export const NewJourneyPage: React.FC = () => {
                   </Text>
                 </>
               )}
-              {showDateTimePicker && <DateTimeInput onChange={setStartDate} />}
+              {showDateTimePicker && (
+                <>
+                  <DateTimeInput onChange={setStartDate} />
+                  <Button
+                    size="$3"
+                    chromeless
+                    marginTop="$2"
+                    alignSelf="center"
+                    onPress={onUseNow}
+                  >
+                    Use current time instead
+                  </Button>
+                </>
+              )}
             </YStack>
 
             {/* Notification Settings */}
@@ -103,7 +142,7 @@ export const NewJourneyPage: React.FC = () => {
         marginBottom={bottom}
         size="$5"
         onPress={onCreate}
-        disabled={isPending}
+        disabled={isPending || !trimmedTitle}
         themeInverse
       >
         {isPending ? "Creating..." : "Create Journey"}
