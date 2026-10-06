@@ -9,8 +9,9 @@ type ExpoPushError = ExpoPushErrorReceipt | ExpoPushErrorTicket;
 
 /**
  * Handle errors from push notification sends.
- * @param receiptId - The receipt ID if this is a receipt error (has existing notification record),
- *                    or null if this is a ticket error (no notification record exists yet)
+ * @param receiptId - The receipt ID if this is a receipt error (updates the existing
+ *                    notification record), or null for a ticket error (the caller has
+ *                    already recorded it as a failed attempt)
  */
 export async function handleError(
   ctx: Context,
@@ -36,9 +37,9 @@ export async function handleError(
     "Error occurred while processing notification",
   );
 
-  // If we have a receiptId, update the existing notification record
-  // Otherwise, this is a ticket error and we don't create a record
-  // (the notification was never sent successfully, so there's nothing to track)
+  // If we have a receiptId, update the existing notification record.
+  // Otherwise, this is a ticket error: the caller (cron/notify) already
+  // recorded it as a failed attempt (ERROR, receiptId null).
   if (receiptId) {
     await ctx.database.notification.update(
       pushTokenId,
