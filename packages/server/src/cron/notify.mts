@@ -42,15 +42,21 @@ export async function notify(
       }
 
       if (!Expo.isExpoPushToken(token.token)) {
+        revokedTokenIds.add(token.id);
+        const revoked = await ctx.database.notification.pushToken.revoke(
+          token.id,
+        );
         ctx.logger.warn(
           {
-            attributes: { pushTokenId: token.id, scheduleId: schedule.id },
+            attributes: {
+              pushTokenId: token.id,
+              scheduleId: schedule.id,
+              revoked: revoked !== null,
+            },
             tags: ["cron", "notify"],
           },
-          "Revoking invalid expo push token",
+          "Skipping invalid expo push token",
         );
-        revokedTokenIds.add(token.id);
-        await ctx.database.notification.pushToken.revoke(token.id);
         continue;
       }
 

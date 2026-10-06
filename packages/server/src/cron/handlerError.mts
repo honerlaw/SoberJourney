@@ -9,8 +9,9 @@ type ExpoPushError = ExpoPushErrorReceipt | ExpoPushErrorTicket;
 
 /**
  * Handle errors from push notification sends.
- * @param receiptId - The receipt ID if this is a receipt error (has existing notification record),
- *                    or null if this is a ticket error (no notification record exists yet)
+ * @param receiptId - The receipt ID if this is a receipt error (updates the existing
+ *                    notification record), or null for a ticket error (the caller has
+ *                    already recorded it as a failed attempt)
  */
 export async function handleError(
   ctx: Context,

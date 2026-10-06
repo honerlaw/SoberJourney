@@ -9,7 +9,7 @@ async function notify() {
   const ctx = await createContext();
 
   try {
-    await runWithLock(ctx, async (assertLockHeld) => {
+    const result = await runWithLock(ctx, async (assertLockHeld) => {
       const now = new Date();
 
       // for previously run notifications, check the pending ones to get the final results
@@ -18,6 +18,11 @@ async function notify() {
       // send out all of the notifications to expo
       await notifyCron(ctx, { now, assertLockHeld });
     });
+
+    // let the external scheduler see a failed run
+    if (result === "failed") {
+      process.exitCode = 1;
+    }
   } finally {
     await ctx.database.client.$disconnect();
   }

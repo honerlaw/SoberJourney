@@ -5,6 +5,8 @@ import type { Context } from "../context.mjs";
 const LOCK_TRANSACTION_TIMEOUT_MS = 15 * 60 * 1000;
 const LOCK_TRANSACTION_MAX_WAIT_MS = 30 * 1000;
 
+export type RunResult = "ran" | "skipped" | "failed";
+
 export type LockedWork = (assertLockHeld: () => Promise<void>) => Promise<void>;
 
 /**
@@ -15,12 +17,13 @@ export type LockedWork = (assertLockHeld: () => Promise<void>) => Promise<void>;
  * lock transaction has ended (timeout, killed connection), and is checked
  * right before sending.
  *
- * @returns true if the lock was acquired and the work ran
+ * @returns "ran" if the work completed, "skipped" if another run holds the
+ * lock, "failed" if acquiring the lock or the work threw (logged)
  */
 export async function runWithLock(
   ctx: Context,
   work: LockedWork,
-): Promise<boolean> {
+): Promise<RunResult> {
   let acquired = false;
 
   try {
@@ -50,7 +53,8 @@ export async function runWithLock(
     );
   } catch (error) {
     ctx.logger.error({ error, tags: ["cron", "lock"] }, "Cron run failed");
+    return "failed";
   }
 
-  return acquired;
+  return acquired ? "ran" : "skipped";
 }

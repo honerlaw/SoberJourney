@@ -12,6 +12,9 @@ import type { DBClient } from "../../../util/database.mjs";
  * Re-registering re-enables a previously revoked token for this user: the app
  * only registers after notification permission is granted and it obtained a
  * fresh token from Expo, so the device is live for this user again.
+ *
+ * Concurrent registrations of one token are serialized with a transaction
+ * advisory lock keyed on the token.
  */
 export async function upsert(
   logger: Logger,
@@ -21,6 +24,10 @@ export async function upsert(
 ) {
   try {
     return await client.$transaction(async (tx) => {
+      // serialize concurrent registrations of the same token, so two users
+      // registering it at once cannot both end up non-revoked
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${token}))`;
+
       await tx.userPushToken.updateMany({
         where: {
           token,

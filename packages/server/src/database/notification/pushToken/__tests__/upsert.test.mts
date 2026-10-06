@@ -7,7 +7,14 @@ import type { DBClient } from "../../../../util/database.mjs";
 describe("pushToken.upsert", () => {
   function harness() {
     const row = { id: "row", userId: "user-b", token: "tok", revoked: false };
+    const lockedTokens: unknown[] = [];
     const tx = {
+      $queryRaw: mock.fn(
+        async (_strings: TemplateStringsArray, ...values: unknown[]) => {
+          lockedTokens.push(...values);
+          return [];
+        },
+      ),
       userPushToken: {
         updateMany: mock.fn(async (_args: unknown) => ({ count: 1 })),
         upsert: mock.fn(async (_args: unknown) => row),
@@ -17,17 +24,19 @@ describe("pushToken.upsert", () => {
       fn(tx),
     );
     const client = { $transaction } as unknown as DBClient;
-    return { tx, client, row, $transaction };
+    return { tx, client, row, $transaction, lockedTokens };
   }
 
   it("revokes the token for other users and re-enables it for this user", async () => {
     const { logger } = mockLogger();
-    const { tx, client, row, $transaction } = harness();
+    const { tx, client, row, $transaction, lockedTokens } = harness();
 
     const result = await upsert(logger, client, "user-b", "tok");
 
     assert.equal(result, row);
     assert.equal($transaction.mock.callCount(), 1);
+    // registrations of the same token are serialized
+    assert.deepEqual(lockedTokens, ["tok"]);
     assert.deepEqual(tx.userPushToken.updateMany.mock.calls[0]!.arguments[0], {
       where: { token: "tok", userId: { not: "user-b" }, revoked: false },
       data: { revoked: true },

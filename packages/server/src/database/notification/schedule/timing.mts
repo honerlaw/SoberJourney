@@ -118,7 +118,9 @@ function getOffsetMs(instantMs: number, timezone: string): number {
 /**
  * Convert a local date + minute of day in a timezone into an instant, using
  * the offset in effect at that local time (DST correct). A local time that
- * does not exist (spring-forward gap) resolves to the instant just after it.
+ * does not exist (spring-forward gap) resolves to the instant just after the
+ * gap (02:30 on a 02:00→03:00 day becomes 03:30); an ambiguous local time
+ * (fall-back) resolves to its first occurrence.
  */
 export function zonedTimeToInstant(
   date: LocalDate,
@@ -127,12 +129,21 @@ export function zonedTimeToInstant(
 ): Date {
   const guess = Date.UTC(date.year, date.month - 1, date.day, 0, minuteOfDay);
   const firstOffset = getOffsetMs(guess, timezone);
-  let instant = guess - firstOffset;
-  const secondOffset = getOffsetMs(instant, timezone);
-  if (secondOffset !== firstOffset) {
-    instant = guess - secondOffset;
+  const secondOffset = getOffsetMs(guess - firstOffset, timezone);
+  const candidates = [guess - firstOffset, guess - secondOffset].sort(
+    (a, b) => a - b,
+  );
+
+  // a candidate is valid if it reads back as the requested local time
+  const valid = candidates.filter(
+    (candidate) => candidate + getOffsetMs(candidate, timezone) === guess,
+  );
+  if (valid.length > 0) {
+    return new Date(valid[0]!);
   }
-  return new Date(instant);
+
+  // spring-forward gap: the later candidate is just after the gap
+  return new Date(candidates[1]!);
 }
 
 function getLocalDate(date: Date, timezone: string): LocalDate {
@@ -167,28 +178,44 @@ function addFrequency(date: LocalDate, frequency: Frequency): LocalDate {
 }
 
 /**
- * The local date of the daily slot (local date at minuteOfDay) nearest to the
- * given instant. A send slightly after midnight belongs to the previous day's
- * slot; a send many hours before a (changed) later time belongs to that day.
+ * How late a send may be and still count for the previous day's slot (a cron
+ * delay or retry pushing a late-evening reminder past midnight).
  */
-function getNearestSlotDate(
+const LATE_SEND_GRACE_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * The local date of the daily slot a send (or given-up attempt) belongs to.
+ *
+ * Normally that is the local date of the send. The exception is a late send
+ * that crossed midnight: a send before the slot time on its own day, within
+ * LATE_SEND_GRACE_MS after the previous day's slot, belongs to the previous
+ * day. Changing the reminder time therefore never double-sends or skips a
+ * day: a send at 08:00 with the time moved to 21:00 counts for today, and a
+ * send at 21:00 with the time moved to 08:00 counts for today as well.
+ */
+function getSlotDateForSend(
   instant: Date,
   minuteOfDay: number,
   timezone: string,
 ): LocalDate {
-  const today = getLocalDate(instant, timezone);
-  let best = today;
-  let bestDistance = Infinity;
-  for (const offset of [-1, 0, 1]) {
-    const candidate = addDays(today, offset);
-    const slot = zonedTimeToInstant(candidate, minuteOfDay, timezone);
-    const distance = Math.abs(slot.getTime() - instant.getTime());
-    if (distance < bestDistance) {
-      best = candidate;
-      bestDistance = distance;
-    }
+  const parts = getZonedParts(instant, timezone);
+  const sendDate: LocalDate = {
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+  };
+  const sendMinute = parts.hour * 60 + parts.minute;
+  if (sendMinute >= minuteOfDay) {
+    return sendDate;
   }
-  return best;
+
+  const previousDate = addDays(sendDate, -1);
+  const previousSlot = zonedTimeToInstant(previousDate, minuteOfDay, timezone);
+  const lateBy = instant.getTime() - previousSlot.getTime();
+  if (lateBy >= 0 && lateBy <= LATE_SEND_GRACE_MS) {
+    return previousDate;
+  }
+  return sendDate;
 }
 
 /**
@@ -240,7 +267,7 @@ export function getNextDue(
     return next;
   }
 
-  const slotDate = getNearestSlotDate(lastSend, minuteOfDay, timezone);
+  const slotDate = getSlotDateForSend(lastSend, minuteOfDay, timezone);
   return zonedTimeToInstant(
     addFrequency(slotDate, frequency),
     minuteOfDay,

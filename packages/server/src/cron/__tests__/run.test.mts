@@ -31,7 +31,7 @@ describe("cron runWithLock", () => {
     const { ctx } = harness(false);
     const work = mock.fn(async () => {});
 
-    assert.equal(await runWithLock(ctx, work), false);
+    assert.equal(await runWithLock(ctx, work), "skipped");
     assert.equal(work.mock.callCount(), 0);
   });
 
@@ -41,17 +41,17 @@ describe("cron runWithLock", () => {
       await assertLockHeld();
     });
 
-    assert.equal(await runWithLock(ctx, work), true);
+    assert.equal(await runWithLock(ctx, work), "ran");
     assert.equal(work.mock.callCount(), 1);
     assert.match(queries[0]!, /pg_try_advisory_xact_lock/);
     assert.match(queries[1]!, /SELECT 1/);
   });
 
-  it("logs and returns when the work throws", async () => {
+  it("reports a failed run when the work throws", async () => {
     const { ctx } = harness(true);
     const work = mock.fn(async () => {
       throw new Error("boom");
     });
-    assert.equal(await runWithLock(ctx, work), true);
+    assert.equal(await runWithLock(ctx, work), "failed");
   });
 });

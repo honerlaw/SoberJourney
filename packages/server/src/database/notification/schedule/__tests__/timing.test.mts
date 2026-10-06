@@ -87,6 +87,30 @@ describe("schedule timing", () => {
       );
     });
 
+    it("a time inside the spring-forward gap resolves to just after it", () => {
+      // 02:30 does not exist on 2026-03-08; 03:30 EDT = 07:30Z
+      assert.equal(
+        zonedTimeToInstant(
+          { year: 2026, month: 3, day: 8 },
+          150,
+          TZ,
+        ).toISOString(),
+        "2026-03-08T07:30:00.000Z",
+      );
+    });
+
+    it("an ambiguous fall-back time resolves to its first occurrence", () => {
+      // 01:30 happens twice on 2026-11-01; first is EDT = 05:30Z
+      assert.equal(
+        zonedTimeToInstant(
+          { year: 2026, month: 11, day: 1 },
+          90,
+          TZ,
+        ).toISOString(),
+        "2026-11-01T05:30:00.000Z",
+      );
+    });
+
     it("next due across a DST change keeps the local time", () => {
       assert.equal(
         getNextDue(
@@ -186,6 +210,50 @@ describe("schedule timing", () => {
       const notifications = [sent("2026-06-11T00:00:00Z")];
       assert.equal(pending("2026-06-11T12:59:00Z", { notifications }), false);
       assert.equal(pending("2026-06-11T13:00:00Z", { notifications }), true);
+    });
+
+    it("moving the time 12+ hours later does not double-send", () => {
+      // sent at 08:00 EDT, moved to 21:00
+      const minuteOfDay = 21 * 60;
+      const notifications = [sent("2026-06-10T12:00:00Z")];
+      // June 10 21:00 EDT
+      assert.equal(
+        pending("2026-06-11T01:00:00Z", { minuteOfDay, notifications }),
+        false,
+      );
+      // June 11 21:00 EDT
+      assert.equal(
+        pending("2026-06-12T01:00:00Z", { minuteOfDay, notifications }),
+        true,
+      );
+    });
+
+    it("moving the time 12+ hours earlier does not skip a day", () => {
+      // sent at 21:00 EDT June 10, moved to 08:00
+      const minuteOfDay = 8 * 60;
+      const notifications = [sent("2026-06-11T01:00:00Z")];
+      assert.equal(
+        pending("2026-06-11T11:59:00Z", { minuteOfDay, notifications }),
+        false,
+      );
+      // June 11 08:00 EDT
+      assert.equal(
+        pending("2026-06-11T12:00:00Z", { minuteOfDay, notifications }),
+        true,
+      );
+    });
+
+    it("a weekly time change keeps the weekday", () => {
+      // sent Wed June 10 08:00 EDT, moved to 21:00 -> next Wed June 17 21:00
+      assert.equal(
+        getNextDue(
+          at("2026-06-10T12:00:00Z"),
+          Frequency.WEEKLY,
+          21 * 60,
+          TZ,
+        ).toISOString(),
+        "2026-06-18T01:00:00.000Z",
+      );
     });
 
     it("weekly waits seven local days", () => {
