@@ -3,9 +3,48 @@ import "react-native-reanimated"
 import { AppLayout } from "@/src/components/AppLayout"
 import * as Sentry from "@sentry/react-native"
 import { useAuth } from "@clerk/clerk-expo"
+import { useEffect, useState } from "react"
+import { LoadingView } from "@/src/components/LoadingView"
+import { ErrorView } from "@/src/components/ErrorView"
+import { usePushNotifications } from "@/src/hooks/usePushNotifications"
+
+// How long to wait for Clerk before telling the user something is wrong.
+const AUTH_LOAD_TIMEOUT_MS = 15_000
+
+function useAuthLoadTimedOut(isLoaded: boolean): boolean {
+  const [timedOut, setTimedOut] = useState(false)
+  useEffect(() => {
+    if (isLoaded) {
+      return
+    }
+    const timer = setTimeout(() => setTimedOut(true), AUTH_LOAD_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [isLoaded])
+  return timedOut
+}
 
 function Routes() {
-  const { isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
+  const authLoadTimedOut = useAuthLoadTimedOut(isLoaded)
+
+  // Handles notification taps (incl. cold start). Lives here, inside Clerk and
+  // next to the navigator, so it can wait for auth + navigation readiness.
+  usePushNotifications()
+
+  // Until Clerk has loaded, both Stack.Protected guards would be false and
+  // expo-router would redirect away from the requested URL (web refresh /
+  // deep link). Render no navigator until the guards are meaningful. The root
+  // layout already renders a non-navigator first (ConfigProvider's loader).
+  if (!isLoaded) {
+    if (authLoadTimedOut) {
+      // Keep waiting: the Stack renders as soon as Clerk loads.
+      return (
+        <ErrorView message="Having trouble connecting. Check your internet connection; we'll keep trying." />
+      )
+    }
+    return <LoadingView />
+  }
+
   return (
     <Stack
       screenOptions={{

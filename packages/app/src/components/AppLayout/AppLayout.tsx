@@ -14,7 +14,6 @@ import Head from "expo-router/head"
 import { CustomToast } from "../CustomToast"
 import { LoadingProvider } from "@/src/providers/LoadingProvider"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
-import { usePushNotifications } from "@/src/hooks/usePushNotifications"
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync()
@@ -48,9 +47,6 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   useEffect(() => {
     SplashScreen.hideAsync()
   })
-
-  // handle push notifications
-  usePushNotifications()
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
