@@ -1,7 +1,9 @@
-// IANA zone names: "UTC" or Area/Location[/Sub] (e.g. America/Argentina/Buenos_Aires).
-// Raw offsets like "+05:00" are rejected on purpose, even though newer V8
-// versions accept them, as downstream consumers expect IANA names.
-const IANA_NAME = /^(UTC|[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)+)$/;
+// IANA zone names, e.g. "America/Argentina/Buenos_Aires", "Etc/GMT+5", or
+// single-segment names devices may report such as "GMT" / "UTC" / "Japan".
+const IANA_NAME = /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)*$/;
+// raw offsets ("+05:00", "GMT+5", "UTC-03:00") are rejected on purpose, even
+// though newer V8 versions accept some of them, as consumers expect IANA names
+const OFFSET_LIKE = /^(GMT|UTC|UT)[+-]/i;
 const MAX_LENGTH = 100;
 
 /**
@@ -16,7 +18,7 @@ export function isValidTimeZone(value: unknown): value is string {
     return false;
   }
 
-  if (!IANA_NAME.test(value)) {
+  if (!IANA_NAME.test(value) || OFFSET_LIKE.test(value)) {
     return false;
   }
 

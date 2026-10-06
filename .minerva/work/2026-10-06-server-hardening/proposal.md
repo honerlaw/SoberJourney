@@ -106,7 +106,8 @@ Deliverable before merge: a comment on #26 describing the new procedure, the re-
 `isValidTimeZone(tz)` accepts a value only when all of these hold:
 
 - it is a string of at most 100 characters;
-- it is shaped like an IANA name, either `UTC` or `Area/Location[/Sub]` made of letters, digits, `_`, `+` and `-`. This excludes raw offset strings like `+05:00`, which newer V8 accepts. It also ignores legacy names such as `EST5EDT` and bare `GMT`;
+- it is shaped like an IANA name, either a single segment (`UTC`, `GMT`, `Japan`, which devices can report) or `Area/Location[/Sub]`, made of letters, digits, `_`, `+` and `-`;
+- it is not offset-like. Raw offsets such as `+05:00` or `GMT+5` are rejected, even though newer V8 accepts some of them. (Review changed this from requiring two segments, which would have wrongly ignored `GMT`.)
 - `new Intl.DateTimeFormat("en-US", { timeZone })` does not throw.
 
 An invalid or missing header becomes `undefined`. Upsert then behaves as follows:

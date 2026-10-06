@@ -41,8 +41,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application (also generates the Prisma client into src/generated,
-# which the build copies into dist/generated)
+# Build the application (the build script runs codegen first, generating the
+# Prisma client into src/generated, which tsc compiles into dist)
 RUN npm run build
 
 # Production image, copy all the files and run the app

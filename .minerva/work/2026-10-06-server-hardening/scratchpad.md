@@ -26,6 +26,15 @@
     - fix (arbiter): criterion 14 = handler unit test + route-order inspection; bare /api out of scope
     - fix (arbiter): criterion 12 test asserts schedule only with settings + entries include; "race-free" → "recovers from the race"
     - fix (arbiter): PR notes for REDIRECT_APEX_HOSTS default and legacy timezone names
+- [reviewed — clean] completion verification: Verifier reproduced all 17 criteria (tests 43/43, eslint clean); carry-over: PR body must state npm ci partial close + REDIRECT_APEX_HOSTS note (tier: reviewer floor — no interface change beyond what the proposal approved)
+- [solo] review triage: 4 FIX / 1 SUGGEST / 0 IGNORE (tier: default-solo row — each finding had one dominant disposition: writable failure scenarios → FIX; trust-proxy hop count is a standing deploy fact → SUGGEST as PR note)
+
+## Review triage 2026-10-06
+1. [medium] isValidTimeZone rejected single-segment IANA names (GMT, Japan) that Android devices can report → FIX: accept single-segment names, reject offset-like values (`+05:00`, `GMT+5`) explicitly; tests extended.
+2. [low] Clerk debug derived from getConfig("NODE_ENV") silently falls back to development when any env var fails validation → FIX: read process.env.NODE_ENV directly.
+3. [low] addPushToken ignores reactivate failure → FIX: comment documenting deliberate best effort (throwing would newly fail released apps).
+4. [low] trust proxy hardcoded to 1 → SUGGEST: PR note (only affects log req.ip).
+5. [low, pre-existing] Dockerfile comment claimed build copies src/generated into dist/generated (script actually nests it) → FIX: comment reworded; build script untouched.
 
 ## Work notes
 - Migration generated with `prisma migrate diff --from-schema <HEAD schema copy> --to-schema prisma/schema --script`; verified on a scratch postgres:15-alpine container (port 55432): `migrate deploy` applied all 25 migrations, then `migrate diff --from-config-datasource` printed "-- This is an empty migration."

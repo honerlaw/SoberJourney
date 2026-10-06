@@ -22,7 +22,9 @@ export const addPushToken = procedure
     }
 
     // an explicit re-registration by the signed-in user means the token is
-    // live for them again (e.g. sign out revoked it, then they signed back in)
+    // live for them again (e.g. sign out revoked it, then they signed back in).
+    // Best effort: a failure is logged by the helper and never fails the
+    // registration, as released apps treat any error here as fatal.
     if (pushToken.revoked) {
       await ctx.database.user.reactivatePushToken(
         ctx.auth.user.id,

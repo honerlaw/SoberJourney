@@ -14,7 +14,6 @@ import * as dataMigrations from "./util/migrations/index.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
-const NODE_ENV = await getConfig("NODE_ENV", "development");
 const REDIRECT_APEX_HOSTS = await getConfig(
   "REDIRECT_APEX_HOSTS",
   "soberjourney.app",
@@ -27,7 +26,8 @@ app.use(redirectToWwwMiddleware(parseApexHosts(REDIRECT_APEX_HOSTS)));
 
 app.use(
   clerkMiddleware({
-    debug: NODE_ENV !== "production",
+    // read directly so a config load failure can never re-enable debug
+    debug: process.env.NODE_ENV !== "production",
     enableHandshake: true,
   }),
 );

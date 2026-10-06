@@ -13,6 +13,8 @@ describe("isValidTimeZone", () => {
       "America/Argentina/Buenos_Aires",
       "Etc/GMT+5",
       "Europe/London",
+      "GMT",
+      "Japan",
     ]) {
       assert.equal(isValidTimeZone(tz), true, tz);
     }
@@ -27,6 +29,8 @@ describe("isValidTimeZone", () => {
       "",
       "Not/AZone",
       "+05:00",
+      "GMT+5",
+      "UTC-03:00",
       "America/New_York; DROP TABLE",
       `America/${"a".repeat(200)}`,
     ]) {
