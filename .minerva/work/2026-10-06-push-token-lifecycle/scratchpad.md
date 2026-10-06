@@ -19,3 +19,11 @@
     - fix: manual PR steps cover the signOut-failure latch; npx tsx is ad hoc, no package.json change
 - [reviewed — folded] whole-proposal (restart): first-wave review discarded as stale (approach fold rewrote ## Success criteria); restarted review flagged the same-user re-sign-in latch, foreground re-register dedupe, straggler generation, mutationFn invariant note, provisional status — all folded (tier: reviewer; parallel wave restart)
 - [rechecked — clean] whole-proposal: fold-audit confirmed items 1–8 addressed; two test-coverage gaps (in-flight register across startSession; not-loaded transition) added to criteria
+
+## Work notes
+- tRPC `mutationOptions().mutationFn` is typed `(variables, context: MutationFunctionContext)` with the app's @tanstack/react-query (nested query-core 5.90.14); the root query-core 5.87.4 has the 1-arg type. Pass `{ client: queryClient, meta: undefined, mutationKey }` from `useQueryClient()` (Routes is inside QueryClientProvider). tRPC 11.8.1 ignores the context.
+- Verify script surfaced that a `revoke()` during the token fetch stops the in-flight register before `addPushToken` (the latch check after fetch). That is the desired behaviour; the test was re-sequenced and a dedicated check added.
+- `setNotificationHandler` now runs at app start (pushPlatform imported via usePushNotifications.native) instead of on first NotificationSettings import, so foreground notifications show from launch.
+- The web branches inside NotificationSettings (WebDateTimeField time picker) are now unreachable because the component renders nothing on web; kept intact (component still exported/used elsewhere) for a future web-push enablement.
+- Delete Account: revoke 401s (user gone); 401s are not reported to Sentry from the sign-out task, other failures are.
+- Verification: `npx tsx .minerva/work/2026-10-06-push-token-lifecycle/verify-push-lifecycle.ts` → 23 checks pass. Build, server tests (111/111), server lint and `npx expo lint` all exit 0.

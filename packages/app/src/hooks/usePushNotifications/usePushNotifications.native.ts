@@ -7,6 +7,7 @@ import {
 } from "expo-router"
 import { useAuth } from "@clerk/clerk-expo"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
+import { usePushTokenSync } from "@/src/hooks/useExpoNotifications"
 
 type NotificationData = {
   url?: string
@@ -21,10 +22,12 @@ const PENDING_TAP_MAX_AGE_MS = 10 * 60 * 1000
 
 /**
  * Navigates to `data.url` when the user taps a notification, including the
- * tap that cold-started the app. Must be called inside ClerkProvider and the
- * root layout (see app/_layout.tsx).
+ * tap that cold-started the app, and keeps this device's push token registered
+ * for the signed-in user (revoked on sign-out; see usePushTokenSync). Must be
+ * called inside ClerkProvider and the root layout (see app/_layout.tsx).
  */
 export function usePushNotifications() {
+  usePushTokenSync()
   const router = useRouter()
   const { report } = useReportError()
   const { isLoaded, isSignedIn } = useAuth()

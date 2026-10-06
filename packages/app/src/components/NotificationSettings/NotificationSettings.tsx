@@ -8,35 +8,22 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react"
-import { AppState, Platform } from "react-native"
+import { Platform } from "react-native"
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker"
-import * as Notifications from "expo-notifications"
 import { useToastController } from "@tamagui/toast"
 import { useNotificationDefaults } from "./hooks/useNotificationDefaults"
 import { useNotificationSettingsForJourney } from "./hooks/useNotificationSettingsForJourney"
-import { useExpoNotifications } from "../../hooks/useExpoNotifications"
-import { minuteOfDayToDate, dateToMinuteOfDay, formatTime } from "./utils"
+import { useNotificationPermission } from "../../hooks/useExpoNotifications"
+import {
+  minuteOfDayToDate,
+  dateToMinuteOfDay,
+  formatTime,
+  permissionView,
+} from "./utils"
 import { WebDateTimeField } from "./WebDateTimeField"
 import type { NotificationSettingsValue, NotificationFrequency } from "./types"
-
-/**
- * Ask for (or read) the OS notification permission. Returns true when granted.
- * Web has no permission flow here (no web push path), so it is always allowed.
- */
-async function ensureNotificationPermission(): Promise<boolean> {
-  if (Platform.OS === "web") return true
-  try {
-    const current = await Notifications.getPermissionsAsync()
-    if (current.status === "granted") return true
-    if (!current.canAskAgain) return false
-    const requested = await Notifications.requestPermissionsAsync()
-    return requested.status === "granted"
-  } catch {
-    return false
-  }
-}
 
 type NotificationSettingsProps = {
   // Optional journeyId - if provided, fetches existing settings for the journey
@@ -105,41 +92,19 @@ export const NotificationSettings = forwardRef<
     hasSyncedDefaultsRef.current = false
   }, [journeyId])
 
-  // Request notification permissions when enabled
-  const { isEligible } = useExpoNotifications(value?.enabled ?? false)
+  // The one permission source. It never prompts on mount: the OS prompt only
+  // appears from a user action (toggle on, "Allow notifications").
+  const {
+    isSupported,
+    status: permissionStatus,
+    canAskAgain,
+    request: requestPermission,
+  } = useNotificationPermission()
   const toast = useToastController()
 
   const [showTimePicker, setShowTimePicker] = useState(false)
-  // True when reminders are on but the OS permission is denied
-  const [permissionDenied, setPermissionDenied] = useState(false)
   const isRequestingPermissionRef = useRef(false)
-
-  // Reflect the real OS permission for settings that are already enabled
-  const isEnabled = value?.enabled ?? false
-  useEffect(() => {
-    if (!isEnabled || Platform.OS === "web") {
-      setPermissionDenied(false)
-      return
-    }
-    let cancelled = false
-    const check = () => {
-      Notifications.getPermissionsAsync()
-        .then(({ status }) => {
-          if (!cancelled) setPermissionDenied(status === "denied")
-        })
-        .catch(() => {})
-    }
-    check()
-    // Re-check when the app becomes active again: after the OS permission
-    // prompt closes, or after the user changes it in system settings
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") check()
-    })
-    return () => {
-      cancelled = true
-      subscription.remove()
-    }
-  }, [isEnabled])
+  const permissionState = permissionView(permissionStatus, canAskAgain)
 
   const timeDate = useMemo(
     () => minuteOfDayToDate(value?.minuteOfDay ?? 480),
@@ -159,7 +124,7 @@ export const NotificationSettings = forwardRef<
     if (isRequestingPermissionRef.current) return
     isRequestingPermissionRef.current = true
     try {
-      const granted = await ensureNotificationPermission()
+      const granted = await requestPermission()
       if (!granted) {
         // Keep the switch off: reminders could never be delivered
         toast.show(
@@ -168,8 +133,19 @@ export const NotificationSettings = forwardRef<
         )
         return
       }
-      setPermissionDenied(false)
       setValue((prev) => (prev ? { ...prev, enabled: true } : prev))
+    } finally {
+      isRequestingPermissionRef.current = false
+    }
+  }
+
+  // Reminders are already on (e.g. an existing journey on a new install) but
+  // the permission was never asked: prompt only when the user taps the button.
+  const handleAllowPress = async () => {
+    if (isRequestingPermissionRef.current) return
+    isRequestingPermissionRef.current = true
+    try {
+      await requestPermission()
     } finally {
       isRequestingPermissionRef.current = false
     }
@@ -215,8 +191,10 @@ export const NotificationSettings = forwardRef<
     )
   }
 
-  // Render nothing if device is not eligible for notifications
-  if (!isEligible) {
+  // Render nothing where push is unsupported (web, simulators). Every hook
+  // above still runs, so the ref keeps exposing the loaded settings and saving
+  // an edited journey there leaves its reminder settings unchanged.
+  if (!isSupported) {
     return null
   }
 
@@ -264,11 +242,27 @@ export const NotificationSettings = forwardRef<
           </Switch>
         </XStack>
 
-        {value.enabled && permissionDenied && (
+        {value.enabled && permissionState === "blocked" && (
           <Text fontSize="$2" color="$red10">
             Notifications are blocked in your device settings, so reminders
             won&apos;t be delivered until you allow them.
           </Text>
+        )}
+
+        {value.enabled && permissionState === "ask" && (
+          <XStack alignItems="center" justifyContent="space-between" gap="$2">
+            <Text fontSize="$2" color="$color11" flex={1}>
+              Allow notifications so reminders reach this device.
+            </Text>
+            <Button
+              size="$2"
+              onPress={() => {
+                void handleAllowPress()
+              }}
+            >
+              <Text fontSize="$2">Allow notifications</Text>
+            </Button>
+          </XStack>
         )}
 
         {/* Frequency and Time settings (only shown when enabled) */}
