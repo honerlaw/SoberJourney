@@ -8,7 +8,8 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json ./
+# (package-lock.json is copied when it exists in the build context)
+COPY package*.json ./
 
 # Configure npm for private packages
 # These build args should be passed during build time
@@ -21,7 +22,15 @@ RUN --mount=type=secret,id=NPM_TOKEN,env=NPM_TOKEN \
       echo "registry=${NPM_REGISTRY}" >> .npmrc; \
     fi
 
-RUN npm i
+# use a reproducible install when a lockfile is available. Note: the workspace
+# lockfile lives at the repo root, so with packages/server as the build context
+# this falls back to npm install.
+RUN if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      echo "WARNING: no package-lock.json in build context, falling back to npm install" && \
+      npm install; \
+    fi
 
 # Clean up npmrc to avoid exposing token in final image
 RUN rm -f .npmrc
@@ -32,10 +41,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
-RUN npm run codegen
-
-# Build the application
+# Build the application (the build script runs codegen first, generating the
+# Prisma client into src/generated, which tsc compiles into dist)
 RUN npm run build
 
 # Production image, copy all the files and run the app
@@ -55,9 +62,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/static ./static
-
-# Copy Prisma generated client
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Change ownership of the app directory to the nodejs user
 RUN chown -R userjs:nodejs /app

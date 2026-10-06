@@ -1,5 +1,6 @@
 import { type DBClient, type UserModel } from "../../util/database.mjs";
 import { type Logger } from "../../util/logger/index.mjs";
+import { isValidTimeZone } from "./isValidTimeZone.mjs";
 
 const DEFAULT_TIMEZONE = "America/New_York";
 
@@ -9,7 +10,9 @@ export async function upsert(
   authId: string,
   timezone?: string,
 ): Promise<UserModel | null> {
-  const userTimezone = timezone || DEFAULT_TIMEZONE;
+  // an invalid / missing timezone never overwrites the stored one, new users
+  // fall back to the default
+  const validTimezone = isValidTimeZone(timezone) ? timezone : undefined;
   try {
     return await client.user.upsert({
       where: {
@@ -17,11 +20,9 @@ export async function upsert(
       },
       create: {
         authId: authId,
-        timezone: userTimezone,
+        timezone: validTimezone ?? DEFAULT_TIMEZONE,
       },
-      update: {
-        timezone: userTimezone,
-      },
+      update: validTimezone ? { timezone: validTimezone } : {},
     });
   } catch (err) {
     logger.error(

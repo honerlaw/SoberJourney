@@ -46,9 +46,11 @@ model JourneyCheckInEntry {
   // mood rating
   mood CheckInMood
 
-  // urge/craving intensity (e.g., 1-5 scale)
+  // urge/craving intensity (1-10 scale)
   urge Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([checkInId])
 }

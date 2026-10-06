@@ -6,6 +6,7 @@ import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import { CheckInMood } from "../../../../generated/prisma/enums.js";
 import type { Context } from "../../../../context.mjs";
+import { MAX_JOURNAL_CONTENT_LENGTH } from "../journal/create.mjs";
 
 async function createJournalEntry(
   ctx: Context,
@@ -38,7 +39,7 @@ async function createJournalEntry(
   return journalEntry;
 }
 
-const createCheckInInput = z.object({
+export const createCheckInInput = z.object({
   journeyId: z.string().min(1, "Journey ID is required."),
   mood: z.enum([
     CheckInMood.SAD,
@@ -47,8 +48,14 @@ const createCheckInInput = z.object({
     CheckInMood.GOOD,
     CheckInMood.GREAT,
   ]),
-  urgeStrength: z.number().min(1).max(10),
-  journalEntry: z.string().optional().nullable(),
+  // urge strength is on a 1-10 scale and stored as an integer, so fractional
+  // values are rounded rather than rejected
+  urgeStrength: z.number().min(1).max(10).transform(Math.round),
+  journalEntry: z
+    .string()
+    .max(MAX_JOURNAL_CONTENT_LENGTH, "Journal entry is too long.")
+    .optional()
+    .nullable(),
 });
 
 export const create = procedure
