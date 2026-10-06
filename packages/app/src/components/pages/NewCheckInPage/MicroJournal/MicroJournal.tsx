@@ -12,7 +12,14 @@ export const MicroJournal: React.FC<MicroJournalProps> = ({
   onValueChange,
 }) => {
   const trpc = useTRPC()
-  const { data } = useQuery(trpc.journal.entryPrompt.queryOptions())
+  // Random prompt per fetch: never refetch while the user is typing
+  const { data } = useQuery(
+    trpc.journal.entryPrompt.queryOptions(undefined, {
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }),
+  )
 
   const journalPrompt =
     data?.prompt ?? "What is one thing you are grateful for today?"

@@ -56,9 +56,19 @@ export function computeDurationSections(
   }
 
   return [
-    { value: Math.max(0, years), max: 10, label: "years", singularLabel: "year" },
+    {
+      value: Math.max(0, years),
+      max: 10,
+      label: "years",
+      singularLabel: "year",
+    },
     { value: Math.max(0, days), max: 365, label: "days", singularLabel: "day" },
-    { value: Math.max(0, hours), max: 24, label: "hours", singularLabel: "hour" },
+    {
+      value: Math.max(0, hours),
+      max: 24,
+      label: "hours",
+      singularLabel: "hour",
+    },
     {
       value: Math.max(0, minutes),
       max: 60,

@@ -1,6 +1,6 @@
 import { YStack, TextArea, Paragraph } from "tamagui"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useCreateJournalEntry } from "./hooks/useCreateJournalEntry"
 import { useToastController } from "@tamagui/toast"
 import { useRouter, Stack } from "expo-router"
@@ -16,7 +16,16 @@ export const NewJournalEntryPage: React.FC = () => {
   const { createEntry, isPending } = useCreateJournalEntry()
   const trpc = useTRPC()
 
-  const { data } = useQuery(trpc.journal.entryPrompt.queryOptions())
+  const isSubmittingRef = useRef(false)
+
+  // Random prompt per fetch: never refetch while the user is typing
+  const { data } = useQuery(
+    trpc.journal.entryPrompt.queryOptions(undefined, {
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }),
+  )
   const prompt = data?.prompt
 
   const onCreate = async () => {
@@ -27,14 +36,20 @@ export const NewJournalEntryPage: React.FC = () => {
       })
       return
     }
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
-    const success = await createEntry(content)
-    if (success) {
-      toast.show("Your journal entry has been saved.", {
-        type: "success",
-        native: false,
-      })
-      router.back()
+    try {
+      const success = await createEntry(content)
+      if (success) {
+        toast.show("Your journal entry has been saved.", {
+          type: "success",
+          native: false,
+        })
+        router.back()
+      }
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 
