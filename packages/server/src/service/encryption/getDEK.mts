@@ -100,6 +100,18 @@ function getUserDEK(ctx: Context, userId: string): Promise<string> {
   });
 }
 
+// lower for the actual DEK so bulk operations are faster, otherwise the
+// default puts it at ~40ms per opt. Part of the ciphertext format: never change.
+const DATA_KEY_OPTIONS = { pbkdf2Iterations: 1000 };
+
+function requireUserId(ctx: Context): string {
+  const userId = ctx.auth.user?.id;
+  if (!userId) {
+    throw new Error("User not found");
+  }
+  return userId;
+}
+
 /**
  * The Cryptr module does the heavy lifting of the actual encryption / decryption.
  *
@@ -114,19 +126,30 @@ export async function getDEK(
   ctx: Context,
   identifier: DEKIdentifier,
 ): Promise<Cryptr> {
-  const userId = ctx.auth.user?.id;
-  if (!userId) {
-    throw new Error("User not found");
-  }
+  const userId = requireUserId(ctx);
 
   return memoize(ctx, `dek:${userId}:${identifier}`, async () => {
     const userDek = await getUserDEK(ctx, userId);
 
     // tack on the identifier to make it specific to the data type
-    return new Cryptr(`${userDek}:${identifier}`, {
-      // lower for the actual DEK so bulk operations are faster
-      // otherwise the default puts it at ~40ms per opt
-      pbkdf2Iterations: 1000,
-    });
+    return new Cryptr(`${userDek}:${identifier}`, DATA_KEY_OPTIONS);
+  });
+}
+
+/**
+ * Same key and byte-identical ciphertext format as `getDEK`, but the per-value
+ * PBKDF2 (every ciphertext has its own salt) runs on the libuv threadpool, so
+ * encrypting / decrypting many rows does not block the event loop. Used by
+ * `encrypt` / `decrypt`; memoized per request like `getDEK`.
+ */
+export async function getAsyncDEK(
+  ctx: Context,
+  identifier: DEKIdentifier,
+): Promise<InstanceType<typeof Cryptr.CryptrAsync>> {
+  const userId = requireUserId(ctx);
+
+  return memoize(ctx, `async-dek:${userId}:${identifier}`, async () => {
+    const userDek = await getUserDEK(ctx, userId);
+    return new Cryptr.CryptrAsync(`${userDek}:${identifier}`, DATA_KEY_OPTIONS);
   });
 }

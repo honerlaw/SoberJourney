@@ -26,8 +26,10 @@ export async function prepareEncryptJournalEntries(
         entry.content,
       );
       writes.push((tx) =>
-        tx.journalEntry.update({
-          where: { id: entry.id },
+        // only if the row still holds the plaintext we encrypted, so a
+        // concurrent edit is never overwritten with stale content
+        tx.journalEntry.updateMany({
+          where: { id: entry.id, content: entry.content },
           data: { content },
         }),
       );
@@ -64,8 +66,9 @@ export async function prepareEncryptConversations(
           message.content,
         );
         writes.push((tx) =>
-          tx.conversationMessage.update({
-            where: { id: message.id },
+          // only if the row still holds the plaintext we encrypted
+          tx.conversationMessage.updateMany({
+            where: { id: message.id, content: message.content },
             data: { content },
           }),
         );

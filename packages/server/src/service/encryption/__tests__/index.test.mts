@@ -25,8 +25,8 @@ describe("Encryption Service", () => {
     mock.restoreAll();
   });
 
-  async function harness(context: TestContext) {
-    mockConfig(context, async () => KEK_SECRET);
+  async function harness(context: TestContext, secret = KEK_SECRET) {
+    mockConfig(context, async () => secret);
     const { encrypt } = await import("../encrypt.mjs");
     const { decrypt } = await import("../decrypt.mjs");
     const { DEKIdentifier, getDEK } = await import("../getDEK.mjs");
@@ -251,6 +251,26 @@ describe("Encryption Service", () => {
       encrypt(ctx, DEKIdentifier.JOURNAL, "entry"),
       /User not found/,
     );
+  });
+
+  it("should build the KEK once, not per request", async (context) => {
+    // a secret no other test uses, so the module-level cache starts cold
+    const { createCtx, encrypt, DEKIdentifier } = await harness(
+      context,
+      "kek-once-secret",
+    );
+    const construct = context.mock.method(Cryptr, "CryptrAsync");
+
+    for (const userId of ["1", "2", "3"]) {
+      const { ctx } = createCtx(userId);
+      await encrypt(ctx, DEKIdentifier.JOURNAL, "a");
+      await encrypt(createCtx(userId).ctx, DEKIdentifier.CONVERSATION, "b");
+    }
+
+    const kekConstructions = construct.mock.calls.filter(
+      (call) => call.arguments[0] === "kek-once-secret",
+    );
+    assert.strictEqual(kekConstructions.length, 1);
   });
 
   it("should decrypt data written by the legacy scheme", async (context) => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mockConfig } from "../../__mocks__/config.mjs";
 import { mockLogger } from "../../__mocks__/logger.mjs";
 import type { Context } from "../../../context.mjs";
+import { Prisma } from "../../../generated/prisma/client.js";
 
 describe("Data migrations", () => {
   afterEach(() => {
@@ -128,9 +129,10 @@ describe("Data migrations", () => {
     const runMigration = await load();
     const { ctx, tx, loggerMock } = createMigrationCtx();
     tx.migration.create.mock.mockImplementation(async () => {
-      throw Object.assign(new Error("Unique constraint failed"), {
-        code: "P2002",
-      });
+      throw new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed on the fields: (`name`)",
+        { code: "P2002", clientVersion: Prisma.prismaVersion.client },
+      );
     });
     const write = mock.fn(async () => undefined);
 
@@ -230,11 +232,13 @@ describe("Data migrations", () => {
       assert.strictEqual(ctx.clone.mock.callCount(), 2);
       assert.deepStrictEqual(keyLookups, ["a", "b"]);
 
-      const updates: { where: { id: string }; data: { content: string } }[] =
-        [];
+      const updates: {
+        where: { id: string; content: string };
+        data: { content: string };
+      }[] = [];
       const tx = {
         journalEntry: {
-          update: async (args: (typeof updates)[number]) => {
+          updateMany: async (args: (typeof updates)[number]) => {
             updates.push(args);
           },
         },
@@ -251,7 +255,10 @@ describe("Data migrations", () => {
           update.data.content,
         );
         assert.strictEqual(plain, `${owner} entry ${update.where.id.slice(1)}`);
+        // guarded on the plaintext that was encrypted
+        assert.strictEqual(update.where.content, plain);
       }
+      assert.strictEqual(updates.length, 5);
     });
 
     it("should encrypt conversation messages resolving the DEK once per user", async (context) => {
@@ -282,7 +289,7 @@ describe("Data migrations", () => {
       const contents = new Map<string, string>();
       const tx = {
         conversationMessage: {
-          update: async (args: {
+          updateMany: async (args: {
             where: { id: string };
             data: { content: string };
           }) => {
