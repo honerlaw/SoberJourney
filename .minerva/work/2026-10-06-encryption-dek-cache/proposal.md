@@ -1,7 +1,7 @@
 # Proposal: 2026-10-06-encryption-dek-cache
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #24
 
 ## Goal
@@ -11,27 +11,40 @@ Make server-side field encryption cheap per request and make the startup data mi
 Today every `encrypt`/`decrypt` call: constructs a new KEK `Cryptr`, speculatively `kek.encrypt`s a random temp DEK (100k-iteration sync PBKDF2), does a `userKey.upsert` DB round-trip, then `kek.decrypt`s the stored key (another 100k-iteration sync PBKDF2). Listing 300 journal entries or loading a 150-message conversation therefore runs ~600 blocking PBKDF2s + N DB writes, stalling the Node event loop for seconds for every user on the instance. The startup migrations wrap everything in one interactive `$transaction` with Prisma's 5s default timeout, call `ctx.clone` + `getDEK` per row, and write the `Migration` marker outside the transaction, so a crash between commit and marker write would re-encrypt already-encrypted rows on next boot (double encryption = data loss).
 
 ## Approach
-1. **Request-scoped memo (WeakMap keyed by ctx).** `getDEK` keeps a module-level `WeakMap<Context, Map<string, Promise<Cryptr>>>` keyed by `ctx` object, inner key `${userId}:${identifier}`; additionally memoize the user's plaintext DEK per ctx (`${userId}`) so JOURNAL and CONVERSATION share one DB read + one KEK decrypt. The *promise* is memoized so concurrent calls (`Promise.all` over list rows) collapse into one lookup; a rejected promise is evicted so a later call can retry. A ctx dies with its request (GC'd), so plaintext key material never outlives the request and no cross-user/process-wide cache exists. `ctx.clone(user)` yields a new object → fresh scope (correct for migrations' per-user contexts). No change to `context.mts` (owned by #27). Verified: tRPC `createContext` (network/rpc/index.mts) builds one ctx per HTTP request and nothing in `src/` spreads or re-creates ctx mid-request, so the memo holds on the real path (only migrations `clone`). The inner key includes `userId`, so a ctx whose auth user differs never gets another user's DEK (tested).
-2. **Read first, create only when missing.** `ctx.database.client.userKey.findUnique({ where: { userId } })` (raw Prisma client already on ctx; `database/user/**` is owned by #27 so no new DB-layer function is added). Only when absent: generate 32 random bytes, `kek.encrypt`, call the existing `ctx.database.user.key.upsert` (create-or-return-existing). If it returns null (it swallows errors, e.g. P2002 unique race on concurrent first use), re-read with `findUnique`; if still missing, throw an error that says the key could not be created or read (DB failure vs. race is not distinguishable through the swallowing wrapper). All KEK calls are awaited (CryptrAsync returns promises); the memoized value stays the sync data `Cryptr`.
-3. **KEK at module level, async PBKDF2.** Cache the KEK as a module-level `CryptrAsync` (config resolved per call via `getConfig`, instance looked up by secret — never read at import time; a test-only reset hook clears it) (from the same `cryptr` package; byte-identical format and the same default 100k iterations) keyed on the secret string, so the remaining one-per-request KEK unwrap runs PBKDF2 on the libuv threadpool instead of blocking the event loop. Data DEK stays sync `Cryptr(`${dek}:${identifier}`, { pbkdf2Iterations: 1000 })` — unchanged format.
-4. **Migrations (two-phase, short tx, serialized by marker-first).** Extract the marker logic into a ctx-injectable `runMigration(ctx, name, prepare)` in its own module (testable without the real context; **not** re-exported from `util/migrations/index.mts`, whose values `server.mts` invokes as zero-arg migrations).
-   - Early exit if the `Migration` marker already exists.
-   - **Phase 1 — prepare, outside any transaction:** `prepare(ctx)` reads the rows, clones the ctx once per user (so the memo gives one DEK lookup + one KEK unwrap per user, not per row), resolves/creates DEKs on the pooled client, and computes all ciphertext up front. It returns a list of write operations (or `false` to abort). No PBKDF2 or out-of-tx DB call happens while a transaction holds a connection, so there is no pool-starvation/deadlock risk even with a small `connection_limit`.
-   - **Phase 2 — apply, one short interactive `$transaction`** with explicit `timeout`/`maxWait` (writes only): the **first** statement inserts the `Migration` marker (a concurrent migrator blocks on the unique index until the winner commits, then fails with P2002 and rolls back without touching rows — true serialization; a crash before commit leaves neither marker nor data), then applies the prepared writes. Abort/rollback is implemented by throwing inside the tx.
-   - `runMigration` never rejects: every failure (including losing the marker race, P2002) is caught and logged, preserving the startup contract in `server.mts` (`await Promise.all(migrations)` before `listen`). A test asserts a throwing migration resolves.
-   - `userKey` rows created in phase 1 persist even if phase 2 rolls back — harmless, key creation is idempotent and already happens outside transactions in normal requests.
-   - `execute(name, callback)` keeps its exported zero-arg-wrapper role (`encryptJournalEntries()` / `encryptConversations()` signatures unchanged). Out of scope (pre-existing): rows encrypted by some earlier partial/manual run are not detected; a full-table read into memory is accepted at current data volumes.
-5. **Tests.** Replace the flaky `<1ms avg` perf assertion with deterministic assertions. New tests: N decrypts in one ctx → 1 `findUnique`, 0 upserts; concurrent first use → 1 upsert; separate ctx → separate lookup; null upsert (race) → re-read; rejected lookup not cached; **legacy-format fixture**: ciphertext produced by the old algorithm (sync `Cryptr(KEK)` wrapped DEK + data `Cryptr` with 1000 iterations) decrypts with the new code, and new ciphertext decrypts with the old algorithm. Migration tests: marker skip, marker inserted first inside the tx, `false`/throw → rolled back + resolves (never rejects), P2002 marker race → resolves, DEK lookup once per user. Each test builds a fresh ctx (the memo is per ctx object).
-6. **Key rotation: design note only** (written to `.minerva/knowledge/` at promote): version prefix on stored wrapped DEKs (`v1:`) + `kekVersion` with unprefixed = v0 under the current KEK; dual-KEK config during rotation; re-wrap DEKs lazily/by job (data ciphertext untouched because only the DEK wrapper changes). Implementation is a follow-up.
+What shipped (all inside `packages/server/src/service/encryption/**` and `packages/server/src/util/migrations/**`; no caller, context, schema or tRPC change):
 
-### Alternatives considered
-- **B. Field on ctx** (`ctx.additional.dekCache` or a new ctx property): requires editing `context.mts` (owned by #27) or abusing `additional`, which `clone` resets anyway; no advantage over the WeakMap. Rejected.
-- **C. Process-wide LRU of plaintext user DEKs (TTL)**: removes even the one KEK unwrap per request, but keeps plaintext key material in memory across requests/users and needs invalidation on user deletion; the issue asks for per-request. Rejected (could be a follow-up if profiling demands).
+1. **Request-scoped memo (`getDEK.mts`).** A module-level `WeakMap<ctx, Map<string, Promise>>` keyed by the request ctx object. `user:<userId>` holds the plaintext user DEK: one `userKey.findUnique` and one KEK unwrap per request, shared by both identifiers. `dek:<userId>:<identifier>` holds the sync data `Cryptr` returned by the public `getDEK`. `async-dek:<userId>:<identifier>` holds the `Cryptr.CryptrAsync` data key used by `encrypt`/`decrypt`, so per-row PBKDF2 (1000 iterations, the per-ciphertext salt makes this unavoidable) runs on the libuv threadpool. Promises are memoized so concurrent calls collapse. Rejections are evicted. Nothing outlives the ctx. tRPC builds one ctx per HTTP request, and `ctx.clone` starts a fresh scope. The alternatives were a field on ctx (would need `context.mts`, owned by #27) and a process-wide plaintext-DEK LRU (key material across requests). Both were rejected.
+2. **Read first, create only when missing.** `ctx.database.client.userKey.findUnique`. Only when no row exists: generate 32 random bytes, `await kek.encrypt`, then the existing `ctx.database.user.key.upsert` (create-or-return-existing). If that returns null (it swallows errors such as a P2002 race), re-read. If the row is still missing, throw "Failed to create or read user key".
+3. **KEK at module level, async.** `Cryptr.CryptrAsync`, cached by secret string (`getConfig` resolved per call; never read at import time). Its format is byte-identical to the previous sync `Cryptr`. There is no test-only reset hook: keying by secret made one unnecessary.
+4. **Migrations.** `runMigration(ctx, name, prepare)` in `runMigration.mts` is not exported from `index.mts`. `execute(name, prepare)` is a thin `createContext` wrapper. The steps:
+   - Skip if the marker exists.
+   - `prepare` runs outside any transaction. In `prepare.mts`, one `ctx.clone` per user, so the DEK resolves once per user. It returns the write list.
+   - One `$transaction` (timeout 5 min, maxWait 30 s) inserts the `Migration` marker **first**, then applies the writes. Writes are `updateMany` guarded on `{ id, content: <original plaintext> }`.
+   - `runMigration` never rejects. P2002 means another instance won the marker race and is logged at info level; everything else is logged at error level and retried on the next boot.
+   - The `encryptJournalEntries()` and `encryptConversations()` zero-arg exports are unchanged for `server.mts`.
+5. **Tests.** `service/encryption/__tests__/index.test.mts` (13): the flaky timing assertion was replaced. The tests cover:
+   - memoization (50 decrypts give 1 lookup and 0 upserts)
+   - concurrent first use
+   - an existing key with no upsert
+   - a new request getting a new lookup
+   - per-user scoping
+   - the race re-read
+   - failure eviction
+   - KEK built once
+   - legacy-format cross-decrypt in both directions
+
+   `util/migrations/__tests__/runMigration.test.mts` (8) covers:
+   - marker skip
+   - ordering (prepare, then begin, then marker, then writes, then commit), and the timeout
+   - abort, a throw in prepare, a throw in a write
+   - a real `PrismaClientKnownRequestError` P2002
+   - per-user DEK resolution and guarded writes for both encryption migrations
+6. **Key rotation**: design note only, in `.minerva/knowledge/2026-10-06-reference-encryption-key-rotation-design.md`.
 
 ## Success criteria
 1. Decrypting N items for one identifier within one ctx performs exactly 1 user-key DB lookup and 0 upserts when the key exists — asserted by a test.
 2. Concurrent first-use calls in one ctx produce at most 1 upsert; a null upsert result triggers a re-read — tested.
-3. No `kek.encrypt`/upsert when the user key already exists; the KEK Cryptr is constructed once per process (per secret) — visible in code and covered by the call-count test.
+3. No `kek.encrypt`/upsert when the user key already exists; the KEK Cryptr is constructed once per process (per secret) — visible in code and covered by the call-count and KEK-construction tests.
 4. Ciphertext format unchanged: a legacy-format fixture decrypts with new code and new ciphertext decrypts with the legacy algorithm — tested.
 5. `encrypt`/`decrypt`/`getDEK`/`DEKIdentifier` exports and signatures unchanged; no file outside `service/encryption/**` and `util/migrations/**` changes (besides `.minerva/`).
 6. Migrations: marker is written inside the same transaction as the data updates, explicit transaction timeout, DEK resolved once per user — tested via `runMigration` unit tests.

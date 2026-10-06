@@ -29,3 +29,5 @@ Rotate the KEK by re-wrapping DEKs only. Data ciphertext never needs rewriting f
 - The process-level KEK cache is keyed by the secret string, so a keyring must cache one `CryptrAsync` per version.
 
 ## Related
+- [[2026-10-06-decision-request-scoped-dek-memo]] — the current key scheme and per-request memo this design extends
+- [[2026-10-06-pattern-marker-first-data-migrations]] — the migration pattern a bulk re-wrap job would use
