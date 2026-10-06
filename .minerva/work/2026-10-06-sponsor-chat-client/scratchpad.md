@@ -14,3 +14,30 @@
 - [rechecked — residual folded] approach: item 4 partially (headline criterion carve-out) — folded; item 7 (scope size, low) not load-bearing; new lows folded (refetch-on-select only when cached, null guard in updater, staleTime trade-off stated)
 - [reviewed — folded] whole-proposal: refetch toggle, ChatInput boolean contract, types/cache shape/title split, web Enter details, lazy-init premises, criteria gaps (allow-list diff, NOT_FOUND, double send, Android record) (tier: reviewer; parallel wave; no restart — approach pick unchanged, scope/approach folds did not rewrite Goal/Success criteria)
 - [rechecked — residual folded] whole-proposal: item 5 partially (shiftKey on onKeyPress unverified) — verified in react-native-web TextInput handleKeyDown (DOM event, shiftKey + isComposing), folded
+- [reviewed — clean] completion verification: Verifier reproduced all 16 criteria (tsc, lint, allow-list, greps; manual items judged from code); 3 minor notes fed to triage (tier: reviewer floor — no interface change beyond the approved proposal)
+- [solo] review triage: 10 FIX / 0 SUGGEST / 4 IGNORE (tier: default-solo row — every finding had one dominant disposition: writable failure scenario -> FIX; known/no-scenario -> IGNORE)
+
+## Review triage 2026-10-06
+Code review: local-diff mode (fresh-context subagent). Minerva audit: no spec-fidelity or knowledge findings (wiki empty).
+1. [high] handleError (useToastError JSON.parse) can throw inside sendMessage/init catch -> sendMessage rejects, no toast — FIX: non-throwing `showError` wrapper falling back to `report`
+2. [medium] Tamagui TextArea default 4-line fixed height (rows/numberOfLines) -> no growth, maxHeight inert — FIX: override rows/numberOfLines, height from onContentSizeChange clamped 44..140
+3. [medium] header title stale after async title generation (get not refetched) — FIX: fall back to list title (not the "New conversation" placeholder)
+4. [medium] per-query retry dropped default UNAUTHORIZED exclusion; malformed id is BAD_REQUEST — FIX: no retry on UNAUTHORIZED/FORBIDDEN/NOT_FOUND/BAD_REQUEST; BAD_REQUEST shown as not-found
+5. [low] title timers array reassigned -> cleanup misses timers — FIX: Set mutated in place
+6. [low] GC'd-cache refetch fallback is a no-op — FIX: removed; proposal step 3 rewritten
+7. [low] Safari IME Enter (keyCode 229) — FIX
+8. [low] late getOrCreate failure after a drawer pick shows spurious init error/toast — FIX: ignore when a conversation is already selected
+9. [low] proposal claim "cannot happen on current server" inaccurate (model-message save failure) — FIX: wording
+10. [low] Retry button lacks pending feedback — IGNORE (cosmetic, request dedupes)
+11. [low] unused MessageRole export / isThinking alias / ref write in render — IGNORE (harmless; isThinking kept as the context's semantic name)
+12. [low] no app test coverage — IGNORE (known; manual matrix in PR body)
+13. [info] CLAUDE.md naming drift — IGNORE (not this diff)
+V. [low] Verifier: getOrCreate resolving without id leaves spinner — FIX: treated as init error
+
+## Work notes
+- Gate wave folds: staleTime: Infinity + explicit refetch (select-if-cached / retry / failure) replaced the enabled-toggle, which would have refetched after every send.
+- react-native-web passes the DOM keyboard event to onKeyPress (shiftKey, nativeEvent.isComposing, keyCode); onSubmitEditing doesn't fire for multiline without blurOnSubmit.
+- Tamagui TextArea defaults rows/numberOfLines = 4 and derives a fixed height from it (textAreaSizeVariant) — must override for an auto-growing input.
+- useToastError.handleError can throw on non-JSON TRPC error messages (network errors) — #29 owns the fix; callers in this unit wrap it.
+- Android: app.json edgeToEdgeEnabled: true, no softwareKeyboardLayoutMode -> window not resized; manual padding retained; device check pending.
+

@@ -43,7 +43,7 @@ So a send issues zero `conversation.get` requests. Nothing can refetch a convers
    - Then remove the map entry. There is no invalidation and no refetch.
 
    The rendered list is `cache ∪ pending-whose-clientId-is-not-in-cache`. The user message enters the cache under the **same** clientId, so the render order doesn't matter: TanStack batches the query-cache notification separately from the React state update, and whichever renders first, there's never a duplicate and never a frame without the bubble. The dedupe protects only that id coordination. It never compares content and never expects a server id to equal a clientId. Server ids and sanitized text arrive on the next explicit refetch, the next time that conversation is opened.
-3. If the cache entry has unexpectedly been garbage-collected by success time, keep the pending entry and `await refetchQueries(get(X))`. On either server version the server then holds both messages. Remove the pending entry only after that, so there is no gap.
+3. If the cache entry has been garbage-collected by success time, nobody is viewing X (an observed query is never collected). The append is then a no-op, the pending entry is removed, and the next open of X fetches the persisted messages. (Review finding: `refetchQueries` cannot recreate a collected query, so the earlier "keep pending and refetch" fallback was dropped.)
 4. Invalidate `conversation.list` on success. The title is generated async server-side, so if the conversation's `get` title was `null` before the send, invalidate the list again after ~3 s and ~8 s (bounded to two tries). The timers are tracked in a ref and cleared on unmount.
 5. On failure:
    - remove the map entry;
@@ -58,11 +58,11 @@ So a send issues zero `conversation.get` requests. Nothing can refetch a convers
 **ChatInput.** SponsorPage keys it by `conversationId`, so local state resets on a conversation switch.
 - **Send contract:** the text stays visible, with the input disabled, while `onSend` is pending. On `true` it clears the text and refocuses on web. On `false` it keeps the text.
 - **Failure restore across remounts** (the user switches away mid-send and back, or the send fails while away): an effect watches `failedDrafts[conversationId]`. If the local text is empty it restores the draft; otherwise it keeps the current text. Either way it clears the entry. A remounted instance always has empty text, because the input is disabled while the send is pending.
-- **Input:** `maxLength={16000}`. Multiline `TextArea` with a small min height and a capped max height.
+- **Input:** `maxLength={16000}`. Multiline `TextArea`. Its default fixed 4-line height (`rows` / `numberOfLines`) is overridden, and the height follows `onContentSizeChange`, clamped between 44 and 140, with scrolling enabled at the cap. IME guard: `isComposing` or `keyCode === 229` (Safari).
 - **Keys:** on web, `onKeyPress` (react-native-web passes the DOM keyboard event, which carries `shiftKey` and `nativeEvent.isComposing`, verified in `react-native-web/dist/exports/TextInput`; `onSubmitEditing` is not used since it does not fire for multiline) with `key === "Enter" && !shiftKey && !isComposing` calls `preventDefault()` and sends, and Shift+Enter inserts a newline. Mobile-browser users also get Enter-to-send, which is accepted. On native the return key inserts a newline and the Send button sends; the `returnKeyType="send"` key is dropped deliberately.
 - **a11y:** labels on the input and the Send button.
 
-**Init.** Init is lazy and runs once:
+**Init.** Init is lazy and runs once. Toasts go through a non-throwing wrapper around `handleError` (falling back to `report`), because the current `useToastError` can throw on non-JSON error messages (#29 fixes that hook):
 - The provider exposes `initialize()`, which is idempotent via a ref, so StrictMode double effects are safe. SponsorPage calls it from a mount effect that depends only on that stable function.
 - `dashboard` is the initial tab, bottom tabs mount lazily, and the drawer is only reachable from the Sponsor header. So users who never open Sponsor trigger no `getOrCreate` call and get no empty conversation.
 - The `getOrCreate` result is applied only if no conversation is selected yet (functional setState), so it can't snap a user selection back.
@@ -70,11 +70,11 @@ So a send issues zero `conversation.get` requests. Nothing can refetch a convers
 - A failure sets `initError`, and SponsorPage shows an error view with Retry. `retryInitialize` resets the ref and the error.
 - `isInitializing` is true only while init is running, or on Sponsor before it first resolves. It is false once `initError` is set.
 
-**Load errors.** `conversation.get` errors are exposed as `conversationError`, with no retry on `NOT_FOUND`. SponsorPage renders an error view. For not-found it offers "Start a new conversation" (`createConversation`); for other errors, Retry (refetch).
+**Load errors.** `conversation.get` errors are exposed as `conversationError`, with no retry on `UNAUTHORIZED` / `FORBIDDEN` / `NOT_FOUND` / `BAD_REQUEST`. The per-query `retry` replaces the client default, so the auth exclusion is restated. SponsorPage renders an error view. For not-found (or a malformed id, `BAD_REQUEST`) it offers "Start a new conversation" (`createConversation`); for other errors, Retry (refetch).
 
 **New Conversation reuse.** `createConversation` reuses the current conversation when it is loaded, has 0 messages and no pending send. In that case there is no `create` call and the drawer just closes.
 
-**SponsorPage.** The scroll timeout is cleared on cleanup. The header title is set via `useNavigation().setOptions({ headerTitle })` in an effect keyed on the title, which is the conversation's `get` title or "Sponsor". `ThinkingIndicator` gets `accessibilityLiveRegion="polite"`, `role="status"` and a label.
+**SponsorPage.** The scroll timeout is cleared on cleanup. The header title is set via `useNavigation().setOptions({ headerTitle })` in an effect keyed on the title, Title sources, in order: the conversation's `get` title; else the drawer list's title for it (unless it is the list's "New conversation" placeholder), which picks up the async-generated title without refetching `get`; else "Sponsor". `ThinkingIndicator` gets `accessibilityLiveRegion="polite"`, `role="status"` and a label.
 
 **MessageBubble.** It checks `role === "USER"`. User messages render as plain selectable `Text`; model messages keep markdown.
 
@@ -93,7 +93,7 @@ Automated (local, mandatory):
   - no `role === "user"` and no content-equality reconciliation in the provider;
   - `Message` derives from `inferRouterOutputs`;
   - no importer of `useSendMessage` remains, and its directory is gone.
-- The provider reads no field of the `sponsorChat` response other than `response`. In the send-success path it never calls `invalidateQueries` / `refetchQueries` on `conversation.get`, apart from the cache-gone fallback.
+- The provider reads no field of the `sponsorChat` response other than `response`. In the send-success path it never calls `invalidateQueries` / `refetchQueries` on `conversation.get`.
 
 Manual (no app test runner; listed in the PR body as steps for iOS, Android and web):
 - **Single bubble per send:**
@@ -122,4 +122,4 @@ Manual (no app test runner; listed in the PR body as steps for iOS, Android and 
 ## Open Questions
 
 - Nothing blocking.
-- Known limitation, stated in the PR body: on a post-#25 server, a failed generation leaves the user message persisted. The client then shows that message **and** restores the draft, so re-sending duplicates the user message server-side. This cannot happen on the current server, which persists only after generation. Deduplicating it is left to streaming (#33) and #31.
+- Known limitation, stated in the PR body: on a post-#25 server, a failed generation leaves the user message persisted. The client then shows that message **and** restores the draft, so re-sending duplicates the user message server-side. On the current server the same outcome is possible only if saving the model message fails after the user message was saved, which is rare. Deduplicating it is left to streaming (#33) and #31.

@@ -26,8 +26,22 @@ type PendingSend = {
 /** Delays (ms) after a first message at which the drawer list is refetched to pick up the async title. */
 const TITLE_REFRESH_DELAYS_MS = [3_000, 8_000]
 
-const isNotFoundError = (error: unknown): boolean =>
-  error instanceof TRPCClientError && error.data?.code === "NOT_FOUND"
+const errorCode = (error: unknown): string | undefined =>
+  error instanceof TRPCClientError ? error.data?.code : undefined
+
+/** The conversation does not exist for this user, or its id is malformed. */
+const isNotFoundError = (error: unknown): boolean => {
+  const code = errorCode(error)
+  return code === "NOT_FOUND" || code === "BAD_REQUEST"
+}
+
+/** Client errors (auth, not found, validation) never succeed on retry. */
+const NON_RETRYABLE_CODES = new Set([
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "BAD_REQUEST",
+])
 
 const createClientId = (): string =>
   `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -51,15 +65,33 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   // (useToastError returns a new handleError every render).
   const handleErrorRef = useRef(handleError)
   handleErrorRef.current = handleError
+  const reportRef = useRef(report)
+  reportRef.current = report
+  const conversationIdRef = useRef<string | null>(null)
+  conversationIdRef.current = conversationId
   // Synchronous mirror of pendingByConversation: the double-send guard.
   const pendingRef = useRef<Record<string, PendingSend>>({})
   const initStartedRef = useRef(false)
-  const titleTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const titleTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>())
 
   useEffect(() => {
     const timers = titleTimersRef.current
     return () => {
       timers.forEach(clearTimeout)
+      timers.clear()
+    }
+  }, [])
+
+  /**
+   * Shows an error toast. Never throws: the toast hook can itself throw on
+   * some error shapes, and a throw here must not break a send's contract.
+   */
+  const showError = useCallback((error: unknown, fallbackMessage: string) => {
+    try {
+      handleErrorRef.current(error, fallbackMessage)
+    } catch (toastError) {
+      reportRef.current(error, fallbackMessage)
+      reportRef.current(toastError)
     }
   }, [])
 
@@ -98,8 +130,10 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       {
         enabled: !!conversationId,
         staleTime: Infinity,
-        retry: (failureCount, error) =>
-          !isNotFoundError(error) && failureCount < 3,
+        retry: (failureCount, error) => {
+          const code = errorCode(error)
+          return !(code && NON_RETRYABLE_CODES.has(code)) && failureCount < 3
+        },
       },
     ),
   )
@@ -121,15 +155,16 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     try {
       const result = await getOrCreateConversationMutation({})
       const id = result?.conversation?.id
-      if (id) {
-        // Never override a conversation the user picked in the meantime.
-        setConversationId((current) => current ?? id)
-      }
+      if (!id) throw new Error("Failed to get or create conversation.")
+      // Never override a conversation the user picked in the meantime.
+      setConversationId((current) => current ?? id)
     } catch (error) {
+      // Irrelevant once the user has picked a conversation from the drawer.
+      if (conversationIdRef.current) return
       setInitError(error)
-      handleErrorRef.current(error, "Failed to load your conversation.")
+      showError(error, "Failed to load your conversation.")
     }
-  }, [getOrCreateConversationMutation])
+  }, [getOrCreateConversationMutation, showError])
 
   /** Lazily resolves the initial conversation. Runs once (StrictMode-safe). */
   const initialize = useCallback(() => {
@@ -152,14 +187,12 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   const refreshListForTitle = useCallback(() => {
     for (const delay of TITLE_REFRESH_DELAYS_MS) {
       const timer = setTimeout(() => {
-        titleTimersRef.current = titleTimersRef.current.filter(
-          (t) => t !== timer,
-        )
+        titleTimersRef.current.delete(timer)
         void queryClient.invalidateQueries({
           queryKey: trpc.conversation.list.queryKey(),
         })
       }, delay)
-      titleTimersRef.current.push(timer)
+      titleTimersRef.current.add(timer)
     }
   }, [queryClient, trpc])
 
@@ -201,29 +234,23 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
           createdAt: new Date(),
         }
 
-        if (queryClient.getQueryData<ConversationGetOutput>(queryKey)) {
-          // The user message enters the cache under the same clientId as the
-          // pending bubble, so the merged list never shows it twice or drops it,
-          // whichever of these two updates renders first.
-          queryClient.setQueryData<ConversationGetOutput>(queryKey, (old) =>
-            old?.conversation
-              ? {
-                  ...old,
-                  conversation: {
-                    ...old.conversation,
-                    updatedAt: new Date(),
-                    messages: [...old.conversation.messages, userMessage, reply],
-                  },
-                }
-              : old,
-          )
-        } else {
-          // Cache entry was garbage-collected: fetch the persisted messages
-          // before dropping the pending bubble so there is no gap.
-          await queryClient
-            .refetchQueries({ queryKey })
-            .catch(() => undefined)
-        }
+        // The user message enters the cache under the same clientId as the
+        // pending bubble, so the merged list never shows it twice or drops it,
+        // whichever of these two updates renders first. If the entry was
+        // garbage-collected (nobody is viewing X), this is a no-op and the next
+        // open of X fetches the persisted messages.
+        queryClient.setQueryData<ConversationGetOutput>(queryKey, (old) =>
+          old?.conversation
+            ? {
+                ...old,
+                conversation: {
+                  ...old.conversation,
+                  updatedAt: new Date(),
+                  messages: [...old.conversation.messages, userMessage, reply],
+                },
+              }
+            : old,
+        )
         updatePending((prev) => {
           const next = { ...prev }
           delete next[targetId]
@@ -253,7 +280,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         // A server that persists the user message before generating may have
         // saved it even though the reply failed; show what the server has.
         void queryClient.refetchQueries({ queryKey }).catch(() => undefined)
-        handleErrorRef.current(error, "Failed to send message.")
+        showError(error, "Failed to send message.")
         return false
       }
     },
@@ -265,6 +292,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       trpc,
       updatePending,
       refreshListForTitle,
+      showError,
     ],
   )
 
@@ -308,7 +336,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         queryKey: trpc.conversation.list.queryKey(),
       })
     } catch (error) {
-      handleErrorRef.current(error, "Failed to create conversation.")
+      showError(error, "Failed to create conversation.")
     }
   }, [
     conversationId,
@@ -316,6 +344,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     createConversationMutation,
     queryClient,
     trpc,
+    showError,
   ])
 
   const selectConversation = useCallback(

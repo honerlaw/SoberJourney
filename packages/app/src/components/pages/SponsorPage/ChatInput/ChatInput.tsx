@@ -10,6 +10,10 @@ import {
 
 /** Server-side limit for a single sponsor chat message (`chatInput` schema). */
 const MAX_MESSAGE_LENGTH = 16000
+const MIN_INPUT_HEIGHT = 44
+const MAX_INPUT_HEIGHT = 140
+/** Vertical padding added on top of the text content height. */
+const INPUT_VERTICAL_PADDING = 20
 
 type ChatInputProps = {
   /** Resolves `true` when the message was sent; the text is kept otherwise. */
@@ -23,7 +27,11 @@ type ChatInputProps = {
 
 /** react-native-web hands onKeyPress the DOM keyboard event. */
 type WebKeyPressEvent = NativeSyntheticEvent<
-  TextInputKeyPressEventData & { isComposing?: boolean; shiftKey?: boolean }
+  TextInputKeyPressEventData & {
+    isComposing?: boolean
+    shiftKey?: boolean
+    keyCode?: number
+  }
 > & { shiftKey?: boolean; key?: string }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -34,6 +42,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFailedDraftConsumed,
 }) => {
   const [text, setText] = useState("")
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT)
   const sendingRef = useRef(false)
   const inputRef = useRef<TextInput>(null)
 
@@ -69,7 +78,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (Platform.OS !== "web") return
     const key = event.key ?? event.nativeEvent.key
     const shiftKey = event.shiftKey ?? event.nativeEvent.shiftKey
-    if (key === "Enter" && !shiftKey && !event.nativeEvent.isComposing) {
+    // keyCode 229: Safari reports IME commit keydowns with isComposing false.
+    const isComposing =
+      event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229
+    if (key === "Enter" && !shiftKey && !isComposing) {
       event.preventDefault()
       void handleSend()
     }
@@ -91,9 +103,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <TextArea
           ref={inputRef}
           flex={1}
-          minHeight={44}
-          maxHeight={140}
-          rows={1}
+          // TextArea defaults to a fixed 4-line height; size it to its content
+          // instead, between one line and a capped maximum.
+          rows={undefined}
+          numberOfLines={undefined}
+          height={inputHeight}
+          onContentSizeChange={(event) => {
+            const contentHeight = event.nativeEvent.contentSize.height
+            setInputHeight(
+              Math.min(
+                MAX_INPUT_HEIGHT,
+                Math.max(
+                  MIN_INPUT_HEIGHT,
+                  Math.ceil(contentHeight) + INPUT_VERTICAL_PADDING,
+                ),
+              ),
+            )
+          }}
+          scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
           placeholder="Chat with your AI sponsor"
           value={text}
           onChangeText={setText}
