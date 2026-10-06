@@ -91,6 +91,8 @@ export function usePushTokenSync() {
   // Last observed Clerk user: undefined before Clerk loads, null while signed
   // out, so the same account signing out and back in is a new session.
   const lastUserIdRef = useRef<string | null | undefined>(undefined)
+  // When this session last registered successfully (0 = not yet).
+  const lastRegisteredAtRef = useRef(0)
 
   useEffect(() => {
     if (!isLoaded) {
@@ -103,33 +105,52 @@ export function usePushTokenSync() {
       return
     }
     pushTokenLifecycle.startSession()
-    void registerIfPermitted(reportRef.current)
+    lastRegisteredAtRef.current = 0
+    void registerIfPermitted(reportRef.current).then((ok) => {
+      if (ok) lastRegisteredAtRef.current = Date.now()
+    })
   }, [isLoaded, isSignedIn, userId])
 
   // Foreground: retry a failed launch registration, pick up a permission
-  // granted in system settings, and re-learn a rotated token.
+  // granted in system settings, and re-learn a rotated token. Throttled so a
+  // healthy session does not hit Expo / the server on every app switch.
   useEffect(() => {
     if (!isPushSupported()) {
       return
     }
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active" && lastUserIdRef.current) {
-        void registerIfPermitted(reportRef.current)
+      if (
+        state !== "active" ||
+        !lastUserIdRef.current ||
+        Date.now() - lastRegisteredAtRef.current < FOREGROUND_REFRESH_MS
+      ) {
+        return
       }
+      void registerIfPermitted(reportRef.current).then((ok) => {
+        if (ok) lastRegisteredAtRef.current = Date.now()
+      })
     })
     return () => subscription.remove()
   }, [])
 }
 
-async function registerIfPermitted(report: (err: unknown) => void) {
+// After a successful registration, foreground re-checks wait this long.
+const FOREGROUND_REFRESH_MS = 6 * 60 * 60 * 1000
+
+/** Registers if permission is already granted; resolves true on success. */
+async function registerIfPermitted(
+  report: (err: unknown) => void,
+): Promise<boolean> {
   try {
     const { status } = await readPermission()
     if (status !== "granted") {
-      return
+      return false
     }
     await pushTokenLifecycle.register()
+    return true
   } catch (err) {
     report(err)
+    return false
   }
 }
 

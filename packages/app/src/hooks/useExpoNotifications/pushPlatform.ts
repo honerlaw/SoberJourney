@@ -46,6 +46,8 @@ export async function readPermission(): Promise<PermissionState> {
  * a user action (toggle on, "Allow notifications").
  */
 export async function requestPermission(): Promise<PermissionState> {
+  // Android 13+ only shows the prompt once a notification channel exists.
+  await ensureAndroidChannel()
   const current = await readPermission()
   if (current.status === "granted" || !current.canAskAgain) {
     return current

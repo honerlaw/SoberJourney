@@ -64,7 +64,9 @@ export function createPushTokenLifecycle(
       return
     }
     await deps.addPushToken(token)
-    if (!ended && gen === generation) {
+    if (gen === generation) {
+      // Remembered even if revoke() latched meanwhile: revoke waits for this
+      // register and then revokes this token without fetching it again.
       registeredToken = token
     }
   }

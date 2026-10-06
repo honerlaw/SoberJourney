@@ -262,8 +262,9 @@ async function main() {
     gate.resolve()
     await Promise.all([reg, rev])
     assert.deepEqual(c2.add, ["tok-1"])
-    // the token was not remembered (latched mid-flight), so revoke fetched it
     assert.deepEqual(c2.revoke, ["tok-1"])
+    // the in-flight register's token was remembered: no second Expo fetch
+    assert.equal(c2.fetch, 1)
   })
 
   await check("lifecycle: revoke during the token fetch stops the register before addPushToken", async () => {

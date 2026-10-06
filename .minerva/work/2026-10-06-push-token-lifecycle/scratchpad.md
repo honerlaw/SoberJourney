@@ -27,3 +27,16 @@
 - The web branches inside NotificationSettings (WebDateTimeField time picker) are now unreachable because the component renders nothing on web; kept intact (component still exported/used elsewhere) for a future web-push enablement.
 - Delete Account: revoke 401s (user gone); 401s are not reported to Sentry from the sign-out task, other failures are.
 - Verification: `npx tsx .minerva/work/2026-10-06-push-token-lifecycle/verify-push-lifecycle.ts` → 23 checks pass. Build, server tests (111/111), server lint and `npx expo lint` all exit 0.
+
+## Decisions 2026-10-06 (completion and review)
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–9 (10 "unsure" only because it did not rerun server build/tests; author ran them, exit 0) (tier: reviewer floor — Verifier; no interface change beyond what the proposal approved)
+- [solo] review triage: 4 FIX / 0 SUGGEST / 3 IGNORE (tier: default-solo row — no item had two defensible dispositions)
+
+## Review triage 2026-10-06
+1. FIX — Android 13+ prompt needs a channel first: `requestPermission()` now calls `ensureAndroidChannel()` before prompting.
+2. FIX — a register that finishes after the revoke latch now still remembers its token (same generation), so revoke does not re-fetch it inside the 3 s bound. Verify check updated (no second fetch).
+3. FIX — foreground re-registration throttled to once per 6 h after a success (launch/sign-in always registers).
+4. IGNORE — mutationFn bypass depends on @trpc/tanstack-react-query internals; the vanilla `useTRPCClient` is not exported from TRPCProvider (not owned) and pinning package.json is out of scope (no package changes). Recorded in the knowledge entry as "re-check on upgrade".
+5. IGNORE — simplification depends on 4.
+6. IGNORE — optional `withRequestGuard` helper for two call sites.
+7. FIX — proposal said "test-only reset"; not needed (verify uses unregister functions). Proposal Approach rewritten at promote; trailing blank line removed.
