@@ -23,10 +23,15 @@ export const DateTimeInput: React.FC<DateTimeInputProps> = ({ onChange }) => {
   const [showPicker, setShowPicker] = useState<"date" | "time" | null>(null)
   const [internalDate, setInternalDate] = useState<Date>(new Date())
 
+  // Web date inputs fire per typed segment, so clamping there would fight
+  // entry (e.g. typing the month before the year). The web input carries
+  // `max`, and NewJourneyPage clamps again at submit.
+  const shouldClamp = Platform.OS !== "web"
+
   const commit = (date: Date) => {
-    const clamped = clampToNow(date)
-    setInternalDate(clamped)
-    onChange(clamped)
+    const next = shouldClamp ? clampToNow(date) : date
+    setInternalDate(next)
+    onChange(next)
   }
 
   const handleDateChange = (selectedDate: Date) => {

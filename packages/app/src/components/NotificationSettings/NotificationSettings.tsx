@@ -8,7 +8,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react"
-import { Platform } from "react-native"
+import { AppState, Platform } from "react-native"
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker"
@@ -122,13 +122,22 @@ export const NotificationSettings = forwardRef<
       return
     }
     let cancelled = false
-    Notifications.getPermissionsAsync()
-      .then(({ status }) => {
-        if (!cancelled) setPermissionDenied(status === "denied")
-      })
-      .catch(() => {})
+    const check = () => {
+      Notifications.getPermissionsAsync()
+        .then(({ status }) => {
+          if (!cancelled) setPermissionDenied(status === "denied")
+        })
+        .catch(() => {})
+    }
+    check()
+    // Re-check when the app becomes active again: after the OS permission
+    // prompt closes, or after the user changes it in system settings
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") check()
+    })
     return () => {
       cancelled = true
+      subscription.remove()
     }
   }, [isEnabled])
 
@@ -168,7 +177,12 @@ export const NotificationSettings = forwardRef<
 
   const handleWebTimeChange = (date: Date) => {
     if (!value) return
-    handleChange({ ...value, minuteOfDay: dateToMinuteOfDay(date) })
+    // Keep the minute exactly as typed: snapping each keystroke to 15 minutes
+    // would reset the browser's segment entry. The server accepts any minute.
+    handleChange({
+      ...value,
+      minuteOfDay: date.getHours() * 60 + date.getMinutes(),
+    })
   }
 
   const handleFrequencyChange = (frequency: NotificationFrequency) => {

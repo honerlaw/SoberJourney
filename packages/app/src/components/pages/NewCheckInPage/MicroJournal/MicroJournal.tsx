@@ -12,10 +12,12 @@ export const MicroJournal: React.FC<MicroJournalProps> = ({
   onValueChange,
 }) => {
   const trpc = useTRPC()
-  // Random prompt per fetch: never refetch while the user is typing
+  // Random prompt per fetch: a fresh one per visit, never refetched while
+  // the user is typing
   const { data } = useQuery(
     trpc.journal.entryPrompt.queryOptions(undefined, {
       staleTime: Infinity,
+      refetchOnMount: "always",
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     }),
