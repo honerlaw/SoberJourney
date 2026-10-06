@@ -1,7 +1,7 @@
 # Proposal: server-hardening
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #27
 
 ## Goal
