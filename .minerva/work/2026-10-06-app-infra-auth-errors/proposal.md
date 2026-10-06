@@ -1,7 +1,7 @@
 # Proposal: 2026-10-06-app-infra-auth-errors
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #29
 
 ## Goal
@@ -34,7 +34,7 @@ unowned `AppLayout.tsx`), and keeping released App Store builds working against 
 ## Approach
 Approach A: fix each defect in place, with one shared session-teardown helper. Implemented as
 one PR with roughly one commit per concern (toasts, session/TRPC, startup states, push, sign-in,
-forgot-password, dead code/config) so a reviewer can bisect or revert a single concern.
+forgot-password, dead code/config, review fixes) so a reviewer can bisect or revert a single concern.
 
 1. **Error toasts** — `hooks/useToastError`:
    - Extract a pure `getErrorMessage(error, fallbackMessage?)` (own file, no React/Expo imports
@@ -56,7 +56,9 @@ forgot-password, dead code/config) so a reviewer can bisect or revert a single c
 2. **Session teardown** — new `hooks/useAuth/endSession.ts` exporting
    `endSession({ signOut, queryClient })`: dedupes concurrent calls via a module-level
    in-flight promise (reset in `finally`, so a failed or settled sign-out never blocks a later
-   one; the app has exactly one `QueryClient`). It awaits Clerk `signOut()`, and in `finally`
+   one; the app has exactly one `QueryClient`). It awaits Clerk `signOut()` raced against a
+   10 s timeout (a hung offline sign-out can neither block later logouts nor skip the clear),
+   and in `finally`
    awaits `queryClient.cancelQueries()` then calls `queryClient.clear()` — so the cache is
    cleared even when `signOut` throws, and in-flight fetches of the previous user are
    cancelled. A clearly-marked comment before `signOut()` is the seam where Wave 2 (#32) adds
@@ -76,7 +78,10 @@ forgot-password, dead code/config) so a reviewer can bisect or revert a single c
      explicitly: if the server keeps returning 401 while Clerk still mints a token (e.g. user
      deleted server-side, JWT misconfiguration), a counter of consecutive verified-token 401s
      forces `endSession` at 3, so the user is never stuck in an endless 401 loop; any
-     successful query/mutation resets the counter.
+     successful query/mutation resets the counter. A Clerk API rejection of the forced
+     refresh counts like a fresh token; a network failure never logs out. A counted burst
+     that does not log out invalidates the errored queries once, so their screens recover
+     (queries do not retry 4xx).
    - Remove the default `mutations.onError` (the `MutationCache.onError` already covers it):
      one handler run per 401, plus `endSession`'s in-flight dedupe.
    - Query `retry`: no retry for tRPC errors with `httpStatus` 400–499 except 408 (request
@@ -102,14 +107,16 @@ forgot-password, dead code/config) so a reviewer can bisect or revert a single c
      today. Safe to render a non-navigator first: the root layout already does so, because
      `ConfigProvider` renders `LoadingView` until config loads.
    - Clerk-never-loads policy: if Clerk has not loaded after 15 s, `Routes` shows `ErrorView`
-     with a "Having trouble connecting…" message while it keeps waiting; when `isLoaded`
-     arrives, the `Stack` renders normally. No retry button there (Clerk has no re-init API);
+     with a "Having trouble connecting… close and reopen the app" message while it keeps
+     waiting; when `isLoaded` arrives, the `Stack` renders normally. No retry button there
+     (Clerk has no re-init API and clerk-expo does not retry a failed initial load);
      today the same situation is an infinite spinner on `index.tsx`, so this is strictly better.
    - `ErrorView` gains an optional `onRetry` prop (renders a "Try again" button) and shows a
      default message ("Something went wrong.") when no `message` is passed, so every existing
      call site (including #30's pages, untouched) gets words. It no longer calls
      `useReportError` (rule in 4).
-   - `ConfigProvider` reports a fetch error once per failed attempt, and renders `ErrorView`
+   - `ConfigProvider` reports a fetch error once per failed attempt (reading `report` via a
+     ref, no hook-deps suppression), and renders `ErrorView`
      with a connection message and `onRetry` that re-runs the config fetch.
      `/api/app/config` request/response handling is unchanged.
 6. **Push cold start** (minimal; #32 reworks this next): move the `usePushNotifications()`
@@ -118,7 +125,8 @@ forgot-password, dead code/config) so a reviewer can bisect or revert a single c
    launching response on mount, so a cold-start tap is not missed) and only navigates once
    Clerk `isLoaded && isSignedIn` and `useRootNavigationState()?.key` is set — never while
    `Routes` is still rendering `LoadingView`. While signed out the response stays pending
-   (not cleared), so the tap is delivered after sign-in. `data.url` handling is unchanged
+   (not cleared), so the tap is delivered after sign-in — unless it is older than 10 minutes,
+   then it is dropped so it never reaches a different user on a shared device. `data.url` handling is unchanged
    (push `data` keys per epic rule 5). If `router.push(url)` throws, it reports and leaves the
    user on the dashboard instead of dropping the tap silently; the response is cleared after
    the navigation attempt. Signature unchanged (`usePushNotifications()`); web stub unchanged.
@@ -132,7 +140,8 @@ forgot-password, dead code/config) so a reviewer can bisect or revert a single c
    `ForgotPasswordPage` no longer renders `ResetPasswordPage` off a stale `currentStep`; a
    failed reset keeps the form and shows the Clerk error inline (no silent state wipe);
    success calls `setActive({ session: createdSessionId })` when the result is `complete`
-   (otherwise toasts success and returns to sign-in); the "Sign in" link uses `back()` /
+   and toasts after it succeeds (if more steps are needed or `setActive` fails, it toasts
+   "reset successful, please sign in" and returns to sign-in); the "Sign in" link uses `back()` /
    `replace("/signin")` instead of `push`.
 9. **Dead code / config**: delete `hooks/useDismissed` and `providers/LoadingProvider`
    (removing its wrapper from `AppLayout`); fix `useSpeechToText` to join final results with
