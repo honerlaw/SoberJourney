@@ -1,7 +1,7 @@
 # Proposal: push-notification-reliability
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #26
 
 ## Goal
@@ -11,32 +11,40 @@ Make the push-reminder cron reliable: no duplicate sends, no global outage cause
 GitHub issue #26 (audit epic #34). Today: tickets are mapped back to messages by token, so two schedules sharing a token cause one schedule to re-send every cron run until midnight; one invalid `User.timezone` throws inside a single try/catch and nobody gets reminders; revoked tokens keep receiving sends; ticket errors write no row so they retry every run; `Promise.all` over chunks discards accepted chunks on any failure; overlapping runs double-send; receipts stay PENDING forever; scheduling has off-by-a-day / DST / 30-day-month bugs; a token re-registered by user B on a shared device still delivers user A's reminders. Released App Store builds will never get the client-side revoke route (#32), so the shared-device protection must be server-side.
 
 ## Approach
-File ownership (only these): `packages/server/src/cron/**`, `packages/server/src/cron.mts`, `packages/server/src/database/notification/**`, `packages/server/src/datasource/expo/**`. No Prisma schema/migration changes (indexes belong to #27).
+What shipped. It is confined to `packages/server/src/cron.mts`, `cron/**`, `database/notification/**` and `datasource/expo/**`, with no Prisma schema or migration changes and no new dependencies.
 
-1. **Ticket→message mapping by index** (`datasource/expo/notify.mts`, `cron/notify.mts`). `datasource.expo.notify(messages)` returns an array aligned 1:1 with its input (same length, same order): each entry `{ message, ticket | undefined, error? }`. Chunks are sent with `Promise.allSettled`; a rejected chunk yields `ticket: undefined` + error for exactly its messages, accepted chunks keep their tickets. Invalid tokens are no longer silently dropped (that broke alignment): the cron validates first, and if one still reaches the datasource it gets an aligned entry with `ticket: undefined` and `error: "InvalidToken"` without being sent. An empty input returns `[]` and the cron does nothing. The cron zips `results[i]` with `messages[i]` (which carries scheduleId + pushTokenId), so two schedules → one token records both.
-2. **Per-schedule isolation** (`schedule/listPending.mts`, `cron/notify.mts`). Pending evaluation for each schedule runs in its own try/catch; a bad timezone (or any per-row error) is logged with the scheduleId and skipped. Message building per schedule is also wrapped (today `build()` throws for a schedule without a check-in and would abort the run).
-3. **Exclude revoked tokens.** `listPending` selects `pushTokens` with `where: { revoked: false }`; the cron also skips revoked tokens defensively.
-4. **Invalid tokens revoked.** Cron checks `Expo.isExpoPushToken`; invalid tokens are revoked via `pushToken.revoke` and skipped (instead of being filtered forever every run). `user.addPushToken` input validation unchanged.
-5. **Record ticket failures with bounded retry/backoff.** A ticket error or a failed chunk writes a `UserPushNotification` row with `status: ERROR`, `receiptId: null`, `errorMessage: <expo error code | "ChunkSendFailed">` (`create()` — called from `cron/notify.mts`; `cron/handlerError.mts` keeps only the revoke/update side — accepts `receiptId: string | null` and an optional `createdAt`; Postgres NULLs are distinct under the existing unique key; `listPendingWithReceipt` already filters `receiptId: not null`). `DeviceNotRegistered` still revokes. Every row written by one cron run gets the same explicit `createdAt` = the run's start time, so **one attempt = one distinct `createdAt`** regardless of how many tokens the user has.
-   - A *send* is any row that is not a ticket failure (PENDING / COMPLETE / receipt-ERROR). A slot counts as sent if **any** token got a send in it (mixed outcome: token A accepted, token B ticket-failed → slot done, B is not retried; accepted to avoid re-sending to A).
-   - Retry scope: failed attempts only count toward the current due slot S if their `createdAt ≥ S` (yesterday's failures never consume today's attempts). A due slot is retried while it has < MAX_ATTEMPTS=3 distinct failed attempts, each retry only once `now ≥ lastAttempt + 5 min × 2^(n−1)` (5, 10 min). The cron cadence is configured outside the repo; with a slower cadence the retry simply happens on the next run, and an Expo outage longer than the three attempts still gives up that slot (the next slot fires normally). After 3 failed attempts the slot is given up: the 3rd attempt is treated as the slot's send for cadence (next due = following slot), and attempts are re-scoped to that next slot.
-   - listPending fetches the latest 30 notification rows per schedule (enough for ≥3 attempts even with several tokens; if a window holds only failures, the last real send falls out of it and the schedule is evaluated from its first slot — still bounded by slot scoping and give-up, so no re-send loop); evaluation is a pure, unit-tested function in `schedule/timing.mts`.
-   - Trade-off accepted vs. "ticket error counts as a send": that alternative loses the whole day's reminder on a transient `MessageRateExceeded`/outage; bounded retry recovers it without unbounded re-sends.
-6. **Cron advisory lock** (`cron.mts` + new `cron/run.mts`). `runWithLock(ctx, work)` opens a Prisma interactive transaction (timeout 15 min) whose first statement is `SELECT pg_try_advisory_xact_lock(<namespaced constant bigint key>)` via `$queryRaw`; if not acquired, warn-log and return without sending. The work (receipts, then notify) runs on the normal pool while the transaction holds the lock (a transaction-scoped lock also works behind a transaction-pooling proxy, unlike a session lock). **Lock liveness:** the work receives an `assertLockHeld()` callback that runs `SELECT 1` on the lock transaction; the notify cron calls it immediately before handing messages to Expo, and aborts the send phase (logging an error) if the transaction has expired or its connection died — so a lock already lost before the hand-off never lets the send phase start. Rows for sends that already happened are still recorded. The check is a single point-in-time check before the (short, concurrent) Expo hand-off; that time-of-check/time-of-use window is accepted for a one-shot cron whose run takes seconds, and covers lock loss from the transaction timeout or a server-side `idle_in_transaction_session_timeout`. The receipts phase only updates rows and sends nothing, so it needs no check. `cron.mts` calls `client.$disconnect()` in `finally` so the one-shot process exits. Residual risk (documented): if the process dies after Expo accepted a chunk but before rows are written, the next run re-sends that chunk.
-7. **Receipts** (`cron/receipts.mts`, `datasource/expo/getReceipts.mts`, new `database/notification/expirePending.mts`). `getReceipts` handles each chunk's error individually and returns the receipts it did get. PENDING rows older than 24h (Expo drops receipts after ~24h) are marked ERROR with `errorMessage: "ReceiptExpired"` before fetching. Receipt lookup uses a Map instead of an O(n²) find.
-8. **Scheduling semantics** (`schedule/listPending.mts`, pure helpers in new `schedule/timing.mts`, not re-exported from the wrapped index). All local-time math is done in the user's IANA timezone, converting local date+minute to an instant using the offset *at that target local time* (DST-correct).
-   - Daily grid of "slots" = each local day at `minuteOfDay`.
-   - **First send** (no send yet): pending iff the latest slot ≤ now is at/after the schedule's `createdAt`. A schedule created after today's time fires at the next slot (tomorrow), for every frequency — no immediate fire.
-   - **Subsequent sends**: attribute the last send to the *nearest* slot (so a late send just after midnight belongs to the previous day's slot, and a same-day time change does not double-send); next due = attributed slot's local date + 1/7/14 days, or + 1 calendar month (day clamped to month length) for MONTHLY, at `minuteOfDay`, in the user's timezone. Pending iff now ≥ next due.
-   - WEEKLY/BIWEEKLY/MONTHLY first send also happens at the next daily slot after creation (not a week/month later); MONTHLY day-of-month clamping drifts (Jan 31 → Feb 28 → Mar 28) — accepted and documented.
-   - Nearest-slot attribution is robust to lateness < half a day (cron delays and retries are minutes).
-   - A schedule upserted with a new time keeps its `createdAt`; with no send yet it fires at the next slot ≥ createdAt, i.e. the next occurrence of the new time. A schedule created exactly at the slot minute (createdAt ≤ slot instant within that minute) fires that minute: rule is `slot ≥ createdAt` with createdAt truncated to the minute.
-   - `minuteOfDay = null` (not produced by current code paths) keeps interval-from-last-send semantics with calendar-month MONTHLY.
-   - Behavior changes are called out in the PR body.
-   - Scheduling changes land in their own commit so they can be reverted independently of the high-severity fixes.
-9. **Shared-device fix** (`pushToken/upsert.mts`). In one transaction: revoke (`revoked: true`) every non-revoked row with the same `token` belonging to a *different* user, then upsert `(userId, token)` with `update: { revoked: false }`. Returns the row as today; `addPushToken`'s inputs/outputs unchanged (its only caller; it discards the row). Un-revoking on re-registration is deliberate: the released app only calls `addPushToken` after notification permission is granted and a fresh Expo token is obtained, so re-registration means the device is live for this user; without it, user A could never get reminders back after user B used the device. Accepted side effects: a token revoked after `DeviceNotRegistered` that the app re-registers gets one more send (and is re-revoked if Expo still reports it dead) — re-registration only happens from a running app with permission granted, so this is rare; a token the cron revoked as invalid is un-revoked on the next launch and re-revoked by the next cron run before any send (validation precedes sending). #32 must know that re-registration un-revokes. The `token`-only lookup has no index (`@@unique([userId, token])` leads with userId) — deferred to #27.
-10. **Internal interface note.** `datasource.expo.notify`'s return shape changes; its only caller is `cron/notify.mts` (grep-verified), so no contract outside this bucket changes.
-11. **Tests** (node:test, mocking pattern from `service/encryption/__tests__`): ticket mapping with two schedules on one token; one bad timezone doesn't block others; revoked tokens excluded from the query and skipped; chunk failure records only failed chunk; retry/backoff/give-up; scheduling edge cases (first fire, late send, time change, monthly clamp, DST); upsert revokes other users; advisory lock skip.
+1. **Ticket→message mapping by index.** `datasource/expo/notify.mts` chunks valid messages by index (`Expo.pushNotificationChunkSizeLimit`) and sends them with `Promise.allSettled`. It returns results aligned 1:1 with its input:
+   - an invalid token gets `error: "InvalidToken"`;
+   - a rejected chunk gets `error: "ChunkSendFailed"`;
+   - accepted chunks keep their tickets.
+   `cron/notify.mts` zips results with its messages by index, so two schedules on one token each get their record.
+2. **Per-schedule isolation.** `listPending` evaluates each schedule in its own try/catch, so a bad timezone is logged and skipped. The cron also skips any schedule whose message cannot be built.
+3. **Revoked and invalid tokens.** `listPending` loads only `revoked: false` tokens, and the cron skips revoked ones defensively. Tokens failing `Expo.isExpoPushToken` are revoked via `pushToken.revoke` and skipped. `user.addPushToken` validation is untouched.
+4. **Failed attempts with bounded retry.**
+   - Ticket errors and failed chunks write `ERROR` rows with `receiptId: null`. `create()` now accepts a null receipt and an optional `createdAt`. `DeviceNotRegistered` still revokes.
+   - All rows of a run share the run's start `createdAt`, so one attempt = one distinct `createdAt`.
+   - `schedule/timing.mts` `isSchedulePending` retries a due slot up to 3 attempts, 5 then 10 minutes after the previous attempt. It counts only attempts at or after the slot, then gives up: the 3rd attempt counts as the slot's send. A mixed run counts as sent.
+   - `listPending` reads the latest 30 rows per schedule.
+5. **Advisory lock.**
+   - `cron/run.mts` `runWithLock` takes `pg_try_advisory_xact_lock(hashtext('soberjourney:cron:notifications'))` in a Prisma interactive transaction (15 min timeout), and the work runs on the pool.
+   - `assertLockHeld()` (`SELECT 1` on the lock transaction) is checked right before the Expo hand-off, and the send phase is aborted if it fails.
+   - It returns `"ran" | "skipped" | "failed"`. `cron.mts` sets `process.exitCode = 1` on failure and calls `$disconnect()` in `finally`.
+   - Accepted residual risks: lock loss after the check, and a crash between Expo acceptance and the row writes.
+6. **Receipts.** The new `database/notification/expireStalePending.mts` marks PENDING rows older than 24h as `ERROR "ReceiptExpired"`. `getReceipts` handles chunk errors individually, and receipt lookup uses a Map.
+7. **Scheduling semantics** (`schedule/timing.mts`, not re-exported from the wrapped index):
+   - Slots are local date + `minuteOfDay` in the user's IANA timezone, converted to an instant with the offset at that local time. A time in the DST gap resolves to just after it; an ambiguous fall-back time resolves to its first occurrence.
+   - First send is the first slot at or after `createdAt` (truncated to the minute), for every frequency, with no immediate fire.
+   - The next send is the send's local date (or the previous day for a late send within 3h after the previous day's slot) + 1/7/14 days, or + 1 calendar month clamped. Moving the reminder time never double-sends or skips a day. This replaced the proposed "nearest slot" attribution after review showed it misfires on time moves of 12h or more.
+   - MONTHLY clamp drift is accepted. `minuteOfDay = null` keeps interval-since-last-send.
+   - `hourCycle: "h23"` fixes the "24:00" rendering.
+8. **Shared-device fix** (`pushToken/upsert.mts`). In one transaction:
+   - `pg_advisory_xact_lock(hashtext(token))` serializes concurrent registrations;
+   - the same token is revoked for every other user;
+   - the upsert uses `update: { revoked: false }`, so re-registration re-enables the token.
+   `addPushToken` inputs and outputs are unchanged.
+9. **Tests.** 51 node:test cases across `cron/__tests__`, `database/notification/**/__tests__` and `datasource/expo/__tests__`.
+
+Everything landed as one squash-merged change. The planned separate commit for scheduling was dropped, because scheduling and retry share one evaluator. Revert path: `timing.mts` + `listPending.mts`.
 
 ## Success criteria
 - `cron/notify.mts` maps tickets to messages by array index; a unit test with two schedules sending to the same token in one run asserts a notification row is created for each schedule.
@@ -45,7 +53,7 @@ File ownership (only these): `packages/server/src/cron/**`, `packages/server/src
 - Ticket errors and failed chunks create ERROR rows with null receiptId and all rows of one run share the run's `createdAt`; unit tests cover: retry allowed, backoff not elapsed, give-up after 3 attempts then next slot fires normally, a multi-token failed run counts as ONE attempt, failures from a previous slot do not count against the current slot, mixed success/failure counts as sent.
 - `datasource/expo/notify.mts` uses `Promise.allSettled` and returns results aligned to input; a unit test with one failing chunk asserts accepted chunk tickets are kept.
 - The cron run is wrapped in a Postgres advisory lock via `$queryRaw` in `cron/run.mts` (no schema change); unit tests assert the run is skipped when the lock is not acquired and that the send phase is aborted when the lock liveness check fails.
-- Stale PENDING receipts (>24h) are expired to ERROR; `getReceipts` returns partial results when one chunk fails (unit test).
+- Stale PENDING receipts (>24h) are expired to ERROR (`expireStalePending`); `getReceipts` returns partial results when one chunk fails (unit test).
 - Scheduling helpers have unit tests for: no immediate fire for a schedule created after its time, late send after midnight does not skip a day, same-day time change does not double-send, MONTHLY uses calendar months, DST start/end target instant is correct.
 - Invalid Expo tokens are revoked by the cron; `user.addPushToken` input schema is untouched.
 - `pushToken.upsert` revokes the same token for other users and un-revokes for the registering user (unit test).
@@ -55,4 +63,6 @@ File ownership (only these): `packages/server/src/cron/**`, `packages/server/src
 - `npm run build`, `npm run test`, and server lint pass; no Prisma schema/migration files changed; no new npm dependencies.
 
 ## Open Questions
-- A `UserPushNotification(status)` / `(scheduleId, createdAt)` index would help listPending/receipts queries; deferred to #27 (schema owner) — noted in report.
+- Indexes that would help, deferred to #27 (the schema owner):
+  - `UserPushNotification(scheduleId, createdAt)` and `(status, createdAt)`, for listPending, receipts and expiry;
+  - `UserPushToken(token)`, for revoke-by-token.
