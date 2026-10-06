@@ -14,44 +14,46 @@ export async function addMessage(
   content: string,
 ): Promise<ConversationMessageModel | null> {
   try {
-    // First verify that the conversation belongs to the user
-    const conversation = await client.conversation.findFirst({
-      where: {
-        id: conversationId,
-        userId: userId,
-      },
-    });
-
-    if (!conversation) {
-      logger.warn(
-        {
-          attributes: {
-            conversationId,
-            userId,
-          },
-          tags: ["database", "conversation", "addMessage"],
+    // Ownership check, message insert and the conversation's updatedAt touch
+    // commit together, so a message row never exists alongside a reported failure.
+    return await client.$transaction(async (tx) => {
+      const conversation = await tx.conversation.findFirst({
+        where: {
+          id: conversationId,
+          userId: userId,
         },
-        "Conversation not found or does not belong to user",
-      );
-      return null;
-    }
+        select: { id: true },
+      });
 
-    // Create the message and update conversation's updatedAt
-    const message = await client.conversationMessage.create({
-      data: {
-        conversationId,
-        role,
-        content,
-      },
+      if (!conversation) {
+        logger.warn(
+          {
+            attributes: {
+              conversationId,
+              userId,
+            },
+            tags: ["database", "conversation", "addMessage"],
+          },
+          "Conversation not found or does not belong to user",
+        );
+        return null;
+      }
+
+      const message = await tx.conversationMessage.create({
+        data: {
+          conversationId,
+          role,
+          content,
+        },
+      });
+
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
+
+      return message;
     });
-
-    // Update the conversation's updatedAt timestamp
-    await client.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
-    });
-
-    return message;
   } catch (err) {
     logger.error(
       {

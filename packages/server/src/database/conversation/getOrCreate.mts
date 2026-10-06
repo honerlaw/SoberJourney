@@ -8,26 +8,31 @@ export async function getOrCreate(
   userId: string,
 ): Promise<ConversationModel | null> {
   try {
-    // Try to find the most recent conversation for the user
-    const existingConversation = await client.conversation.findFirst({
-      where: {
-        userId,
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+    return await client.$transaction(async (tx) => {
+      // Serialize find-then-create per user so two concurrent calls cannot
+      // both miss and create duplicate empty conversations. The advisory lock
+      // is released automatically when the transaction ends.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`conversation:getOrCreate:${userId}`}))`;
 
-    if (existingConversation) {
-      return existingConversation;
-    }
+      // Try to find the most recent conversation for the user
+      const existingConversation = await tx.conversation.findFirst({
+        where: {
+          userId,
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      });
 
-    // No existing conversation found, create a new one
-    return await client.conversation.create({
-      data: {
-        userId,
-        title: null,
-      },
+      if (existingConversation) {
+        return existingConversation;
+      }
+
+      // No existing conversation found, create a new one
+      return await tx.conversation.create({
+        data: {
+          userId,
+          title: null,
+        },
+      });
     });
   } catch (err) {
     logger.error(

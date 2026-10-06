@@ -12,9 +12,7 @@ export async function list(
       where: {
         userId,
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
   } catch (err) {
     logger.error(
