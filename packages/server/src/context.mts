@@ -21,10 +21,9 @@ import * as expoDS from "./datasource/expo/index.mjs";
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
 import { client, type UserModel } from "./util/database.mjs";
 import { getAuth, verifyToken } from "@clerk/express";
-import { type RequestHandler } from "express";
+import { isValidTimeZone } from "./database/user/isValidTimeZone.mjs";
 
 const TIMEZONE_HEADER = "x-iana-time-zone";
-const DEFAULT_TIMEZONE = "America/New_York";
 
 const options = {
   logger,
@@ -105,8 +104,8 @@ export const createContext = async (
       });
       const userId = results.sub;
       // When only a token string is provided, we don't have access to headers
-      // so we use the default timezone
-      const foundUser = await options.upsert(userId, DEFAULT_TIMEZONE);
+      // so we leave the stored timezone untouched
+      const foundUser = await options.upsert(userId, undefined);
       return options.create(
         foundUser,
         logger.child({
@@ -140,31 +139,12 @@ export const createContext = async (
       })
     : logger;
 
-  // Get timezone from header, falling back to default
-  const timezone =
-    (req.headers[TIMEZONE_HEADER] as string | undefined) || DEFAULT_TIMEZONE;
+  // Only trust a valid IANA timezone header; anything else is ignored so the
+  // stored timezone is kept (and the request is never rejected for it)
+  const headerTimezone = req.headers[TIMEZONE_HEADER];
+  const timezone = isValidTimeZone(headerTimezone) ? headerTimezone : undefined;
 
   const foundUser = userId ? await options.upsert(userId, timezone) : null;
 
   return await options.create(foundUser, childLogger, additional);
 };
-
-export function contextMiddleware(): RequestHandler {
-  return async (req, res, next) => {
-    const unknownReq = req as unknown as CTXRequest;
-    if (typeof unknownReq === "string" || !unknownReq) {
-      return next();
-    }
-    unknownReq.serverContext = await createContext(unknownReq);
-    next();
-  };
-}
-
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace Express {
-    interface Request {
-      serverContext: Context;
-    }
-  }
-}

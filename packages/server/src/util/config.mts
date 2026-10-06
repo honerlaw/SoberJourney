@@ -21,11 +21,28 @@ const envSchema = z.object({
 
   // Gemini AI
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+
+  // comma-separated apex hosts that are redirected to their www. subdomain
+  REDIRECT_APEX_HOSTS: z.string().default("soberjourney.app"),
 });
 
 export type Config = z.infer<typeof envSchema>;
 
 let cachedConfig: Config | null = null;
+
+/**
+ * Summarize validation issues without any input values.
+ */
+export function describeIssues(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      code: issue.code,
+      message: issue.message,
+    }));
+  }
+  return [{ message: error instanceof Error ? error.name : "Unknown error" }];
+}
 
 // async so that we can back this with async operations in the future easily
 // e.g. if we fetch from secret manager directly instead
@@ -46,15 +63,13 @@ export async function getConfig<Key extends keyof Config>(
     if (typeof defaultValue !== "undefined") {
       return defaultValue;
     }
+    // never log env values (or defaults), they may contain secrets
     logger.error(
       {
-        error,
         tags: ["util", "config"],
         attributes: {
           key,
-          expectedValue: envSchema.shape[key],
-          value: process.env[key],
-          defaultValue,
+          issues: describeIssues(error),
         },
       },
       "Error getting config",

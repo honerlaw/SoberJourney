@@ -4,14 +4,17 @@ import {
 } from "@onerlaw/framework/backend/rpc";
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
+import { MAX_REORDER_ITEMS } from "./inputs.mjs";
 
-const reorderJourneyInput = z.object({
-  items: z.array(
-    z.object({
-      id: z.uuid(),
-      position: z.number().int().min(0),
-    }),
-  ),
+export const reorderJourneyInput = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        position: z.number().int().min(0),
+      }),
+    )
+    .max(MAX_REORDER_ITEMS, "Too many journeys to reorder."),
 });
 
 export const reorder = procedure
