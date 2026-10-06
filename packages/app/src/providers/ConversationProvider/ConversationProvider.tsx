@@ -1,176 +1,358 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { TRPCClientError } from "@trpc/client"
 import { useTRPC } from "@/src/providers/TRPCProvider"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useToastError } from "@/src/hooks/useToastError"
 import {
   ConversationContext,
+  type ConversationContextType,
+  type ConversationGetOutput,
   type Message,
-  type Conversation,
-  type ConversationListItem,
 } from "./ConversationContext"
+
+/** An in-flight send, rendered as an optimistic user bubble until the reply lands. */
+type PendingSend = {
+  clientId: string
+  userMessage: Message
+}
+
+/** Delays (ms) after a first message at which the drawer list is refetched to pick up the async title. */
+const TITLE_REFRESH_DELAYS_MS = [3_000, 8_000]
+
+const isNotFoundError = (error: unknown): boolean =>
+  error instanceof TRPCClientError && error.data?.code === "NOT_FOUND"
+
+const createClientId = (): string =>
+  `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
 export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
   const [conversationId, setConversationId] = useState<string | null>(null)
-  const [pendingMessage, setPendingMessage] = useState<Message | null>(null)
+  const [pendingByConversation, setPendingByConversation] = useState<
+    Record<string, PendingSend>
+  >({})
+  const [failedDrafts, setFailedDrafts] = useState<Record<string, string>>({})
+  const [initError, setInitError] = useState<unknown>(null)
 
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const { report } = useReportError()
   const { handleError } = useToastError()
 
-  // Get or create conversation mutation
-  const {
-    mutateAsync: getOrCreateConversationMutation,
-    isPending: isInitialCreating,
-  } = useMutation(trpc.conversation.getOrCreate.mutationOptions())
+  // Read through refs so no effect or callback depends on these identities
+  // (useToastError returns a new handleError every render).
+  const handleErrorRef = useRef(handleError)
+  handleErrorRef.current = handleError
+  // Synchronous mirror of pendingByConversation: the double-send guard.
+  const pendingRef = useRef<Record<string, PendingSend>>({})
+  const initStartedRef = useRef(false)
+  const titleTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
-  // Create new conversation mutation
+  useEffect(() => {
+    const timers = titleTimersRef.current
+    return () => {
+      timers.forEach(clearTimeout)
+    }
+  }, [])
+
+  const updatePending = useCallback(
+    (
+      update: (
+        prev: Record<string, PendingSend>,
+      ) => Record<string, PendingSend>,
+    ) => {
+      pendingRef.current = update(pendingRef.current)
+      setPendingByConversation(pendingRef.current)
+    },
+    [],
+  )
+
+  const { mutateAsync: getOrCreateConversationMutation } = useMutation(
+    trpc.conversation.getOrCreate.mutationOptions(),
+  )
+
   const {
     mutateAsync: createConversationMutation,
     isPending: isCreatingConversation,
   } = useMutation(trpc.conversation.create.mutationOptions())
 
-  // Get conversation query
+  // Freshness is explicit (select / retry / failed send), never on
+  // mount/focus/reconnect, so a send never triggers a full refetch and nothing
+  // can refetch a conversation while one of its sends is in flight.
   const {
     data: conversationData,
     error: conversationError,
     isLoading: isLoadingConversation,
-    isRefetching: isRefetchingConversation,
+    refetch: refetchConversation,
   } = useQuery(
     trpc.conversation.get.queryOptions(
       { conversationId: conversationId ?? "" },
-      { enabled: !!conversationId },
+      {
+        enabled: !!conversationId,
+        staleTime: Infinity,
+        retry: (failureCount, error) =>
+          !isNotFoundError(error) && failureCount < 3,
+      },
     ),
   )
 
-  // List conversations query
   const { data: conversationsData, isLoading: isLoadingConversations } =
     useQuery(trpc.conversation.list.queryOptions())
 
-  // Send message mutation
-  const { mutateAsync: sendMessageMutation, isPending: isSending } =
-    useMutation(trpc.conversation.sponsorChat.mutationOptions())
+  const { mutateAsync: sendMessageMutation } = useMutation(
+    trpc.conversation.sponsorChat.mutationOptions(),
+  )
 
-  // Report conversation errors
   useEffect(() => {
     if (conversationError) {
       report(conversationError)
     }
   }, [conversationError, report])
 
-  // Clear pending message once it appears in the fetched conversation data
-  // This prevents flickering by only clearing after the refetch completes
-  useEffect(() => {
-    if (pendingMessage && conversationData?.conversation?.messages) {
-      const messageExists = conversationData.conversation.messages.some(
-        (msg: Message) =>
-          msg.role === "user" && msg.content === pendingMessage.content,
-      )
-      if (messageExists) {
-        setPendingMessage(null)
+  const runInit = useCallback(async () => {
+    try {
+      const result = await getOrCreateConversationMutation({})
+      const id = result?.conversation?.id
+      if (id) {
+        // Never override a conversation the user picked in the meantime.
+        setConversationId((current) => current ?? id)
       }
+    } catch (error) {
+      setInitError(error)
+      handleErrorRef.current(error, "Failed to load your conversation.")
     }
-  }, [conversationData?.conversation?.messages, pendingMessage])
+  }, [getOrCreateConversationMutation])
 
-  // Initialize conversation on mount
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const result = await getOrCreateConversationMutation({})
-        if (result?.conversation) {
-          setConversationId(result.conversation.id)
-        }
-      } catch (error) {
-        handleError(error, "Failed to initialize conversation.")
-      }
+  /** Lazily resolves the initial conversation. Runs once (StrictMode-safe). */
+  const initialize = useCallback(() => {
+    if (initStartedRef.current) return
+    initStartedRef.current = true
+    void runInit()
+  }, [runInit])
+
+  const retryInitialize = useCallback(() => {
+    setInitError(null)
+    initStartedRef.current = true
+    void runInit()
+  }, [runInit])
+
+  const conversationQueryKey = useCallback(
+    (id: string) => trpc.conversation.get.queryKey({ conversationId: id }),
+    [trpc],
+  )
+
+  const refreshListForTitle = useCallback(() => {
+    for (const delay of TITLE_REFRESH_DELAYS_MS) {
+      const timer = setTimeout(() => {
+        titleTimersRef.current = titleTimersRef.current.filter(
+          (t) => t !== timer,
+        )
+        void queryClient.invalidateQueries({
+          queryKey: trpc.conversation.list.queryKey(),
+        })
+      }, delay)
+      titleTimersRef.current.push(timer)
     }
-    init()
-  }, [getOrCreateConversationMutation, handleError, setConversationId])
+  }, [queryClient, trpc])
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isSending || !conversationId) return
+    async (rawText: string): Promise<boolean> => {
+      const text = rawText.trim()
+      const targetId = conversationId
+      if (!text || !targetId || pendingRef.current[targetId]) return false
 
-      // Optimistically add the user message immediately
-      const optimisticMessage: Message = {
-        id: `pending-${Date.now()}`,
-        role: "user",
-        content: text.trim(),
+      const queryKey = conversationQueryKey(targetId)
+      const before = queryClient.getQueryData<ConversationGetOutput>(queryKey)
+      if (!before?.conversation) return false
+      const hadTitle = !!before.conversation.title
+
+      const clientId = createClientId()
+      const userMessage: Message = {
+        id: clientId,
+        role: "USER",
+        content: text,
         createdAt: new Date(),
       }
-      setPendingMessage(optimisticMessage)
+      updatePending((prev) => ({
+        ...prev,
+        [targetId]: { clientId, userMessage },
+      }))
+      void queryClient.cancelQueries({ queryKey })
 
       try {
-        await sendMessageMutation({ conversationId, text: text.trim() })
-        // Invalidate the conversation query to refetch with new messages
-        // Note: pendingMessage is cleared by useEffect once the message appears in conversation
-        await queryClient.invalidateQueries({
-          queryKey: trpc.conversation.get.queryKey({ conversationId }),
+        // Only the long-standing `response` field is read, so this works
+        // against servers with or without additive response fields.
+        const result = await sendMessageMutation({
+          conversationId: targetId,
+          text,
         })
+        const reply: Message = {
+          id: `${clientId}-reply`,
+          role: "MODEL",
+          content: result.response,
+          createdAt: new Date(),
+        }
+
+        if (queryClient.getQueryData<ConversationGetOutput>(queryKey)) {
+          // The user message enters the cache under the same clientId as the
+          // pending bubble, so the merged list never shows it twice or drops it,
+          // whichever of these two updates renders first.
+          queryClient.setQueryData<ConversationGetOutput>(queryKey, (old) =>
+            old?.conversation
+              ? {
+                  ...old,
+                  conversation: {
+                    ...old.conversation,
+                    updatedAt: new Date(),
+                    messages: [...old.conversation.messages, userMessage, reply],
+                  },
+                }
+              : old,
+          )
+        } else {
+          // Cache entry was garbage-collected: fetch the persisted messages
+          // before dropping the pending bubble so there is no gap.
+          await queryClient
+            .refetchQueries({ queryKey })
+            .catch(() => undefined)
+        }
+        updatePending((prev) => {
+          const next = { ...prev }
+          delete next[targetId]
+          return next
+        })
+        setFailedDrafts((prev) => {
+          if (!(targetId in prev)) return prev
+          const next = { ...prev }
+          delete next[targetId]
+          return next
+        })
+
+        void queryClient.invalidateQueries({
+          queryKey: trpc.conversation.list.queryKey(),
+        })
+        if (!hadTitle) {
+          refreshListForTitle()
+        }
+        return true
       } catch (error) {
-        // Clear pending message on error since it won't be added to the conversation
-        setPendingMessage(null)
-        handleError(error, "Failed to send message.")
+        updatePending((prev) => {
+          const next = { ...prev }
+          delete next[targetId]
+          return next
+        })
+        setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
+        // A server that persists the user message before generating may have
+        // saved it even though the reply failed; show what the server has.
+        void queryClient.refetchQueries({ queryKey }).catch(() => undefined)
+        handleErrorRef.current(error, "Failed to send message.")
+        return false
       }
     },
     [
-      isSending,
       conversationId,
-      sendMessageMutation,
+      conversationQueryKey,
       queryClient,
+      sendMessageMutation,
       trpc,
-      handleError,
+      updatePending,
+      refreshListForTitle,
     ],
   )
 
+  const clearFailedDraft = useCallback((id: string) => {
+    setFailedDrafts((prev) => {
+      if (!(id in prev)) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }, [])
+
+  const conversation = conversationData?.conversation ?? null
+  const conversations = useMemo(
+    () => conversationsData?.conversations ?? [],
+    [conversationsData?.conversations],
+  )
+
+  const currentPending = conversationId
+    ? pendingByConversation[conversationId]
+    : undefined
+
   const createConversation = useCallback(async () => {
+    // Reuse the current conversation if it is still empty.
+    if (
+      conversationId &&
+      conversation &&
+      conversation.id === conversationId &&
+      conversation.messages.length === 0 &&
+      !pendingRef.current[conversationId]
+    ) {
+      return
+    }
     try {
       const result = await createConversationMutation({})
       if (result?.conversation) {
         setConversationId(result.conversation.id)
+        setInitError(null)
       }
-      // Invalidate conversation list to update the drawer
       await queryClient.invalidateQueries({
         queryKey: trpc.conversation.list.queryKey(),
       })
     } catch (error) {
-      handleError(error, "Failed to create conversation.")
+      handleErrorRef.current(error, "Failed to create conversation.")
     }
-  }, [createConversationMutation, queryClient, trpc, handleError])
+  }, [
+    conversationId,
+    conversation,
+    createConversationMutation,
+    queryClient,
+    trpc,
+  ])
 
-  const conversation =
-    (conversationData?.conversation as Conversation | null) ?? null
+  const selectConversation = useCallback(
+    (id: string) => {
+      setConversationId(id)
+      setInitError(null)
+      // Reconcile an already-cached conversation with the server, unless a send
+      // for it is in flight. An uncached one is fetched by the query itself.
+      const queryKey = conversationQueryKey(id)
+      if (!pendingRef.current[id] && queryClient.getQueryData(queryKey)) {
+        void queryClient
+          .refetchQueries({ queryKey }, { cancelRefetch: false })
+          .catch(() => undefined)
+      }
+    },
+    [conversationQueryKey, queryClient],
+  )
 
-  const conversations = (conversationsData?.conversations ??
-    []) as ConversationListItem[]
+  const retryConversation = useCallback(() => {
+    void refetchConversation()
+  }, [refetchConversation])
 
-  const isInitializing = isInitialCreating || (!conversationId && !conversation)
+  // Merge cached messages with this conversation's pending bubble (id-keyed).
+  const messages = useMemo(() => {
+    const base = conversation?.messages ?? []
+    if (!currentPending) return base
+    if (base.some((msg) => msg.id === currentPending.clientId)) return base
+    return [...base, currentPending.userMessage]
+  }, [conversation?.messages, currentPending])
+
+  const isSending = !!currentPending
+  // True until a conversation is selected (SponsorPage triggers initialize on
+  // mount), false once init has failed so the error view can render.
+  const isInitializing = !conversationId && !initError
   const isLoading = isLoadingConversation && !conversation
 
-  // Combine conversation messages with pending message
-  // Only include pending message if conversation doesn't already have it
-  const messages = useMemo(() => {
-    const baseMessages = conversation?.messages ?? []
-    if (pendingMessage) {
-      // Check if the pending message is already in the conversation
-      const alreadyExists = baseMessages.some(
-        (msg) => msg.role === "user" && msg.content === pendingMessage.content,
-      )
-      if (!alreadyExists) {
-        return [...baseMessages, pendingMessage]
-      }
-    }
-    return baseMessages
-  }, [conversation?.messages, pendingMessage])
-
-  const selectConversation = (id: string) => {
-    setConversationId(id)
-  }
-
-  const value = {
+  const value: ConversationContextType = {
     conversationId,
     conversation,
     conversations,
@@ -178,12 +360,20 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     sendMessage,
     createConversation,
     selectConversation,
+    initialize,
+    retryInitialize,
+    retryConversation,
+    failedDrafts,
+    clearFailedDraft,
     isSending,
     isCreatingConversation,
     isInitializing,
+    initError,
     isLoading,
+    conversationError,
+    isConversationNotFound: isNotFoundError(conversationError),
     isLoadingConversations,
-    isThinking: isSending || isRefetchingConversation,
+    isThinking: isSending,
   }
 
   return (

@@ -1,7 +1,8 @@
 import { YStack, ScrollView } from "tamagui"
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import type { ScrollView as ScrollViewType } from "react-native"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs"
+import { useNavigation } from "expo-router"
 
 import { LoadingView } from "@/src/components/LoadingView"
 import { useConversation } from "@/src/providers/ConversationProvider"
@@ -10,34 +11,73 @@ import { MessageBubble } from "./MessageBubble"
 import { ChatInput } from "./ChatInput"
 import { ThinkingIndicator } from "./ThinkingIndicator"
 import { EmptyChatView } from "./EmptyChatView"
+import { ChatErrorView } from "./ChatErrorView"
+
+/** Must match the static `headerTitle` of the sponsor tab in `(tabs)/_layout.tsx`. */
+const DEFAULT_HEADER_TITLE = "Sponsor"
 
 export const SponsorPage: React.FC = () => {
   const scrollViewRef = useRef<ScrollViewType>(null)
   const tabBarHeight = useBottomTabBarHeight()
   const keyboardHeight = useKeyboardHeight()
+  const navigation = useNavigation()
 
   const {
+    conversationId,
+    conversation,
     messages,
     sendMessage,
+    initialize,
+    retryInitialize,
+    retryConversation,
+    createConversation,
+    failedDrafts,
+    clearFailedDraft,
     isSending,
+    isCreatingConversation,
     isInitializing,
+    initError,
     isLoading,
+    conversationError,
+    isConversationNotFound,
     isThinking,
   } = useConversation()
 
-  // Scroll to bottom when messages change or when sending (to show thinking indicator)
-  // or scroll when the keyboard opens
+  // Resolve the initial conversation only once the user opens Sponsor.
   useEffect(() => {
-    if (
-      messages.length ||
-      isSending ||
-      (keyboardHeight > 0 && messages.length)
-    ) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true })
-      }, 100)
-    }
+    initialize()
+  }, [initialize])
+
+  const headerTitle = conversation?.title || DEFAULT_HEADER_TITLE
+  useEffect(() => {
+    navigation.setOptions({ headerTitle })
+  }, [navigation, headerTitle])
+
+  // Scroll to bottom when messages change, when sending (to show the thinking
+  // indicator), or when the keyboard opens.
+  useEffect(() => {
+    if (!messages.length && !isSending) return
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true })
+    }, 100)
+    return () => clearTimeout(timer)
   }, [messages.length, isSending, keyboardHeight])
+
+  const failedDraft = conversationId ? failedDrafts[conversationId] : undefined
+  const onFailedDraftConsumed = useCallback(() => {
+    if (conversationId) clearFailedDraft(conversationId)
+  }, [conversationId, clearFailedDraft])
+
+  if (initError && !conversationId) {
+    return (
+      <ChatErrorView
+        title="Couldn't load your conversation"
+        message="Check your connection and try again."
+        actionLabel="Retry"
+        onAction={retryInitialize}
+      />
+    )
+  }
 
   if (isInitializing || isLoading) {
     return (
@@ -47,6 +87,27 @@ export const SponsorPage: React.FC = () => {
     )
   }
 
+  if (conversationError && !conversation) {
+    return isConversationNotFound ? (
+      <ChatErrorView
+        title="Conversation not found"
+        message="This conversation is no longer available."
+        actionLabel="Start a new conversation"
+        onAction={() => void createConversation()}
+        isActionPending={isCreatingConversation}
+      />
+    ) : (
+      <ChatErrorView
+        title="Couldn't load this conversation"
+        message="Check your connection and try again."
+        actionLabel="Retry"
+        onAction={retryConversation}
+      />
+    )
+  }
+
+  // With edge-to-edge enabled (app.json), Android does not resize the window
+  // for the keyboard, so the input is lifted manually on both platforms.
   const inputBottomPadding =
     keyboardHeight > 0 ? keyboardHeight - tabBarHeight + 14 : "$3"
 
@@ -74,9 +135,12 @@ export const SponsorPage: React.FC = () => {
       )}
 
       <ChatInput
+        key={conversationId ?? "none"}
         onSend={sendMessage}
         disabled={isSending}
         bottomPadding={inputBottomPadding}
+        failedDraft={failedDraft}
+        onFailedDraftConsumed={onFailedDraftConsumed}
       />
     </YStack>
   )
