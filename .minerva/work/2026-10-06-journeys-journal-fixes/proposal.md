@@ -1,7 +1,7 @@
 # Proposal: journeys-journal-fixes
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #30
 
 ## Goal
@@ -11,30 +11,27 @@ Fix the journey, check-in and journal page bugs listed in GitHub issue #30 (rese
 These are user-visible correctness bugs on the app's core screens: the Reset History tab hides the most recent reset and invents a fake "Reset #1 — 0 days"; a 9:53 reminder silently becomes 9:00; future start dates render "-1 days" and negative bars; the streak display is off by a day for an hour daily after DST changes; failed operations leave the UI lying (reorder not rolled back, journal page navigates back after a failed delete); the Edit Journey screen can crash; date/time pickers render nothing on web.
 
 ## Approach
-Extract the date/derivation logic into **pure, dependency-light modules** (only `date-fns`, already used) so the acceptance-criteria cases are verified by a committed script under the unit's `.minerva/work/` directory, run with the root-hoisted `tsx` (no test runner or dependency added to packages/app — package-lock conflicts with 6 sibling PRs; "add an app unit-test runner" becomes a follow-up). The pure modules import only `date-fns` (transitively hoisted at the root, not declared in packages/app/package.json — pre-existing, left as is) and never each other. Component fixes are made in place.
+What shipped (client-only, inside #30's ownership, no new dependency, tRPC API unchanged):
 
-Pure modules (new files, inside owned dirs):
-- `hooks/useDurationSections/computeDurationSections.ts` — `computeDurationSections(start, now)`: years (calendar) → days (calendar, `differenceInDays` from start+years) → hours/minutes/seconds as the elapsed remainder from start+years+days. One chained computation, so `start + years + days + h/m/s == now` (invariant). Clamped: if `now < start` all sections are 0. `useDurationSections` calls it. Hours can read 24 only during a 25-hour fall-back day (honest elapsed remainder); documented in code and the PR body.
-- `components/pages/JourneyInfoPage/utils/deriveResetHistory.ts` — sorts entries newest-first defensively, returns `{ startEntry, currentEntry, resets[] }` where `resets` = every entry except the oldest (the journey start), each with `resetAt`, `previousAt` (the next-older entry), and `number` (1 = oldest reset). `JourneyInfoPage` + `ResetHistoryCard` consume it.
-- `components/NotificationSettings/utils/dateToMinuteOfDay.ts` — round total minutes-of-day to 15 and wrap modulo 1440 (9:53→10:00, 23:53→00:00).
-- `components/pages/JourneyInfoPage/utils/isNotFoundError.ts` — defensively reads `error.data.code` / `error.shape.data.code` and detects tRPC `NOT_FOUND` (what `journey.get` throws for a missing/deleted journey) so a deep link to a deleted journey shows `JourneyNotFoundView`. `BAD_REQUEST` is not mapped (could mask real errors).
+**Pure modules** (import only `date-fns`, transitively hoisted at the root and not declared in packages/app/package.json; this is pre-existing and was left as is). They are verified by the committed `verify-date-math.ts` in this directory: `TZ=America/New_York npx tsx …` gives 26 checks passed. packages/app still has no test runner, so this stands in for #30's "unit tests" line; adding a runner is a follow-up suggestion.
+- `hooks/useDurationSections/computeDurationSections.ts`: years and days as calendar units, then hours, minutes and seconds as the elapsed remainder, all from one chain. Every section is ≥ 0, and a future start gives zeros. The 25-hour fall-back day can read 24h, which is documented. `useDurationSections` delegates to it.
+- `pages/JourneyInfoPage/utils/deriveResetHistory.ts`: order-independent and newest-first. Resets are every entry except the oldest, each with `previousAt` and `number`. `JourneyInfoPage` and `ResetHistoryCard` consume it.
+- `NotificationSettings/utils/dateToMinuteOfDay.ts`: rounds the total minute of day to 15 and wraps mod 1440.
+- `pages/JourneyInfoPage/utils/isNotFoundError.ts`: tRPC `NOT_FOUND` via `data.code` or `shape.data.code`. A deleted-journey deep link renders `JourneyNotFoundView`, and `useJourneyInfo` neither retries nor reports NOT_FOUND.
 
-Component fixes (issue checklist → file):
-- Future start dates: `maximumDate={now}` on the date picker; date/time handlers clamp a future result to now (`DateTimeInput`); `DurationProgressBar` clamps width to [0,100].
-- "Now" start: `NewJourneyPage` keeps `startDate: Date | null` (null = now) resolved at submit; a "Use current time" control returns to Now after opening the picker.
-- Reorder rollback: `DashboardPage` restores the server order when `reorderJourneys` returns false; `isDragging` cleared in `finally`.
-- `ModifyJourneyPage`: `currentTitle ?? ""`, prefill from `useJourneyInfo` when the param is missing; trimmed-empty guard.
-- `JournalEntryInfoPage`: `router.back()` only on successful delete.
-- `NewJourneyPage`: disable + guard on trimmed-empty title; send trimmed title.
-- Double-submit guards: ref-based in-flight guard on New Journey, Modify Journey, New Check-in, New Journal Entry, journal delete.
-- Calendar heatmap: cap level at `$color7` (`min(count,5)+2`); tapping an adjacent-month day switches the visible month.
-- Prompt churn: `journal.entryPrompt` queried with `staleTime: Infinity` and no focus/reconnect refetch (MicroJournal + NewJournalEntryPage).
-- Notification permission (does not call, modify or re-export #29's `useExpoNotifications`; the duplicated permission read is noted on the PR/#29 for later consolidation): on native, toggling reminders on checks/requests permission via `expo-notifications` inside `NotificationSettings`; if not granted the switch stays off and a toast explains; an inline note shows when saved settings are enabled but OS permission is denied. Web unchanged (no web push path).
-- Web pickers: verified `@react-native-community/datetimepicker@8.4.4` has no web implementation (`src/datetimepicker.js` returns null + console.warn on non-iOS/Android/Windows). Add a no-dependency web fallback component `components/NotificationSettings/WebDateTimeField/` (owned dir; imported by `NewJourneyPage/DateTimeInput`) rendering a DOM `<input type="date|time">` via react-native-web, used by `DateTimeInput` and `NotificationSettings` when `Platform.OS === "web"`.
-- `useFocusEffect` callbacks wrapped in `useCallback` in the 5 page-local hooks (`useJourneyList`, `useJournalList`, `useJourneyInfo`, `useCheckIns`, `useJournalEntryInfo`).
-- `KeyboardAvoiding` iOS double-inset: needs on-device verification; no blind change — listed under manual verification / follow-up.
-
-Not touched: server, shared `hooks/*` other than `useDurationSections` (#29 owns `useToastError`, `useExpoNotifications`), any tRPC procedure. API contract unchanged.
+**Component fixes**
+- Future start dates: the native date picker gets `maximumDate` (a fresh `new Date()`), and native picks are clamped to now. The web date input gets `max`, and the start is clamped at submit. `DurationProgressBar` width is clamped to [0,100].
+- New Journey: `startDate` is `null` for "Now" and is resolved at submit. A "Use current time instead" button resets it. A trimmed-empty title disables the button and is guarded on submit.
+- Dashboard reorder: on failure it rolls back to the last server order, and `isDragging` is cleared in `finally`.
+- Modify Journey: uses `currentTitle ?? ""`, prefills from `journey.get` when the param is missing, sends a trimmed title, and guards against an empty one.
+- Journal entry: navigates back only after a successful delete.
+- Ref-based double-submit guards on New Journey, Modify Journey, New Check-in, New Journal Entry and journal delete.
+- Calendar heatmap: capped at `$color7`. Tapping an adjacent-month day switches the visible month.
+- `journal.entryPrompt`: `staleTime: Infinity`, `refetchOnMount: "always"`, and no focus or reconnect refetch. That gives a fresh prompt per visit that never changes mid-typing.
+- Notification permission, on native only: `NotificationSettings` checks or requests permission before enabling reminders. If denied, the switch stays off and a toast explains why. A "blocked" note appears when the setting is on but the OS permission is denied, and it is re-checked whenever the app becomes active. #29's `useExpoNotifications` is untouched; its permission read now duplicates this one.
+- Web pickers: `@react-native-community/datetimepicker` renders null on web, so a new `NotificationSettings/WebDateTimeField` renders a DOM `<input type="date|time">` with local-time parsing. Web input is not snapped or clamped per keystroke, because doing so broke segment entry (review findings 2 and 3).
+- `useFocusEffect` callbacks are wrapped in `useCallback` in the 5 page-local hooks.
+- `KeyboardAvoiding`: not changed. The iOS double inset is left for on-device manual verification.
 
 ## Success criteria
 - A committed verification script `.minerva/work/2026-10-06-journeys-journal-fixes/verify-date-math.ts` (run from the worktree root after `npm ci`, with `TZ=America/New_York npx tsx <path>`, TZ set in the environment before the process starts) imports the pure modules directly and asserts every case below with `node:assert`; it exits 0. Its cases and output are pasted into the PR body. This stands in for issue #30's "Unit tests" acceptance line (an app test runner is out of bounds for this wave); the PR body states that deviation explicitly and an "add app unit test runner" follow-up is recorded.
