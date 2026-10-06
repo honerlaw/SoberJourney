@@ -36,9 +36,9 @@ export async function handleError(
     "Error occurred while processing notification",
   );
 
-  // If we have a receiptId, update the existing notification record
-  // Otherwise, this is a ticket error and we don't create a record
-  // (the notification was never sent successfully, so there's nothing to track)
+  // If we have a receiptId, update the existing notification record.
+  // Otherwise, this is a ticket error: the caller (cron/notify) already
+  // recorded it as a failed attempt (ERROR, receiptId null).
   if (receiptId) {
     await ctx.database.notification.update(
       pushTokenId,
