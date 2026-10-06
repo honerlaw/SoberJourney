@@ -6,6 +6,8 @@ import { formatUrge } from "./formatUrge.mjs";
 
 export function buildJourneyContext(
   journeysWithCheckIns: JourneyWithCheckIns[],
+  now: Date = new Date(),
+  timeZone: string = "UTC",
 ): string {
   if (journeysWithCheckIns.length === 0) {
     return "";
@@ -16,7 +18,7 @@ export function buildJourneyContext(
       // The most recent entry represents the current streak start date
       const latestEntry = journey.entries[0];
       const duration = latestEntry
-        ? formatDuration(latestEntry.createdAt)
+        ? formatDuration(latestEntry.createdAt, now)
         : "just started";
 
       let description = `- ${journey.title}: ${duration}`;
@@ -25,7 +27,7 @@ export function buildJourneyContext(
       if (recentCheckIns.length > 0) {
         const latestCheckIn = recentCheckIns[0];
         if (latestCheckIn) {
-          const age = formatCheckInAge(latestCheckIn.createdAt);
+          const age = formatCheckInAge(latestCheckIn.createdAt, now, timeZone);
           const mood = formatMood(latestCheckIn.mood);
           const urge = formatUrge(latestCheckIn.urge);
           description += `\n  Recent check-in (${age}): mood is ${mood}, urge level is ${urge}`;

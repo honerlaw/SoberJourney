@@ -1,11 +1,13 @@
-export function formatDuration(startDate: Date): string {
-  const now = new Date();
+export function formatDuration(
+  startDate: Date,
+  now: Date = new Date(),
+): string {
   const diffMs = now.getTime() - startDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) {
+  if (diffDays <= 0) {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours === 0) {
+    if (diffHours <= 0) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       return diffMinutes <= 1 ? "just started" : `${diffMinutes} minutes`;
     }
@@ -18,11 +20,13 @@ export function formatDuration(startDate: Date): string {
     return weeks === 1 ? "1 week" : `${weeks} weeks`;
   }
   if (diffDays < 365) {
-    const months = Math.floor(diffDays / 30);
+    // days 360-364 would otherwise read "12 months"
+    const months = Math.min(11, Math.floor(diffDays / 30));
     return months === 1 ? "1 month" : `${months} months`;
   }
   const years = Math.floor(diffDays / 365);
-  const remainingMonths = Math.floor((diffDays % 365) / 30);
+  // likewise cap at 11 so we never say "1 year and 12 months"
+  const remainingMonths = Math.min(11, Math.floor((diffDays % 365) / 30));
   if (remainingMonths === 0) {
     return years === 1 ? "1 year" : `${years} years`;
   }
