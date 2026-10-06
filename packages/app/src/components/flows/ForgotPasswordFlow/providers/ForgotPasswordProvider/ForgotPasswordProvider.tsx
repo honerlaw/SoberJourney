@@ -1,9 +1,21 @@
 import React, { createContext, useContext, useState, ReactNode } from "react"
-import { useSignIn } from "@clerk/clerk-expo"
+import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo"
 import { useToastController } from "@tamagui/toast"
 import { useReportError } from "@/src/hooks/useReportError"
 
 export type ForgotPasswordStep = "email" | "code" | "password"
+
+/** "signed_in": the reset completed and the new session is active. */
+export type PasswordResetResult = "failed" | "signed_in" | "sign_in_required"
+
+// Clerk's own message (e.g. "Password has been found in an online data
+// breach") or `fallback` for anything unexpected.
+function getClerkErrorMessages(error: unknown, fallback: string): string[] {
+  if (isClerkAPIResponseError(error) && error.errors?.length) {
+    return error.errors.map((e) => e.longMessage || e.message || fallback)
+  }
+  return [fallback]
+}
 
 type ForgotPasswordState = {
   currentStep: ForgotPasswordStep
@@ -22,7 +34,7 @@ type ForgotPasswordActions = {
   setConfirmPassword: (value: string) => void
   onEmailSubmit: () => Promise<boolean>
   onCodeSubmit: () => Promise<boolean>
-  onPasswordSubmit: () => Promise<boolean>
+  onPasswordSubmit: () => Promise<PasswordResetResult>
   resetForm: () => void
   goBackToEmailStep: () => void
   goBackToCodeStep: () => void
@@ -48,7 +60,7 @@ export const ForgotPasswordProvider: React.FC<ForgotPasswordProviderProps> = ({
   const [confirmPassword, setConfirmPassword] = useState<string>("")
   const [errors, setErrors] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
-  const { signIn } = useSignIn()
+  const { signIn, setActive } = useSignIn()
   const toast = useToastController()
   const { report } = useReportError()
   const validateEmail = (email: string): boolean => {
@@ -113,10 +125,18 @@ export const ForgotPasswordProvider: React.FC<ForgotPasswordProviderProps> = ({
         strategy: "reset_password_email_code",
         identifier: emailAddress,
       })
+      setCurrentStep("code")
       return true
     } catch (error) {
-      report(error)
-      setErrors(["Failed to send verification code. Please try again."])
+      if (!isClerkAPIResponseError(error)) {
+        report(error)
+      }
+      setErrors(
+        getClerkErrorMessages(
+          error,
+          "Failed to send verification code. Please try again.",
+        ),
+      )
       return false
     } finally {
       setIsSubmitting(false)
@@ -138,22 +158,29 @@ export const ForgotPasswordProvider: React.FC<ForgotPasswordProviderProps> = ({
       setCurrentStep("password")
       return true
     } catch (error) {
-      report(error)
-      setErrors(["Invalid verification code. Please check and try again."])
+      if (!isClerkAPIResponseError(error)) {
+        report(error)
+      }
+      setErrors(
+        getClerkErrorMessages(
+          error,
+          "Invalid verification code. Please check and try again.",
+        ),
+      )
       return false
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const onPasswordSubmit = async (): Promise<boolean> => {
-    if (!validatePasswords(password, confirmPassword)) return false
+  const onPasswordSubmit = async (): Promise<PasswordResetResult> => {
+    if (!validatePasswords(password, confirmPassword)) return "failed"
 
     setErrors([])
     setIsSubmitting(true)
 
     try {
-      await signIn?.resetPassword({
+      const result = await signIn?.resetPassword({
         password: password,
       })
       // Password reset successful
@@ -161,11 +188,25 @@ export const ForgotPasswordProvider: React.FC<ForgotPasswordProviderProps> = ({
         type: "success",
         native: false,
       })
-      return true
+      if (result?.status === "complete" && result.createdSessionId) {
+        // Sign the user straight in; the auth guards then route to the app.
+        await setActive?.({ session: result.createdSessionId })
+        return "signed_in"
+      }
+      // e.g. 2FA still required: finish on the sign-in screen.
+      return "sign_in_required"
     } catch (error) {
-      report(error, "Failed to reset password. Please try again.")
-      resetToEmailStep()
-      return false
+      if (!isClerkAPIResponseError(error)) {
+        report(error)
+      }
+      // Keep the form so the user can fix the password and retry.
+      setErrors(
+        getClerkErrorMessages(
+          error,
+          "Failed to reset password. Please try again.",
+        ),
+      )
+      return "failed"
     } finally {
       setIsSubmitting(false)
     }

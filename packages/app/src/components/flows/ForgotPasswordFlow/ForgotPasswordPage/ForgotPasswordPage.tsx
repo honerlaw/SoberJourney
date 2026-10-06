@@ -3,12 +3,10 @@ import React from "react"
 import { Button, Form, H3, Input, Stack, Text, YStack } from "tamagui"
 import { KeyboardAvoiding } from "@/src/components/KeyboardAvoiding"
 import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider"
-import { ResetPasswordPage } from "../ResetPasswordPage"
 
 export const ForgotPasswordPage: React.FC = () => {
   const router = useRouter()
   const {
-    currentStep,
     emailAddress,
     setEmailAddress,
     errors,
@@ -23,12 +21,15 @@ export const ForgotPasswordPage: React.FC = () => {
     }
   }
 
-  // Show password reset step when user returns from code verification
-  if (currentStep === "password") {
-    return <ResetPasswordPage />
+  // Return to the existing sign-in screen instead of stacking a new one.
+  const handleSignInPress = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace("/signin")
+    }
   }
 
-  // Default to email step
   return (
     <KeyboardAvoiding>
       <Form
@@ -63,7 +64,7 @@ export const ForgotPasswordPage: React.FC = () => {
           </Form.Trigger>
 
           <Stack justifyContent="center" alignItems="center">
-            <Text onPress={() => router.push("/signin")}>
+            <Text onPress={handleSignInPress}>
               Remember your password? Sign in.
             </Text>
           </Stack>
