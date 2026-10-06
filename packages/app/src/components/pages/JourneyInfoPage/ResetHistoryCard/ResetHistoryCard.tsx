@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react"
 import { Card, Text, XStack, YStack, Separator } from "tamagui"
 import { differenceInDays, format } from "date-fns"
 import type { JourneyEntry } from "../types"
+import type { ResetHistoryItem } from "../utils/deriveResetHistory"
 
 type ResetHistoryCardProps = {
-  resets: JourneyEntry[]
-  entries: JourneyEntry[]
-  startEntry: JourneyEntry
+  /** Newest first, from deriveResetHistory */
+  resets: ResetHistoryItem<JourneyEntry>[]
 }
 
 const formatDuration = (days: number): string => {
@@ -29,8 +29,6 @@ const formatDuration = (days: number): string => {
 
 export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
   resets,
-  entries,
-  startEntry,
 }) => {
   const [now, setNow] = useState(new Date())
 
@@ -70,18 +68,22 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
           </YStack>
         ) : (
           <YStack gap="$3">
-            {resets.map((reset: JourneyEntry, index: number) => {
-              const resetDate = new Date(reset.createdAt)
-              // Calculate the streak length before this reset
-              const previousEntry = entries[index + 2] || startEntry
-              const previousDate = new Date(previousEntry.createdAt)
-              const streakDays = differenceInDays(resetDate, previousDate)
+            {resets.map((reset, index) => {
+              const { resetAt: resetDate, previousAt: previousDate } = reset
+              // Streak length before this reset: from the previous (older) entry
+              const streakDays = Math.max(
+                0,
+                differenceInDays(resetDate, previousDate),
+              )
 
               // Calculate how long it would be now if they hadn't reset
-              const wouldBeDays = differenceInDays(now, previousDate)
+              const wouldBeDays = Math.max(
+                0,
+                differenceInDays(now, previousDate),
+              )
 
               return (
-                <YStack key={reset.id} gap="$2">
+                <YStack key={reset.entry.id} gap="$2">
                   {index > 0 && <Separator />}
                   <XStack
                     justifyContent="space-between"
@@ -90,7 +92,7 @@ export const ResetHistoryCard: React.FC<ResetHistoryCardProps> = ({
                   >
                     <YStack gap="$1" flex={1}>
                       <Text fontSize="$4" color="$color12" fontWeight="500">
-                        Reset #{resets.length - index}
+                        Reset #{reset.number}
                       </Text>
                       <Text fontSize="$3" color="$color11">
                         {format(resetDate, "EEEE, MMM d, yyyy")}
