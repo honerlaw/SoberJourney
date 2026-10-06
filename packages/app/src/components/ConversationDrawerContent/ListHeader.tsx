@@ -1,4 +1,4 @@
-import { YStack, XStack, H5, Button } from "tamagui"
+import { Button } from "tamagui"
 import { Plus } from "@tamagui/lucide-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { DrawerContentComponentProps } from "@react-navigation/drawer"
@@ -27,6 +27,8 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
       }}
       disabled={isCreatingConversation}
       themeInverse
+      accessibilityRole="button"
+      accessibilityLabel="New conversation"
     >
       {isCreatingConversation ? "Creating..." : "New Conversation"}
     </Button>

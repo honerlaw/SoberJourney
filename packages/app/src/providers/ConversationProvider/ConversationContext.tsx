@@ -1,40 +1,50 @@
 import { createContext, useContext } from "react"
+import type { inferRouterOutputs } from "@trpc/server"
+import type { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs"
 
-export type Message = {
-  id: string
-  role: string
-  content: string
-  createdAt: Date
-}
+type RouterOutputs = inferRouterOutputs<AppRouter>
 
-export type Conversation = {
-  id: string
-  title: string | null
-  createdAt: Date
-  updatedAt: Date
-  messages: Message[]
-}
+/** Shape of a `conversation.get` response (the query cache entry). */
+export type ConversationGetOutput = RouterOutputs["conversation"]["get"]
 
-export type ConversationListItem = {
-  id: string
-  title: string
-  createdAt: Date
-  updatedAt: Date
-}
+/** A conversation with its decrypted messages, as returned by `conversation.get`. */
+export type Conversation = ConversationGetOutput["conversation"]
+
+/** A single message. `role` is the server's Prisma enum: `"USER" | "MODEL"`. */
+export type Message = Conversation["messages"][number]
+
+export type MessageRole = Message["role"]
+
+/** A drawer entry, as returned by `conversation.list`. */
+export type ConversationListItem =
+  RouterOutputs["conversation"]["list"]["conversations"][number]
 
 export type ConversationContextType = {
   conversationId: string | null
   conversation: Conversation | null
   conversations: ConversationListItem[]
   messages: Message[]
-  sendMessage: (text: string) => Promise<void>
+  /** Resolves `true` when the send succeeded, `false` otherwise. Never rejects. */
+  sendMessage: (text: string) => Promise<boolean>
   createConversation: () => Promise<void>
   selectConversation: (id: string) => void
+  /** Lazily resolves the initial conversation. Idempotent. */
+  initialize: () => void
+  retryInitialize: () => void
+  retryConversation: () => void
+  /** Text of a failed send, keyed by conversation id, waiting to be restored to the input. */
+  failedDrafts: Record<string, string>
+  clearFailedDraft: (conversationId: string) => void
+  /** A send is in flight for the currently selected conversation. */
   isSending: boolean
   isCreatingConversation: boolean
   isInitializing: boolean
+  initError: unknown
   isLoading: boolean
+  conversationError: unknown
+  isConversationNotFound: boolean
   isLoadingConversations: boolean
+  /** The current conversation is waiting for a reply. */
   isThinking: boolean
 }
 
