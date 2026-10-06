@@ -1,7 +1,7 @@
 # Proposal: sponsor-chat-backend
 
 **Date**: 2026-10-06
-**Status**: Draft
+**Status**: Shipped (2026-10-06)
 **Closes**: #25
 
 ## Goal
@@ -41,7 +41,7 @@ Reasoning under the epic's API compatibility rules:
 
 "Atomic" (#25 item) is reinterpreted accordingly. Today `addMessage` is three separate calls (ownership `findFirst`, `conversationMessage.create`, `conversation.update` for `updatedAt`), so a failed `updatedAt` touch returns `null` after the row already exists. This unit wraps all three in one `$transaction` so a message row and its `updatedAt` touch commit together or not at all. The model reply is persisted only after a complete, non-truncated reply (or the safety fallback). There is no window in which a model reply exists without its user message.
 
-Reusable encrypt-and-store module (from 001): `route/conversation/utils/persistMessage.mts` — `persistMessage(ctx, conversationId, role, text)` encrypts with the CONVERSATION DEK and calls `ctx.database.conversation.addMessage`, throwing `InternalServerError` on a null result. Used by `sponsorChat` now and by #33's streaming procedure later.
+Reusable encrypt-and-store module (from 001): `route/conversation/utils/persistMessage.mts` — `persistMessage(ctx, userId, conversationId, role, text)` encrypts with the CONVERSATION DEK and calls `ctx.database.conversation.addMessage`, throwing `InternalServerError` on a null result. Used by `sponsorChat` now and by #33's streaming procedure later.
 
 The turn itself moves into a plain function `route/conversation/sponsorChat/runSponsorChat.mts` (`runSponsorChat(ctx, input)`) that the tRPC procedure calls, so it can be unit-tested with a mocked `ctx` without standing up tRPC.
 
@@ -70,15 +70,15 @@ Route mapping in `runSponsorChat`:
 ### D. History window
 
 `route/conversation/sponsorChat/utils/buildHistory.mts` (pure, unit-tested):
-- New DB function `database/conversation/getRecentMessages.mts` loads only the last `HISTORY_MAX_MESSAGES` (40) rows, newest first, tiebreak `id`, so only windowed rows are decrypted.
-- After decrypt: keep the newest messages whose cumulative text length ≤ `HISTORY_MAX_CHARS` (48,000 chars ≈ 12k tokens; the current 16,000-char user message is always included on top), drop leading `model` turns so history starts with `user`, and merge consecutive same-role turns (joined with a blank line). Because the new user message is persisted *before* the history read (inside the turn lock), history is built purely from persisted rows; the just-persisted message is always the newest row and is always included regardless of the char budget. An earlier unanswered user message (orphan from a failed turn) merges into the same final user turn.
+- Inside the lock the turn does a cheap ownership/title check (`getMessagesPage` with `limit: 1`), persists the user message, then loads the last `HISTORY_MAX_MESSAGES + 1` rows via `database/conversation/getMessagesPage.mts` (newest first, tiebreak `id`), so only windowed rows are decrypted. The just-persisted row is filtered out and the input text is appended last, so the current message is always the final user turn even if an unserialized concurrent turn committed rows around it.
+- After decrypt: keep the newest messages whose cumulative text length ≤ `HISTORY_MAX_CHARS` (48,000 chars ≈ 12k tokens; the current 16,000-char user message is always included on top), drop leading `model` turns so history starts with `user`, and merge consecutive same-role turns (joined with a blank line). Because history is read *after* the user message is persisted, every committed user row (including one from an unserialized concurrent turn) is visible; the current message is always included regardless of the char budget. An earlier unanswered user message (orphan from a failed turn) merges into the same final user turn.
 - `maxOutputTokens: 2048` on the chat call.
 
 ### E. Title generation
 
-- Runs only **after** a successful reply (`ok` status; not on fallback/failure), only when the conversation title was null at load, and is fire-and-forget with a real `.catch()` that logs (no unhandled rejection; does not delay the response).
-- Output sanitized: strip surrounding/embedded quotes and backticks, collapse newlines/whitespace, strip trailing punctuation, cap at 60 chars (word boundary); empty → skip.
-- New DB function `database/conversation/setTitleIfNull.mts` does `updateMany({ where: { id, userId, title: null }, data: { title } })` so a racing second generation never overwrites the first. `updateTitle` is left unchanged (other consumers / #31 rename).
+- Runs only **after** a successful reply (`ok` status; not on fallback/failure), only when the conversation title was null or empty at load, and is fire-and-forget with a real `.catch()` that logs (no unhandled rejection; does not delay the response).
+- Output sanitized: strip double quotes/backticks/markdown, strip single quotes only where they wrap the title (so "Don't" keeps its apostrophe), collapse newlines/whitespace, strip trailing punctuation, cap at 60 chars (word boundary); empty → skip.
+- New DB function `database/conversation/setTitleIfNull.mts` does `updateMany({ where: { id, userId, OR: [{ title: null }, { title: "" }] }, data: { title } })` so a racing second generation never overwrites the first. `updateTitle` is left unchanged (other consumers / #31 rename).
 - Returned `title` values and nullability on every route are unchanged.
 
 ### F. Prompt / context quality
@@ -94,7 +94,7 @@ Route mapping in `runSponsorChat`:
 ### G. Additive API surface
 
 - `conversation.remove` (new mutation): input `{ conversationId: uuid }`; output `{ conversation: { id, title, createdAt, updatedAt } }` (same shape as `create`); `NotFoundError` when missing / not owned. Wraps the existing `database/conversation/remove.mts`, which returns `null` for both "not found" and a DB error — the route maps both to `NotFoundError` (documented in code; `remove.mts` itself is unchanged).
-- `conversation.list`: new **optional** input `{ cursor?: string, limit?: number }` (the whole input object `.optional()`, since released apps call it with no input — verified by a test that parses `undefined`). Omitted → today's full list, same order, same mapping (`title || "New conversation"` kept). With `limit` (clamped to 1–100): keyset page ordered `updatedAt desc, id desc`, starting after `cursor`. A `cursor` that is not one of the user's conversations yields an empty page with `nextCursor: null` (no new error). Output adds `nextCursor: string | null` alongside `conversations` (always `null` when not paginating).
+- `conversation.list`: new **optional** input `{ cursor?: string, limit?: number }` (the whole input object `.optional()`, since released apps call it with no input — verified by a test that parses `undefined`). Omitted → today's full list, same order, same mapping (`title || "New conversation"` kept). With `limit` (clamped to 1–100, default 20 when only `cursor` is sent): keyset page ordered `updatedAt desc, id desc`. The cursor is opaque base64url `(updatedAt|id)` of the last row, because `updatedAt` changes whenever a message is added and re-reading it by id would reset or skip pages. An unreadable cursor yields an empty page with `nextCursor: null` (no new error); a database error while paginating throws `InternalServerError`. Output adds `nextCursor: string | null` alongside `conversations` (always `null` when not paginating).
 - `conversation.get`: new **optional** `cursor?` (message id) and `limit?` (clamped 1–200). Omitted → all messages ascending (today). With `limit`: the newest `limit` messages strictly older than `cursor` (keyset on `createdAt, id`), returned in ascending order; `nextCursor` = id of the oldest returned message when older ones exist, else `null`. A cursor not in this conversation yields an empty page with `nextCursor: null` (no new error). Output adds `conversation.nextCursor` alongside `messages`.
 - `conversation.sponsorChat`: input unchanged; output adds `userMessageId` and `modelMessageId` alongside `response` (001's additive field).
 - API contract: additive only. Changed procedures: `sponsorChat` (output +2 fields), `list` (optional input, output +`nextCursor`), `get` (optional input fields, output +`conversation.nextCursor`), new `remove`. Error classes unchanged except a new `TOO_MANY_REQUESTS` on Gemini rate limit (previously `INTERNAL_SERVER_ERROR`; released apps treat any non-401 error the same way).
