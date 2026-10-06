@@ -12,7 +12,6 @@ import { isRunningInExpoGo } from "expo"
 import { Platform } from "react-native"
 import Head from "expo-router/head"
 import { CustomToast } from "../CustomToast"
-import { LoadingProvider } from "@/src/providers/LoadingProvider"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -60,12 +59,10 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           <AuthProvider>
             <TRPCProvider>
               <ToastProvider>
-                <LoadingProvider>
-                  {children}
-                  <StatusBar style="auto" />
-                  <ToastViewport />
-                  <CustomToast />
-                </LoadingProvider>
+                {children}
+                <StatusBar style="auto" />
+                <ToastViewport />
+                <CustomToast />
               </ToastProvider>
             </TRPCProvider>
           </AuthProvider>
