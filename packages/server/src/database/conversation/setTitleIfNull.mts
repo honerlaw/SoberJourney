@@ -2,7 +2,7 @@ import { type DBClient } from "../../util/database.mjs";
 import { type Logger } from "../../util/logger/index.mjs";
 
 /**
- * Sets the conversation title only if it is still null, so a concurrent title
+ * Sets the conversation title only if it is still null (or empty), so a concurrent title
  * generation (or a user rename) is never overwritten. Returns true when the
  * title was written.
  */
@@ -18,7 +18,7 @@ export async function setTitleIfNull(
       where: {
         id: conversationId,
         userId,
-        title: null,
+        OR: [{ title: null }, { title: "" }],
       },
       data: {
         title,

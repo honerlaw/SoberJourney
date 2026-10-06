@@ -198,34 +198,70 @@ describe("getMessagesPage", () => {
 });
 
 describe("listPage", () => {
-  it("pages most-recently-updated first with nextCursor", async () => {
+  const row = (id: string, n: number) => ({ id, updatedAt: new Date(n) });
+
+  it("pages most-recently-updated first with an opaque (updatedAt, id) cursor", async () => {
     const findMany = mock.fn(async () => [
-      { id: "a" },
-      { id: "b" },
-      { id: "c" },
+      row("a", 30),
+      row("b", 20),
+      row("c", 10),
     ]);
-    const client = {
-      conversation: { findMany, findFirst: mock.fn() },
-    } as unknown as DBClient;
+    const client = { conversation: { findMany } } as unknown as DBClient;
     const { logger } = mockLogger();
-    assert.deepEqual(await listPage(logger, client, "u", { limit: 2 }), {
-      conversations: [{ id: "a" }, { id: "b" }],
-      nextCursor: "b",
+    const first = await listPage(logger, client, "u", { limit: 2 });
+    assert.deepEqual(
+      first?.conversations.map((c) => c.id),
+      ["a", "b"],
+    );
+    assert.ok(first?.nextCursor);
+
+    // the next page is positioned by the cursor's own (updatedAt, id), so a
+    // conversation updated in between does not reset or skip pages
+    const second = mock.fn(async () => [row("c", 10)]);
+    const client2 = {
+      conversation: { findMany: second },
+    } as unknown as DBClient;
+    const next = await listPage(logger, client2, "u", {
+      cursor: first!.nextCursor!,
+      limit: 2,
+    });
+    assert.equal(next?.nextCursor, null);
+    const args = (second.mock.calls[0]!.arguments as unknown[])[0] as {
+      where: unknown;
+    };
+    assert.deepEqual(args.where, {
+      userId: "u",
+      OR: [
+        { updatedAt: { lt: new Date(20) } },
+        { updatedAt: new Date(20), id: { lt: "b" } },
+      ],
     });
   });
 
-  it("returns an empty page for a cursor that is not the user's conversation", async () => {
-    const client = {
-      conversation: { findFirst: async () => null, findMany: mock.fn() },
-    } as unknown as DBClient;
+  it("returns an empty page for an unreadable cursor", async () => {
+    const findMany = mock.fn();
+    const client = { conversation: { findMany } } as unknown as DBClient;
     const { logger } = mockLogger();
     assert.deepEqual(
-      await listPage(logger, client, "u", { cursor: "x", limit: 2 }),
+      await listPage(logger, client, "u", { cursor: "garbage", limit: 2 }),
       {
         conversations: [],
         nextCursor: null,
       },
     );
+    assert.equal(findMany.mock.callCount(), 0);
+  });
+
+  it("returns null on a database error instead of a fake end of list", async () => {
+    const client = {
+      conversation: {
+        findMany: async () => {
+          throw new Error("db down");
+        },
+      },
+    } as unknown as DBClient;
+    const { logger } = mockLogger();
+    assert.equal(await listPage(logger, client, "u", { limit: 2 }), null);
   });
 });
 
@@ -242,7 +278,7 @@ describe("setTitleIfNull", () => {
     );
     assert.equal(wrote, false);
     assert.deepEqual((updateMany.mock.calls[0]!.arguments as unknown[])[0], {
-      where: { id: "c", userId: "u", title: null },
+      where: { id: "c", userId: "u", OR: [{ title: null }, { title: "" }] },
       data: { title: "Hope" },
     });
   });

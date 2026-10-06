@@ -29,6 +29,18 @@ describe("sanitizeTitle", () => {
     assert.equal(sanitizeTitle("“New Beginnings”"), "New Beginnings");
   });
 
+  it("keeps apostrophes inside words", () => {
+    assert.equal(
+      sanitizeTitle("'Don't Give Up Today.'"),
+      "Don't Give Up Today",
+    );
+    assert.equal(sanitizeTitle("Today's Progress"), "Today's Progress");
+    assert.equal(
+      sanitizeTitle("\u2018You\u2019ve Got This\u2019"),
+      "You\u2019ve Got This",
+    );
+  });
+
   it("caps the length at a word boundary", () => {
     const title = sanitizeTitle("word ".repeat(40));
     assert.ok(title);

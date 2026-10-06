@@ -1,4 +1,7 @@
-import { UnauthorizedError } from "@onerlaw/framework/backend/rpc";
+import {
+  InternalServerError,
+  UnauthorizedError,
+} from "@onerlaw/framework/backend/rpc";
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import { type ConversationModel } from "../../../../util/database.mjs";
@@ -46,6 +49,10 @@ export const list = procedure
       cursor: input.cursor,
       limit: input.limit ?? DEFAULT_PAGE_SIZE,
     });
+
+    if (!page) {
+      throw new InternalServerError("Failed to list conversations.");
+    }
 
     return {
       conversations: page.conversations.map(toListItem),

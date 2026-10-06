@@ -79,7 +79,7 @@ function harness(options: {
           if (options.conversationExists === false) return null;
           return {
             conversation: { id: CONVERSATION_ID, title: options.title ?? null },
-            messages: [...(options.existing ?? [])],
+            messages: [...stored],
             nextCursor: null,
           };
         }),
@@ -127,9 +127,10 @@ describe("runSponsorChat", () => {
       userMessageId: "m1",
       modelMessageId: "m2",
     });
-    assert.deepEqual(h.events.slice(0, 4), [
+    assert.deepEqual(h.events.slice(0, 5), [
       "load",
       "persist:USER",
+      "load",
       "gemini:chat",
       "persist:MODEL",
     ]);
@@ -266,6 +267,7 @@ describe("runSponsorChat", () => {
     assert.deepEqual(untitled.events, [
       "load",
       "persist:USER",
+      "load",
       "gemini:chat",
       "persist:MODEL",
       "gemini:title",
@@ -368,10 +370,12 @@ describe("runSponsorChat", () => {
     assert.deepEqual(h.events, [
       "load",
       "persist:USER",
+      "load",
       "gemini:chat",
       "persist:MODEL",
       "load",
       "persist:USER",
+      "load",
       "gemini:chat",
       "persist:MODEL",
     ]);

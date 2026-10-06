@@ -9,8 +9,11 @@ import {
 } from "@google/genai";
 import { type Logger } from "../../util/logger/index.mjs";
 
-// The model can be overridden per deployment without a code change.
-// Read here (not util/config.mts) so the default stays in this datasource.
+// The model can be overridden per deployment with GEMINI_MODEL, without a code
+// change. Read here (not util/config.mts) so the default stays in this
+// datasource. Caveat: on "thinking" models (gemini-2.5-*) thinking tokens count
+// against maxOutputTokens, so callers' limits (sponsor reply 2048, title 32)
+// would need a thinkingConfig budget or higher limits before switching.
 const DEFAULT_MODEL = "gemini-2.0-flash";
 
 // Upper bound for a single generateContent call. The SDK performs no automatic

@@ -74,17 +74,18 @@ async function runTurn(
   input: SponsorChatInput,
   now: Date,
 ): Promise<SponsorChatOutput> {
-  // Ownership check + the most recent history, and the user's journeys
-  const [page, journeys] = await Promise.all([
+  // Ownership check (and the title), plus the user's journeys
+  const [conversationCheck, journeys] = await Promise.all([
     ctx.database.conversation.getMessagesPage(input.conversationId, userId, {
-      limit: HISTORY_MAX_MESSAGES,
+      limit: 1,
     }),
     ctx.database.journey.list(userId),
   ]);
 
-  if (!page) {
+  if (!conversationCheck) {
     throw new NotFoundError("Conversation not found.");
   }
+  const conversationTitle = conversationCheck.conversation.title;
 
   // Persist the user's message before generating, so it survives any failure.
   const userMessage = await persistMessage(
@@ -95,7 +96,9 @@ async function runTurn(
     input.text,
   );
 
-  const [journeysWithCheckIns, previousMessages] = await Promise.all([
+  // History is read after persisting, so even an unserialized concurrent turn
+  // (lock wait timed out, or another instance) sees every committed user row.
+  const [journeysWithCheckIns, page] = await Promise.all([
     Promise.all(
       journeys.map(
         async (journey): Promise<JourneyWithCheckIns> => ({
@@ -109,8 +112,21 @@ async function runTurn(
         }),
       ),
     ),
-    decryptMessages(ctx, page.messages),
+    ctx.database.conversation.getMessagesPage(input.conversationId, userId, {
+      limit: HISTORY_MAX_MESSAGES + 1,
+    }),
   ]);
+
+  if (!page) {
+    throw new NotFoundError("Conversation not found.");
+  }
+
+  // The current message goes last; earlier rows (including our own, which is
+  // re-appended from the input text) come from the database.
+  const previousMessages = await decryptMessages(
+    ctx,
+    page.messages.filter((message) => message.id !== userMessage.id),
+  );
 
   const timeZone = safeTimeZone(storedTimeZone);
   const systemPrompt =
@@ -162,7 +178,8 @@ async function runTurn(
     reply,
   );
 
-  if (result.status === "ok" && page.conversation.title === null) {
+  // "" is treated like null: an empty title is never shown to users as-is.
+  if (result.status === "ok" && !conversationTitle) {
     // Fire and forget: never delays the reply, never an unhandled rejection.
     generateTitle(ctx, input.conversationId, userId, input.text).catch(
       (error: unknown) => {

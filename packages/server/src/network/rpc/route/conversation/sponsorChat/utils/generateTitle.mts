@@ -14,11 +14,13 @@ export const TITLE_MAX_LENGTH = 60;
 export function sanitizeTitle(raw: string): string | null {
   let title = raw
     .replace(/[\r\n\t]+/g, " ")
-    .replace(/["'`‘’“”*_#]/g, "")
+    .replace(/[`*_#"“”]/g, "")
+    // single quotes only where they wrap the title, so "Don't" keeps its apostrophe
+    .replace(/^[\s'‘’]+/, "")
     .replace(/^\s*title\s*:\s*/i, "")
     .replace(/\s{2,}/g, " ")
     .trim()
-    .replace(/[\s.,;:!?-]+$/, "")
+    .replace(/[\s.,;:!?'‘’-]+$/, "")
     .trim();
 
   if (title.length > TITLE_MAX_LENGTH) {
