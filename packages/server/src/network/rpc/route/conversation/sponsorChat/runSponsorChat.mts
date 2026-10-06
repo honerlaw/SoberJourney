@@ -15,7 +15,7 @@ import { BASE_SYSTEM_PROMPT } from "./utils/systemPrompt.mjs";
 import { buildJourneyContext } from "./utils/buildJourneyContext.mjs";
 import { buildHistory, HISTORY_MAX_MESSAGES } from "./utils/buildHistory.mjs";
 import { buildCurrentTimeContext, safeTimeZone } from "./utils/timeZone.mjs";
-import { SAFETY_FALLBACK_REPLY } from "./utils/fallback.mjs";
+import { fallbackReplyFor } from "./utils/fallback.mjs";
 import { generateTitle } from "./utils/generateTitle.mjs";
 import { withConversationLock } from "../utils/conversationLock.mjs";
 import { persistMessage } from "../utils/persistMessage.mjs";
@@ -161,7 +161,7 @@ async function runTurn(
       reply = result.text;
       break;
     case "blocked":
-      reply = SAFETY_FALLBACK_REPLY;
+      reply = fallbackReplyFor(result.reason);
       break;
     case "truncated":
       // Never store a cut-off reply as if it were complete.

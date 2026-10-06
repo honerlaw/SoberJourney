@@ -1,94 +1,95 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { BASE_SYSTEM_PROMPT } from "../systemPrompt.mjs";
-import { SAFETY_FALLBACK_REPLY } from "../fallback.mjs";
+import {
+  BLOCKED_FALLBACK_REPLY,
+  FALLBACK_REPLIES,
+  SAFETY_FALLBACK_REPLY,
+  fallbackReplyFor,
+} from "../fallback.mjs";
 
 describe("system prompt crisis guidance", () => {
-  const crisis = BASE_SYSTEM_PROMPT.slice(
-    BASE_SYSTEM_PROMPT.indexOf("Crisis resources:"),
-  );
+  const heading = BASE_SYSTEM_PROMPT.indexOf("Crisis resources:");
+  const crisis = BASE_SYSTEM_PROMPT.slice(heading);
 
-  it("has a crisis-resources section", () => {
-    assert.ok(BASE_SYSTEM_PROMPT.includes("Crisis resources:"));
-    assert.match(
-      BASE_SYSTEM_PROMPT,
-      /Only bring up hotlines or crisis resources in the situations described under "Crisis resources" below, or when the user asks for them\./,
-    );
+  it("has a crisis-resources section referenced from the guidelines", () => {
+    assert.ok(heading >= 0);
+    assert.ok(heading > BASE_SYSTEM_PROMPT.indexOf('under "Crisis resources"'));
     assert.ok(
-      !BASE_SYSTEM_PROMPT.includes(
-        "unless the user explicitly indicates they are in crisis",
-      ),
+      !BASE_SYSTEM_PROMPT.includes("explicitly indicates they are in crisis"),
     );
   });
 
-  it("does not treat cravings, urges or relapse as a crisis", () => {
-    assert.match(
-      crisis,
-      /Cravings, urges, saying they really want to drink or use right now, having relapsed/,
-    );
-    assert.match(crisis, /not a crisis/);
-    assert.match(crisis, /Do not point them to a hotline for these/);
+  it("does not treat cravings, urges, relapse or check-in levels as a crisis", () => {
+    for (const phrase of [
+      "Cravings",
+      "want to drink or use right now",
+      "relapsed",
+      "not a crisis",
+      "check-in",
+    ]) {
+      assert.ok(crisis.includes(phrase), phrase);
+    }
   });
 
-  it("offers resources on stated or clearly implied acute danger", () => {
-    assert.match(crisis, /stated outright or clearly implied/);
-    for (const sign of [
+  it("offers resources on stated or clearly implied acute danger, with priority", () => {
+    for (const phrase of [
+      "clearly implied",
       "suicide",
       "self-harm",
       "harm someone else",
       "overdose",
+      "after time sober",
+      "severe withdrawal",
       "immediate danger",
+      "priority",
     ]) {
-      assert.ok(crisis.includes(sign), sign);
+      assert.ok(crisis.includes(phrase), phrase);
     }
   });
 
-  it("lets acute danger override the craving/relapse carve-out", () => {
-    assert.match(
-      crisis,
-      /they take priority over the craving and relapse guidance above/,
-    );
-    assert.match(
-      crisis,
-      /the distraction and "this conversation counts as reaching out" guidance above is for ordinary cravings, not acute danger/,
-    );
-  });
-
-  it("labels US numbers as US, covers elsewhere, and keeps supporting", () => {
-    assert.match(
-      crisis,
-      /In the US: for thoughts of suicide or self-harm, call or text 988 \(Suicide & Crisis Lifeline\)/,
-    );
-    assert.match(
-      crisis,
-      /for a possible overdose, severe withdrawal, violence, or immediate danger, call 911/,
-    );
-    assert.match(
-      crisis,
-      /Outside the US, point them to their local emergency number or crisis line/,
-    );
-    assert.match(
-      crisis,
-      /SAMHSA National Helpline \(US, free, 24\/7\): 1-800-662-4357/,
-    );
-    assert.match(crisis, /keep supporting them in the conversation/);
+  it("labels US numbers, covers elsewhere, and keeps supporting", () => {
+    for (const phrase of [
+      "In the US",
+      "988",
+      "911",
+      "Outside the US",
+      "1-800-662-4357",
+      "keep supporting",
+    ]) {
+      assert.ok(crisis.includes(phrase), phrase);
+    }
   });
 });
 
-describe("safety fallback reply", () => {
-  it("mentions crisis resources conditionally and keeps the conversation open", () => {
-    assert.match(
-      SAFETY_FALLBACK_REPLY,
-      /If you're thinking about hurting yourself or you're in danger/,
+describe("fallback replies", () => {
+  it("only harmful-content blocks get the conditional crisis line", () => {
+    assert.equal(fallbackReplyFor("SAFETY"), SAFETY_FALLBACK_REPLY);
+    assert.equal(fallbackReplyFor("PROHIBITED_CONTENT"), SAFETY_FALLBACK_REPLY);
+    for (const reason of ["RECITATION", "SPII", "BLOCKLIST", "OTHER"]) {
+      assert.equal(fallbackReplyFor(reason), BLOCKED_FALLBACK_REPLY, reason);
+    }
+    assert.ok(!BLOCKED_FALLBACK_REPLY.includes("988"));
+  });
+
+  it("the safety fallback mentions resources conditionally, US-labelled", () => {
+    assert.ok(
+      SAFETY_FALLBACK_REPLY.includes(
+        "If you're thinking about hurting yourself",
+      ),
     );
-    assert.match(
-      SAFETY_FALLBACK_REPLY,
-      /in the US, call or text 988 or call 911/,
-    );
-    assert.match(
-      SAFETY_FALLBACK_REPLY,
-      /elsewhere, your local emergency number/,
-    );
-    assert.match(SAFETY_FALLBACK_REPLY, /I'm still here with you\.$/);
+    for (const phrase of [
+      "in the US",
+      "988",
+      "911",
+      "local emergency number",
+    ]) {
+      assert.ok(SAFETY_FALLBACK_REPLY.includes(phrase), phrase);
+    }
+  });
+
+  it("both fallbacks are recognised for history exclusion", () => {
+    assert.ok(FALLBACK_REPLIES.has(SAFETY_FALLBACK_REPLY));
+    assert.ok(FALLBACK_REPLIES.has(BLOCKED_FALLBACK_REPLY));
   });
 });

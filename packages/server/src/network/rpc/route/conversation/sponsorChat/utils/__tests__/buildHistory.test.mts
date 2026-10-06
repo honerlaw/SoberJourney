@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildHistory, type HistoryMessage } from "../buildHistory.mjs";
-import { SAFETY_FALLBACK_REPLY } from "../fallback.mjs";
+import { BLOCKED_FALLBACK_REPLY, SAFETY_FALLBACK_REPLY } from "../fallback.mjs";
 
 const u = (text: string): HistoryMessage => ({ role: "user", text });
 const m = (text: string): HistoryMessage => ({ role: "model", text });
@@ -84,6 +84,21 @@ describe("buildHistory", () => {
       "model:hi",
       "user:next",
     ]);
+  });
+
+  it("also excludes turns answered by the neutral blocked fallback", () => {
+    assert.deepEqual(
+      flat(
+        buildHistory([
+          u("hi"),
+          m("hey"),
+          u("recite"),
+          m(BLOCKED_FALLBACK_REPLY),
+          u("next"),
+        ]),
+      ),
+      ["user:hi", "model:hey", "user:next"],
+    );
   });
 
   it("returns only the current message when everything before was blocked", () => {

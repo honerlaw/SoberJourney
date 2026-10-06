@@ -1,5 +1,5 @@
 import { type Content } from "@google/genai";
-import { SAFETY_FALLBACK_REPLY } from "./fallback.mjs";
+import { FALLBACK_REPLIES } from "./fallback.mjs";
 
 // The DB only loads this many recent messages for a turn.
 export const HISTORY_MAX_MESSAGES = 40;
@@ -21,7 +21,7 @@ export type HistoryOptions = {
  * Builds the Gemini `contents` for a turn from chronological messages whose
  * last element is the user's current message.
  *
- * - Blocked turns (user message(s) answered by the safety fallback) are
+ * - Blocked turns (user message(s) answered by a fallback reply) are
  *   dropped, so a blocked prompt is not re-sent on every later turn.
  * - Keeps the newest messages within a message-count and character budget;
  *   the current message is always kept.
@@ -38,7 +38,7 @@ export function buildHistory(
   // 1. Drop blocked turns.
   const kept: HistoryMessage[] = [];
   for (const message of messages) {
-    if (message.role === "model" && message.text === SAFETY_FALLBACK_REPLY) {
+    if (message.role === "model" && FALLBACK_REPLIES.has(message.text)) {
       while (kept.length > 0 && kept[kept.length - 1]!.role === "user") {
         kept.pop();
       }

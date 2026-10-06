@@ -7,7 +7,10 @@ import {
   type ChatResult,
 } from "../../../../../../datasource/gemini/chat.mjs";
 import { runSponsorChat, MAX_OUTPUT_TOKENS } from "../runSponsorChat.mjs";
-import { SAFETY_FALLBACK_REPLY } from "../utils/fallback.mjs";
+import {
+  BLOCKED_FALLBACK_REPLY,
+  SAFETY_FALLBACK_REPLY,
+} from "../utils/fallback.mjs";
 
 type Ctx = Parameters<typeof runSponsorChat>[0];
 
@@ -215,6 +218,17 @@ describe("runSponsorChat", () => {
     await flush();
     // no title from a blocked turn
     assert.ok(!h.events.includes("gemini:title"));
+  });
+
+  it("uses the neutral fallback (no crisis line) for non-safety blocks", async () => {
+    const h = harness({
+      chat: async () => ({ status: "blocked", reason: "RECITATION" }),
+    });
+    const result = await runSponsorChat(h.ctx, {
+      conversationId: CONVERSATION_ID,
+      text: "the full prayer text?",
+    });
+    assert.equal(result.response, BLOCKED_FALLBACK_REPLY);
   });
 
   it("does not persist a truncated reply", async () => {
