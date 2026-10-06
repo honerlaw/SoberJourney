@@ -6,8 +6,9 @@
  * (there is no schema column for it), so changing the wording means older
  * blocked turns are no longer excluded from history.
  *
- * Deliberately does not add crisis-resource language: whether to surface
- * hotlines is an open product decision (see the system prompt).
+ * A safety block often follows a message about self-harm or danger, so the
+ * reply mentions crisis resources conditionally ("if you're ...") without
+ * assuming a crisis, matching the system prompt's crisis-resources guidance.
  */
 export const SAFETY_FALLBACK_REPLY =
-  "I'm here with you, and I want to keep supporting you. I wasn't able to respond to that last message directly. Could you tell me a little more about what's going on and how you're feeling right now?";
+  "I'm here with you, but I couldn't respond to that last message directly. Can you tell me a bit more about how you're feeling right now? If you're thinking about hurting yourself or you're in danger, please reach out now: in the US, call or text 988 or call 911; elsewhere, your local emergency number. I'm still here with you.";

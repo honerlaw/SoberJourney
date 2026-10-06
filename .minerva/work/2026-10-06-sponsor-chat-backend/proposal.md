@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-06
 **Status**: Shipped (2026-10-06)
+**Replanned**: 2026-10-06 — crisis guidance added (owner decision); persist-before-generate approved by the owner
 **Closes**: #25
 
 ## Goal
@@ -37,7 +38,7 @@ Reasoning under the epic's API compatibility rules:
 - History tolerates the orphan: the next turn's history contains `USER, USER` which is merged into one user turn (required by #25 anyway, since such rows can already exist), so the model answers both.
 - The safety-block change (C) removes the most common "failure" class from the error path entirely, so orphans arise only on genuine outages / rate limits / truncation.
 
-**This consciously overrides the #25 checkbox** ("Keep today's behavior of *not* persisting the user message when Gemini fails"). It is a behaviour change with **no contract change** (no output, enum, nullability or error-class change). Consequences for released apps, named in the PR body and flagged for owner review: (1) a "ghost" user bubble with no reply appears on the next refetch after a failed send; (2) if the user retypes and resends the same text, it appears twice in the conversation (two consecutive USER rows, which the model sees merged into one turn). Decided by a 3/3 approach panel (see scratchpad).
+**This consciously overrides the #25 checkbox** ("Keep today's behavior of *not* persisting the user message when Gemini fails"). It is a behaviour change with **no contract change** (no output, enum, nullability or error-class change). Consequences for released apps, named in the PR body (the owner approved the override on 2026-10-06): (1) a "ghost" user bubble with no reply appears on the next refetch after a failed send; (2) if the user retypes and resends the same text, it appears twice in the conversation (two consecutive USER rows, which the model sees merged into one turn). Decided by a 3/3 approach panel (see scratchpad).
 
 "Atomic" (#25 item) is reinterpreted accordingly. Today `addMessage` is three separate calls (ownership `findFirst`, `conversationMessage.create`, `conversation.update` for `updatedAt`), so a failed `updatedAt` touch returns `null` after the row already exists. This unit wraps all three in one `$transaction` so a message row and its `updatedAt` touch commit together or not at all. The model reply is persisted only after a complete, non-truncated reply (or the safety fallback). There is no window in which a model reply exists without its user message.
 
@@ -63,7 +64,7 @@ The turn itself moves into a plain function `route/conversation/sponsorChat/runS
 
 Route mapping in `runSponsorChat`:
 - `ok` → persist model reply, return.
-- `blocked` → return a fixed supportive fallback reply **through the normal `{ response }` success shape** and persist it as the `MODEL` message (the user sees it again on refetch; history rows stay paired). Fallback text does not add crisis-resource language (the crisis-guidance product decision is out of scope; see Open Questions). **`buildHistory` excludes blocked turns**: a USER row (or merged run of USER rows) immediately followed by a MODEL row whose text equals the fallback constant is dropped together with that fallback row, so a blocked prompt is not re-sent on every later turn and does not poison the conversation. Detection keys on exact equality with the exported fallback constant (no schema column is available this wave); an earlier unanswered USER row merged into the same run is dropped with it, intentionally (it is part of the same unanswered user turn), and this is tested. `RECITATION` is treated as blocked for the same reason: the reply cannot be used, and the supportive fallback is better than a 500.
+- `blocked` → return a fixed supportive fallback reply **through the normal `{ response }` success shape** and persist it as the `MODEL` message (the user sees it again on refetch; history rows stay paired). Fallback text adds one conditional crisis line ("If you're thinking about hurting yourself or you're in danger … 988 or 911 in the US; elsewhere, your local emergency number") in line with the crisis guidance. **`buildHistory` excludes blocked turns**: a USER row (or merged run of USER rows) immediately followed by a MODEL row whose text equals the fallback constant is dropped together with that fallback row, so a blocked prompt is not re-sent on every later turn and does not poison the conversation. Detection keys on exact equality with the exported fallback constant (no schema column is available this wave); an earlier unanswered USER row merged into the same run is dropped with it, intentionally (it is part of the same unanswered user turn), and this is tested. `RECITATION` is treated as blocked for the same reason: the reply cannot be used, and the supportive fallback is better than a 500.
 - `truncated` → do not persist the partial reply; throw `InternalServerError` with a plain message ("The response was cut off. Please try again."). `maxOutputTokens` is set to 2048 (sponsor replies are instructed to be short), so this is rare.
 - thrown `rate_limited` → `TRPCError({ code: "TOO_MANY_REQUESTS", message: "The sponsor is getting a lot of messages right now. Please try again in a moment." })`; anything else → `InternalServerError("Failed to generate response.")` (today's message). Never `UNAUTHORIZED`; messages stay plain strings.
 
@@ -89,7 +90,7 @@ Route mapping in `runSponsorChat`:
 - `formatDuration`: clamp months to 11 (no "12 months", no "1 year and 12 months").
 - Recent check-ins: new `database/conversation/getRecentCheckInEntries.mts` does `journeyCheckInEntry.findMany({ where: { checkIn: { journeyId, userId } }, orderBy: [{createdAt: "desc"}, {id: "desc"}], take: 5 })` — lives under `database/conversation` because `database/checkin` belongs to #27 this wave; a comment says so.
 - Sanitizer: stop deleting `<<…>>`, `[[…]]`, `<|…|>` patterns; keep `trim()`, the 1-char minimum and the 16,000-char maximum (limit must not shrink; validation only loosens, never tightens).
-- `systemPrompt.mts` crisis-hotline guidance is **not changed** (product decision for the owner).
+- Crisis guidance (owner decision, see `replan.md` 2026-10-06): `systemPrompt.mts` offers crisis resources only on genuine acute-danger signs, stated or clearly implied (suicidal thoughts, self-harm, intent to harm others, possible overdose, severe withdrawal or other medical emergency, immediate danger), which take priority over an explicit carve-out that ordinary cravings, urges, wanting to use now, relapse and general distress are not a crisis and get sponsor support instead. US: 988 for suicide/self-harm, 911 for overdose/withdrawal/violence/immediate danger; elsewhere the local emergency number; SAMHSA (US) when substance use is involved or treatment is asked about. Warm, brief, keep supporting.
 
 ### G. Additive API surface
 
@@ -121,17 +122,16 @@ Unit: `formatUrge`, `formatDuration` (incl. 360–364 days), `formatCheckInAge` 
 - `getOrCreate` find-then-create runs under a per-user advisory transaction lock.
 - `conversation.remove` exists; `list`/`get` accept optional `cursor`/`limit`, and with neither supplied return the same fields/values as before plus only the new `nextCursor` field (tested at the mapping level).
 - `sponsorChat` returns `{ response, userMessageId, modelMessageId }`.
-- The system prompt includes the current date/time in the user's timezone; `systemPrompt.mts` crisis-hotline guidance is byte-for-byte unchanged.
+- The system prompt includes the current date/time in the user's timezone.
+- The system prompt offers crisis resources (988/911 marked US, local emergency elsewhere, SAMHSA when substance use is involved or on request) only on genuine acute-danger signs stated or clearly implied, lets those signs take priority over an explicit carve-out for ordinary cravings/urges/relapse/general distress, and instructs a warm, brief referral while continuing support; the safety fallback mentions crisis resources conditionally; covered by `systemPrompt.test.mts`.
 - The sanitizer no longer deletes `<<…>>` / `[[…]]` / `<|…|>` text; 16,000-char max unchanged.
 - No files changed outside the three owned directories (plus `.minerva/` records).
 - The PR body lists a manual smoke check for the owner (the interactive `$transaction` in `addMessage` and the `pg_advisory_xact_lock` in `getOrCreate` run against a real Postgres through the Prisma pg adapter; send a chat message and open the app once), unless it was run locally against a real database.
-- The PR body states "API contract: additive only", lists every changed procedure (epic rule 8), and flags the persist-before-generate override of the #25 checkbox for owner review.
+- The PR body states "API contract: additive only", lists every changed procedure (epic rule 8), and records the persist-before-generate override of the #25 checkbox (owner-approved).
 
 ## Open Questions
 
-- **Product decision (owner):** `systemPrompt.mts:6` tells the model not to suggest crisis hotlines unless the user explicitly says they are in crisis. Out of scope; reported to the owner. The safety-block fallback text likewise avoids hotline language pending that decision.
 - Multi-instance deployment: the turn lock assumes a single server instance. If DO App Platform runs >1 instance, it does not serialize across instances (degrades to merged history, never an error). **Revisit trigger:** if the app is scaled above one instance, move to a Postgres advisory lock with a dedicated, budgeted connection or a schema-backed lease (schema owned by #27).
 - `GEMINI_MODEL` is read from `process.env` inside `datasource/gemini` because `util/config.mts` is owned by #27 this wave; a follow-up should move it into the config schema and document it.
 - Adding the current time to the system prompt makes each system prompt unique per minute (no implicit prompt-cache reuse); accepted for correctness.
-- **Owner review:** the persist-before-generate override of the #25 checkbox.
 - When to remove legacy `sponsorChat` once #33 streaming ships (a #33/#31 concern).

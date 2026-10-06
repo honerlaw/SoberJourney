@@ -151,6 +151,7 @@ describe("runSponsorChat", () => {
       /Current date and time for the user: .*\(America\/New_York\)/,
     );
     assert.match(config.systemInstruction, /urge level is strong \(7\/10\)/);
+    assert.match(config.systemInstruction, /Crisis resources:/);
   });
 
   it("keeps the user message when Gemini fails, and maps the error", async () => {

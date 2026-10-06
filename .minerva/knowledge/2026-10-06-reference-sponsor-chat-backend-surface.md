@@ -34,8 +34,8 @@ Issue #25 reworked the chat backend; Wave 2 (#31 conversation management) and Wa
   title is null/empty, sanitized (≤60 chars) and written via `setTitleIfNull`.
 - Recent check-ins come from `database/conversation/getRecentCheckInEntries.mts` (`take: 5`),
   placed there only because `database/checkin` belonged to #27 this wave.
-- The system prompt gets the user's current date/time (`User.timezone`, UTC fallback); the
-  crisis-hotline guidance in `systemPrompt.mts` is unchanged pending an owner decision.
+- The system prompt gets the user's current date/time (`User.timezone`, UTC fallback) and a
+  "Crisis resources" section (see the crisis-guidance decision entry).
 
 ## Implications
 - Moving `GEMINI_MODEL` into `util/config.mts` and `getRecentCheckInEntries` into
@@ -43,4 +43,5 @@ Issue #25 reworked the chat backend; Wave 2 (#31 conversation management) and Wa
 - New clients paging `list` must treat the cursor as opaque.
 
 ## Related
+- [[2026-10-06-decision-sponsor-chat-crisis-guidance]] — crisis section of the system prompt
 - [[2026-10-06-decision-sponsor-chat-persist-before-generate]] — fallback and truncation handling

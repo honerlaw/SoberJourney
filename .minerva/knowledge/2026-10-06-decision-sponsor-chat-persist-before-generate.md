@@ -3,7 +3,7 @@
 **Date**: 2026-10-06
 **Type**: decision
 **Theme**: sponsor-chat
-**Summary**: User message is stored before generation; failed turns leave an unanswered USER row
+**Summary**: User message is stored before generation (owner-approved); failed turns leave an unanswered USER row
 **Context**: .minerva/work/2026-10-06-sponsor-chat-backend (see git history if the worktree has been cleaned up)
 
 ## Context
@@ -17,7 +17,7 @@ opposite. Released apps never receive client fixes.
 Decided by a 3/3 approach panel: persist the user message (encrypt + `addMessage`, one
 `$transaction` with the conversation `updatedAt` touch) before generating, and keep it when
 generation fails. The model reply is persisted only when complete; a safety block persists
-a fixed supportive fallback (`SAFETY_FALLBACK_REPLY`) and returns it through the normal
+a fixed supportive fallback (with a conditional crisis line) (`SAFETY_FALLBACK_REPLY`) and returns it through the normal
 `{ response }` shape; a `MAX_TOKENS` reply is never stored. `sponsorChat` additively returns
 `userMessageId` and `modelMessageId`. No output shape, enum or error class changed — this is
 a behaviour change only.
@@ -30,8 +30,9 @@ a behaviour change only.
 - `buildHistory` drops a blocked turn (USER run followed by a MODEL row equal to the fallback
   constant). Changing the fallback wording stops older blocked turns from being excluded.
 - The streaming procedure (#33) should reuse `route/conversation/utils/persistMessage.mts`.
-- Persisting first was flagged in the PR for owner review because it overrides #25's text.
+- Persisting first overrides #25's text; the owner approved it on 2026-10-06.
 
 ## Related
+- [[2026-10-06-decision-sponsor-chat-crisis-guidance]] — the fallback's crisis wording
 - [[2026-10-06-decision-sponsor-chat-turn-lock]] — the persist → read history → generate → persist reply sequence runs under this lock
 - [[2026-10-06-reference-released-app-compatibility]] — how released clients render and react
