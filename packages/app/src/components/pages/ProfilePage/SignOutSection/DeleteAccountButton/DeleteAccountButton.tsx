@@ -5,11 +5,13 @@ import { useTRPC } from "@/src/providers/TRPCProvider"
 import { useAuth } from "@/src/hooks/useAuth"
 import { AlertModal } from "@/src/components/AlertModal"
 import { useToastError } from "@/src/hooks/useToastError"
+import { useToastController } from "@tamagui/toast"
 
 export const DeleteAccountButton: React.FC = () => {
   const trpc = useTRPC()
   const { handleError } = useToastError()
   const { logout } = useAuth()
+  const toast = useToastController()
 
   const { mutateAsync: removeUser, isPending } = useMutation(
     trpc.user.remove.mutationOptions(),
@@ -30,10 +32,19 @@ export const DeleteAccountButton: React.FC = () => {
           onPress: async () => {
             try {
               await removeUser()
-              // Sign out the user after successful deletion
-              await logout()
             } catch (error) {
               handleError(error, "Failed to delete account. Please try again.")
+              return
+            }
+            // Sign out after successful deletion; logout() also clears every
+            // cached query so the next user never sees this account's data.
+            // Failures are reported inside logout().
+            const result = await logout()
+            if (!result.success) {
+              toast.show(
+                "Your account was deleted, but signing out failed. Please restart the app.",
+                { type: "error", native: false },
+              )
             }
           },
         },

@@ -1,107 +1,36 @@
-import {
-  useAuth as useClerkAuth,
-  useUser,
-  useSignIn,
-  useSignUp,
-  isClerkAPIResponseError,
-} from "@clerk/clerk-expo"
+import { useCallback } from "react"
+import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-expo"
+import { useQueryClient } from "@tanstack/react-query"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
+import { endSession } from "./endSession"
 
 export function useAuth() {
   const { isLoaded, isSignedIn, signOut } = useClerkAuth()
   const { user } = useUser()
-  const { signIn, setActive: setSignInActive } = useSignIn()
-  const { signUp, setActive: setSignUpActive } = useSignUp()
+  const queryClient = useQueryClient()
   const { report } = useReportError()
 
-  const login = async (emailAddress: string, password: string) => {
+  // Signs out and clears every cached query (see endSession).
+  const logout = useCallback(async () => {
     try {
-      if (!signIn) {
-        return {
-          success: false,
-          error: "Sign in is not available",
-        }
-      }
-
-      const completeSignIn = await signIn.create({
-        identifier: emailAddress,
-        password,
-      })
-
-      // This indicates the user is signed in
-      await setSignInActive({ session: completeSignIn.createdSessionId })
-      return { success: true }
-    } catch (err) {
-      report(err)
-      if (isClerkAPIResponseError(err)) {
-        return {
-          success: false,
-          error: err.errors?.[0]?.message || "An error occurred during sign in",
-        }
-      }
-      return {
-        success: false,
-        error: "An unexpected error occurred during sign in",
-      }
-    }
-  }
-
-  const signup = async (emailAddress: string, password: string) => {
-    try {
-      if (!signUp) {
-        return {
-          success: false,
-          error: "Create account is not available",
-        }
-      }
-
-      const completeSignUp = await signUp.create({
-        emailAddress,
-        password,
-      })
-
-      await completeSignUp.prepareEmailAddressVerification()
-      await setSignUpActive({ session: completeSignUp.createdSessionId })
-      return { success: true }
-    } catch (err) {
-      report(err)
-      if (isClerkAPIResponseError(err)) {
-        return {
-          success: false,
-          error:
-            err.errors?.[0]?.message ||
-            "An error occurred during account creation",
-        }
-      }
-      return {
-        success: false,
-        error: "An unexpected error occurred during account creation",
-      }
-    }
-  }
-
-  const logout = async () => {
-    try {
-      await signOut()
-      return { success: true }
+      await endSession({ signOut, queryClient })
+      return { success: true as const }
     } catch (err) {
       report(err)
       return {
-        success: false,
+        success: false as const,
         error:
           err instanceof Error
             ? err.message
             : "An error occurred during sign out",
       }
     }
-  }
+  }, [signOut, queryClient, report])
 
   return {
     isLoaded,
     isSignedIn,
     user,
-    login,
-    signup,
     logout,
   }
 }
