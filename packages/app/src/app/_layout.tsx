@@ -37,9 +37,9 @@ function Routes() {
   // layout already renders a non-navigator first (ConfigProvider's loader).
   if (!isLoaded) {
     if (authLoadTimedOut) {
-      // Keep waiting: the Stack renders as soon as Clerk loads.
+      // Still rendered as soon as Clerk loads, if it does.
       return (
-        <ErrorView message="Having trouble connecting. Check your internet connection; we'll keep trying." />
+        <ErrorView message="Having trouble connecting. Check your internet connection, then close and reopen the app." />
       )
     }
     return <LoadingView />

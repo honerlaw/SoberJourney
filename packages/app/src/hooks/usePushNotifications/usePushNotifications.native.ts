@@ -15,6 +15,10 @@ type NotificationData = {
 
 const DASHBOARD = "/(auth)/(drawer)/(tabs)/dashboard"
 
+// A tap still pending after this long (user was signed out) is dropped, so it
+// is not delivered to a different user who signs in later on a shared device.
+const PENDING_TAP_MAX_AGE_MS = 10 * 60 * 1000
+
 /**
  * Navigates to `data.url` when the user taps a notification, including the
  * tap that cold-started the app. Must be called inside ClerkProvider and the
@@ -39,8 +43,17 @@ export function usePushNotifications() {
 
     // Wait until auth is known, the user is signed in and the navigator is
     // mounted. While signed out the tap stays pending (not cleared) and is
-    // delivered after sign-in.
+    // delivered after sign-in, unless it has gone stale.
     if (!isLoaded || !isSignedIn || !navigationKey) {
+      return
+    }
+
+    const tappedAt = lastNotificationResponse.notification.date
+    if (
+      typeof tappedAt === "number" &&
+      Date.now() - tappedAt > PENDING_TAP_MAX_AGE_MS
+    ) {
+      Notifications.clearLastNotificationResponse()
       return
     }
 

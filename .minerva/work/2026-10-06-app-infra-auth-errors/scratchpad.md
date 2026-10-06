@@ -20,6 +20,8 @@
     - fix (arbiter): getErrorMessage script cases (malformed JSON, empty array, non-string message, null/undefined), runner node --experimental-strip-types; npm test is server-only
     - fix (arbiter): list ErrorView call sites and confirm their hooks report; non-email 2FA manual step; no plugin re-injects removed infoPlist strings
 - [reviewed — clean] whole-proposal (restart): first-wave review discarded as stale — the approach panel's fixes rewrote `## Success criteria`; the stale review had flagged ErrorView-Sentry removal as a regression, which was factually wrong (all 4 page call sites' hooks report) but prompted the explicit single-report rule now in Approach 4. Restarted Skeptic: accept, no panel warranted (handleError/usePushNotifications signatures unchanged; "always toast" is the fix #28 waits for). Noted, not folded: UNAUTHORIZED toast while auto-logout runs (generic text accepted); 401 counter/15 s timer/watcher are beyond #29 text (kept, separate commits); comment on #32/#28 about the call-site move and endSession seam (do at ship); getErrorMessage.ts must use no path aliases for the strip-types run (tier: reviewer — interface-clause doubt passed to the Skeptic; parallel wave restart)
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–9 (script 18/18, tsc, lint, greps); criterion 10 (PR body) honestly deferred to ship (tier: reviewer floor — Verifier; no interface change beyond what the proposal approved)
+- [solo] review triage: 7 FIX / 0 SUGGEST / 1 IGNORE (tier: default-solo row — each finding had a concrete failure scenario and a small fix, so FIX dominated; #8 JSON-looking plain 4xx message is an accepted, documented tradeoff). No replan: all fixes sit inside the approved approach.
 
 ## Work notes
 - `getErrorMessage` deliberately never shows a message that parses as JSON but is not a zod issue array (e.g. `[]`, `{}`), even for a user-facing 4xx code — first draft showed `[]` raw; caught by the ad-hoc script.
@@ -29,3 +31,14 @@
 - `ConfigProvider` omits `report` from its effect deps on purpose: `useReportError().report` depends on `useToastController()`, whose identity outside `ToastProvider` is not guaranteed stable → would refetch-loop.
 - `SignOutSection`/`DeleteAccountButton` toast logout failures directly (not `handleError`) because `logout()` already reported — keeps the one-report rule.
 - Verification: `npm run build` 0, `npm run test` 0 (server: 2/2 pass; app has no tests), server lint 0, `npx expo lint` 0 errors / 3 warnings (all pre-existing in `ConversationDrawerContent/ListHeader.tsx`, #28's file).
+
+## Review triage 2026-10-06
+Independent code review (fresh-context agent), 0 critical / 0 high:
+1. FIX (medium) transient 401 left screens on ErrorView (no 4xx retry) → shared verify chain invalidates errored queries once when the session is still valid.
+2. FIX (medium) hung Clerk signOut made endSession's dedupe sticky and never cleared cache → 10 s timeout race; cache cleared in finally.
+3. FIX (low) 15 s copy promised "we'll keep trying" though clerk-expo doesn't retry initial load → "close and reopen the app".
+4. FIX (low) getToken rejected by Clerk (non-network) never counted toward the 3-strike fallback → counts now.
+5. FIX (low) pending tap from a signed-out user delivered to the next user → drop taps older than 10 min.
+6. FIX (low) forgot-password toasted success before setActive; setActive failure left a contradictory state → toast after, fall back to sign-in.
+7. FIX (low) eslint-disable in ConfigProvider made React Compiler skip it → report via ref, suppression removed.
+8. IGNORE (low) plain 4xx message that is itself valid non-array JSON shows the fallback — unrealistic for real server messages.

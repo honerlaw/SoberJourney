@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { useAuth } from "@clerk/clerk-expo"
+import { isClerkAPIResponseError, useAuth } from "@clerk/clerk-expo"
 import superjson from "superjson"
 import {
   createTRPCClient,
@@ -143,17 +143,31 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
       // One forced token refresh per burst of parallel 401s. A fresh token means
       // the 401 was transient (e.g. sent before the session token was ready).
       if (!verifyRef.current) {
+        // Session still valid per Clerk: count the burst, log out at the cap.
+        const countVerifiedBurst = () => {
+          verifiedUnauthorizedCount.current += 1
+          return verifiedUnauthorizedCount.current >= MAX_VERIFIED_UNAUTHORIZED
+        }
         verifyRef.current = getToken({ skipCache: true })
-          .then((token) => {
-            if (!token) {
-              return true
-            }
-            verifiedUnauthorizedCount.current += 1
-            return (
-              verifiedUnauthorizedCount.current >= MAX_VERIFIED_UNAUTHORIZED
-            )
+          .then((token) => (token ? countVerifiedBurst() : true))
+          .catch((err) => {
+            // Offline / network failure: never log out on a failed check.
+            // Clerk rejecting the refresh counts like a fresh-token 401.
+            return isClerkAPIResponseError(err) ? countVerifiedBurst() : false
           })
-          .catch(() => false) // offline etc.: never log out on a failed check
+          .then((shouldLogout) => {
+            if (!shouldLogout) {
+              // Transient 401: queries don't retry 4xx, so refetch the failed
+              // ones once with the fresh token instead of leaving their screens
+              // on an error. Bounded by MAX_VERIFIED_UNAUTHORIZED.
+              queryClient
+                .invalidateQueries({
+                  predicate: (query) => query.state.status === "error",
+                })
+                .catch(() => {})
+            }
+            return shouldLogout
+          })
           .finally(() => {
             verifyRef.current = null
           })

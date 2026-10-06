@@ -15,6 +15,11 @@ const ConfigContext = React.createContext<ConfigContextType | null>(null)
 
 function useBaseUrl() {
   const { report } = useReportError()
+  // Read through a ref: a new `report` identity must not refetch the config.
+  const reportRef = React.useRef(report)
+  React.useEffect(() => {
+    reportRef.current = report
+  }, [report])
   const BASE_URL = Constants.expoConfig?.extra?.apiUrl
   if (!BASE_URL) {
     report(new Error("BASE_URL is not set"))
@@ -46,6 +51,11 @@ export const ConfigProvider: React.FC<React.PropsWithChildren> = ({
   const [attempt, setAttempt] = React.useState(0)
   const baseUrl = useBaseUrl()
   const { report } = useReportError()
+  // Read through a ref: a new `report` identity must not refetch the config.
+  const reportRef = React.useRef(report)
+  React.useEffect(() => {
+    reportRef.current = report
+  }, [report])
 
   React.useEffect(() => {
     let cancelled = false
@@ -61,7 +71,7 @@ export const ConfigProvider: React.FC<React.PropsWithChildren> = ({
         const loadError =
           err instanceof Error ? err : new Error("Unknown error occurred")
         // Reported once per failed attempt (ErrorView does not report).
-        report(loadError)
+        reportRef.current(loadError)
         if (!cancelled) {
           setError(loadError)
         }
@@ -76,8 +86,6 @@ export const ConfigProvider: React.FC<React.PropsWithChildren> = ({
     return () => {
       cancelled = true
     }
-    // `report` is intentionally omitted: a new identity must not refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, attempt])
 
   const retry = React.useCallback(() => setAttempt((n) => n + 1), [])

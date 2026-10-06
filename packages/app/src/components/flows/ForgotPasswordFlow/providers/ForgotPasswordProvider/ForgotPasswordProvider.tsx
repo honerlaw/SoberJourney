@@ -183,17 +183,22 @@ export const ForgotPasswordProvider: React.FC<ForgotPasswordProviderProps> = ({
       const result = await signIn?.resetPassword({
         password: password,
       })
-      // Password reset successful
-      toast.show("Password reset successful!", {
-        type: "success",
-        native: false,
-      })
+      const showSuccess = (message: string) =>
+        toast.show(message, { type: "success", native: false })
+
       if (result?.status === "complete" && result.createdSessionId) {
-        // Sign the user straight in; the auth guards then route to the app.
-        await setActive?.({ session: result.createdSessionId })
-        return "signed_in"
+        try {
+          // Sign the user straight in; the auth guards then route to the app.
+          await setActive?.({ session: result.createdSessionId })
+          showSuccess("Password reset successful!")
+          return "signed_in"
+        } catch (activateError) {
+          // The new password already works; finish on the sign-in screen.
+          report(activateError)
+        }
       }
-      // e.g. 2FA still required: finish on the sign-in screen.
+      // e.g. 2FA still required, or activation failed.
+      showSuccess("Password reset successful! Please sign in.")
       return "sign_in_required"
     } catch (error) {
       if (!isClerkAPIResponseError(error)) {
