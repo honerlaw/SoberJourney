@@ -2,7 +2,7 @@ import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider"
 import { useQuery } from "@tanstack/react-query"
 import { useFocusEffect } from "expo-router"
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 
 export function useJournalList() {
   const { report } = useReportError()
@@ -12,9 +12,11 @@ export function useJournalList() {
     trpc.journal.list.queryOptions(),
   )
 
-  useFocusEffect(() => {
-    refetch()
-  })
+  useFocusEffect(
+    useCallback(() => {
+      refetch()
+    }, [refetch]),
+  )
 
   useEffect(() => {
     if (error) {

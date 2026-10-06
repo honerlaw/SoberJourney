@@ -13,7 +13,8 @@ type RenderItemProps = {
 }
 
 export const RenderItem: React.FC<RenderItemProps> = ({ item, navigation }) => {
-  const { selectConversation } = useConversation()
+  const { conversationId, selectConversation } = useConversation()
+  const isActive = item.id === conversationId
 
   const handlePress = () => {
     selectConversation(item.id)
@@ -27,6 +28,12 @@ export const RenderItem: React.FC<RenderItemProps> = ({ item, navigation }) => {
       marginHorizontal="$3"
       marginVertical="$1.5"
       padding="$3"
+      backgroundColor={isActive ? "$color4" : undefined}
+      borderColor={isActive ? "$color8" : undefined}
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
+      accessibilityHint="Opens this conversation"
+      accessibilityState={{ selected: isActive }}
     >
       <Text
         fontSize="$4"

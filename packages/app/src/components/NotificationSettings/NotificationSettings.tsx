@@ -8,15 +8,35 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react"
-import { Platform } from "react-native"
+import { AppState, Platform } from "react-native"
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker"
+import * as Notifications from "expo-notifications"
+import { useToastController } from "@tamagui/toast"
 import { useNotificationDefaults } from "./hooks/useNotificationDefaults"
 import { useNotificationSettingsForJourney } from "./hooks/useNotificationSettingsForJourney"
 import { useExpoNotifications } from "../../hooks/useExpoNotifications"
 import { minuteOfDayToDate, dateToMinuteOfDay, formatTime } from "./utils"
+import { WebDateTimeField } from "./WebDateTimeField"
 import type { NotificationSettingsValue, NotificationFrequency } from "./types"
+
+/**
+ * Ask for (or read) the OS notification permission. Returns true when granted.
+ * Web has no permission flow here (no web push path), so it is always allowed.
+ */
+async function ensureNotificationPermission(): Promise<boolean> {
+  if (Platform.OS === "web") return true
+  try {
+    const current = await Notifications.getPermissionsAsync()
+    if (current.status === "granted") return true
+    if (!current.canAskAgain) return false
+    const requested = await Notifications.requestPermissionsAsync()
+    return requested.status === "granted"
+  } catch {
+    return false
+  }
+}
 
 type NotificationSettingsProps = {
   // Optional journeyId - if provided, fetches existing settings for the journey
@@ -87,8 +107,39 @@ export const NotificationSettings = forwardRef<
 
   // Request notification permissions when enabled
   const { isEligible } = useExpoNotifications(value?.enabled ?? false)
+  const toast = useToastController()
 
   const [showTimePicker, setShowTimePicker] = useState(false)
+  // True when reminders are on but the OS permission is denied
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const isRequestingPermissionRef = useRef(false)
+
+  // Reflect the real OS permission for settings that are already enabled
+  const isEnabled = value?.enabled ?? false
+  useEffect(() => {
+    if (!isEnabled || Platform.OS === "web") {
+      setPermissionDenied(false)
+      return
+    }
+    let cancelled = false
+    const check = () => {
+      Notifications.getPermissionsAsync()
+        .then(({ status }) => {
+          if (!cancelled) setPermissionDenied(status === "denied")
+        })
+        .catch(() => {})
+    }
+    check()
+    // Re-check when the app becomes active again: after the OS permission
+    // prompt closes, or after the user changes it in system settings
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") check()
+    })
+    return () => {
+      cancelled = true
+      subscription.remove()
+    }
+  }, [isEnabled])
 
   const timeDate = useMemo(
     () => minuteOfDayToDate(value?.minuteOfDay ?? 480),
@@ -99,9 +150,39 @@ export const NotificationSettings = forwardRef<
     setValue(newValue)
   }
 
-  const handleToggle = (enabled: boolean) => {
+  const handleToggle = async (enabled: boolean) => {
     if (!value) return
-    handleChange({ ...value, enabled })
+    if (!enabled) {
+      handleChange({ ...value, enabled: false })
+      return
+    }
+    if (isRequestingPermissionRef.current) return
+    isRequestingPermissionRef.current = true
+    try {
+      const granted = await ensureNotificationPermission()
+      if (!granted) {
+        // Keep the switch off: reminders could never be delivered
+        toast.show(
+          "Notifications are turned off for this app. Enable them in your device settings to get reminders.",
+          { type: "error", native: false },
+        )
+        return
+      }
+      setPermissionDenied(false)
+      setValue((prev) => (prev ? { ...prev, enabled: true } : prev))
+    } finally {
+      isRequestingPermissionRef.current = false
+    }
+  }
+
+  const handleWebTimeChange = (date: Date) => {
+    if (!value) return
+    // Keep the minute exactly as typed: snapping each keystroke to 15 minutes
+    // would reset the browser's segment entry. The server accepts any minute.
+    handleChange({
+      ...value,
+      minuteOfDay: date.getHours() * 60 + date.getMinutes(),
+    })
   }
 
   const handleFrequencyChange = (frequency: NotificationFrequency) => {
@@ -174,12 +255,21 @@ export const NotificationSettings = forwardRef<
           <Switch
             size="$3"
             checked={value.enabled}
-            onCheckedChange={handleToggle}
+            onCheckedChange={(checked) => {
+              void handleToggle(checked)
+            }}
             backgroundColor="$color8"
           >
             <Switch.Thumb animation="quick" />
           </Switch>
         </XStack>
+
+        {value.enabled && permissionDenied && (
+          <Text fontSize="$2" color="$red10">
+            Notifications are blocked in your device settings, so reminders
+            won&apos;t be delivered until you allow them.
+          </Text>
+        )}
 
         {/* Frequency and Time settings (only shown when enabled) */}
         {value.enabled && (
@@ -225,28 +315,37 @@ export const NotificationSettings = forwardRef<
               <Label fontWeight="400" fontSize="$3" color="$color11">
                 What time? <Text color="$color10">(optional)</Text>
               </Label>
-              <Button
-                onPress={() => setShowTimePicker(!showTimePicker)}
-                flex={1}
-                justifyContent="flex-start"
-                paddingHorizontal="$3"
-                backgroundColor="$color2"
-                borderWidth={1}
-                borderColor="$color5"
-              >
-                <XStack
+              {Platform.OS === "web" ? (
+                <WebDateTimeField
+                  mode="time"
+                  value={timeDate}
+                  onChange={handleWebTimeChange}
+                  minuteInterval={15}
+                />
+              ) : (
+                <Button
+                  onPress={() => setShowTimePicker(!showTimePicker)}
                   flex={1}
-                  alignItems="center"
-                  justifyContent="space-between"
+                  justifyContent="flex-start"
+                  paddingHorizontal="$3"
+                  backgroundColor="$color2"
+                  borderWidth={1}
+                  borderColor="$color5"
                 >
-                  <XStack gap="$2" alignItems="center">
-                    <Clock size={20} />
-                    <Text fontSize="$4">{formatTime(value.minuteOfDay)}</Text>
+                  <XStack
+                    flex={1}
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <XStack gap="$2" alignItems="center">
+                      <Clock size={20} />
+                      <Text fontSize="$4">{formatTime(value.minuteOfDay)}</Text>
+                    </XStack>
+                    <ChevronDown size={20} />
                   </XStack>
-                  <ChevronDown size={20} />
-                </XStack>
-              </Button>
-              {showTimePicker && (
+                </Button>
+              )}
+              {showTimePicker && Platform.OS !== "web" && (
                 <DateTimePicker
                   value={timeDate}
                   mode="time"

@@ -52,6 +52,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }
 
   const handleDayPress = (date: Date) => {
+    // Tapping a leading/trailing day from an adjacent month switches to it
+    if (!isSameMonth(date, currentMonth)) {
+      setCurrentMonth(startOfMonth(date))
+    }
     onDateSelect?.(date)
   }
 
@@ -64,10 +68,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return entriesPerDay[dateKey] ?? 0
   }
 
-  // Get heatmap color based on entry count (1-7, capped at $color7)
+  // Get heatmap color based on entry count ($color3..$color7). Capped at
+  // $color7 so the day number ($color12) always stays readable.
   const getHeatmapColor = (count: number): string | undefined => {
     if (count === 0) return undefined
-    const level = Math.min(count, 10) + 2
+    const level = Math.min(count, 5) + 2
     return `$color${level}`
   }
 

@@ -15,6 +15,11 @@ const ConfigContext = React.createContext<ConfigContextType | null>(null)
 
 function useBaseUrl() {
   const { report } = useReportError()
+  // Read through a ref: a new `report` identity must not refetch the config.
+  const reportRef = React.useRef(report)
+  React.useEffect(() => {
+    reportRef.current = report
+  }, [report])
   const BASE_URL = Constants.expoConfig?.extra?.apiUrl
   if (!BASE_URL) {
     report(new Error("BASE_URL is not set"))
@@ -33,43 +38,64 @@ const fetchAppConfig = async (baseUrl: string): Promise<ConfigContextType> => {
   return await response.json()
 }
 
+const CONNECTION_MESSAGE =
+  "We couldn't connect to SoberJourney. Check your internet connection and try again."
+
 export const ConfigProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
   const [data, setData] = React.useState<ConfigContextType | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
+  // Bumped by the retry button to re-run the fetch.
+  const [attempt, setAttempt] = React.useState(0)
   const baseUrl = useBaseUrl()
+  const { report } = useReportError()
+  // Read through a ref: a new `report` identity must not refetch the config.
+  const reportRef = React.useRef(report)
+  React.useEffect(() => {
+    reportRef.current = report
+  }, [report])
 
   React.useEffect(() => {
+    let cancelled = false
     const loadConfig = async () => {
       try {
         setIsLoading(true)
         setError(null)
         const config = await fetchAppConfig(baseUrl)
-        setData(config)
+        if (!cancelled) {
+          setData(config)
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err : new Error("Unknown error occurred"),
-        )
+        const loadError =
+          err instanceof Error ? err : new Error("Unknown error occurred")
+        // Reported once per failed attempt (ErrorView does not report).
+        reportRef.current(loadError)
+        if (!cancelled) {
+          setError(loadError)
+        }
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     loadConfig()
-  }, [baseUrl])
+    return () => {
+      cancelled = true
+    }
+  }, [baseUrl, attempt])
+
+  const retry = React.useCallback(() => setAttempt((n) => n + 1), [])
 
   if (isLoading) {
     return <LoadingView />
   }
 
-  if (error) {
-    return <ErrorView error={error} />
-  }
-
-  if (!data) {
-    return <ErrorView error={new Error("No configuration data available")} />
+  if (error || !data) {
+    return <ErrorView message={CONNECTION_MESSAGE} onRetry={retry} />
   }
 
   return (

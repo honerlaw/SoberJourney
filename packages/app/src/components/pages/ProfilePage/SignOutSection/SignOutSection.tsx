@@ -1,16 +1,16 @@
 import React from "react"
 import { YStack, Button, Separator, XStack, Text } from "tamagui"
 import { LogOut } from "@tamagui/lucide-icons"
-import { useAuth } from "@clerk/clerk-expo"
+import { useAuth } from "@/src/hooks/useAuth"
+import { useToastController } from "@tamagui/toast"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AlertModal, type AlertButton } from "../../../AlertModal"
-import { useQueryClient } from "@tanstack/react-query"
 import { DeleteAccountButton } from "./DeleteAccountButton"
 
 export const SignOutSection: React.FC = () => {
-  const { signOut } = useAuth()
+  const { logout } = useAuth()
+  const toast = useToastController()
   const { bottom } = useSafeAreaInsets()
-  const client = useQueryClient()
 
   const alertButtons: AlertButton[] = [
     {
@@ -21,9 +21,15 @@ export const SignOutSection: React.FC = () => {
       text: "Sign Out",
       style: "destructive",
       onPress: async () => {
-        await signOut()
-        client.invalidateQueries()
-        client.resetQueries()
+        // logout() signs out of Clerk, clears every cached query and
+        // reports failures itself.
+        const result = await logout()
+        if (!result.success) {
+          toast.show("Failed to sign out. Please try again.", {
+            type: "error",
+            native: false,
+          })
+        }
       },
     },
   ]

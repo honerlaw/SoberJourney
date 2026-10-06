@@ -1,7 +1,7 @@
 import { YStack, Label, Input, Button, H5 } from "tamagui"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAvoiding } from "../../KeyboardAvoiding"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useUpdateJourney } from "./hooks/useUpdateJourney"
 import { useToastController } from "@tamagui/toast"
 import { useLocalSearchParams, useRouter } from "expo-router"
@@ -9,6 +9,7 @@ import {
   NotificationSettings,
   NotificationSettingsRef,
 } from "../../NotificationSettings"
+import { useJourneyInfo } from "../JourneyInfoPage/hooks/useJourneyInfo"
 
 export const ModifyJourneyPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
@@ -16,24 +17,51 @@ export const ModifyJourneyPage: React.FC = () => {
     journeyId: string
     currentTitle: string
   }>()
-  const [title, setTitle] = useState<string>(currentTitle)
+  // `currentTitle` can be missing (e.g. a deep link); fall back to the journey
+  const [title, setTitle] = useState<string>(currentTitle ?? "")
+  const hasEditedTitle = useRef(!!currentTitle)
+  const { journey } = useJourneyInfo(journeyId)
   const toast = useToastController()
   const router = useRouter()
   const { updateJourney, isPending } = useUpdateJourney()
   const notificationSettingsRef = useRef<NotificationSettingsRef>(null)
+  const isSubmittingRef = useRef(false)
+
+  useEffect(() => {
+    if (!hasEditedTitle.current && journey?.title) {
+      hasEditedTitle.current = true
+      setTitle(journey.title)
+    }
+  }, [journey?.title])
+
+  const onTitleChange = (value: string) => {
+    hasEditedTitle.current = true
+    setTitle(value)
+  }
+
+  const trimmedTitle = title.trim()
 
   const onUpdate = async () => {
-    if (!journeyId) return
+    if (!journeyId || !trimmedTitle || isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
-    const notificationSettings =
-      notificationSettingsRef.current?.notificationSettings ?? undefined
-    const success = await updateJourney(journeyId, title, notificationSettings)
-    if (success) {
-      toast.show("Your journey has been updated.", {
-        type: "success",
-        native: false,
-      })
-      router.back()
+    try {
+      const notificationSettings =
+        notificationSettingsRef.current?.notificationSettings ?? undefined
+      const success = await updateJourney(
+        journeyId,
+        trimmedTitle,
+        notificationSettings,
+      )
+      if (success) {
+        toast.show("Your journey has been updated.", {
+          type: "success",
+          native: false,
+        })
+        router.back()
+      }
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 
@@ -56,7 +84,7 @@ export const ModifyJourneyPage: React.FC = () => {
                 id="journey-name"
                 placeholder="What are you staying sober from?"
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={onTitleChange}
               />
             </YStack>
 
@@ -79,7 +107,7 @@ export const ModifyJourneyPage: React.FC = () => {
         marginBottom={bottom}
         size="$5"
         onPress={onUpdate}
-        disabled={isPending || !title.trim()}
+        disabled={isPending || !trimmedTitle}
         themeInverse
       >
         {isPending ? "Updating..." : "Update Journey"}
