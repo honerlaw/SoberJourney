@@ -24,7 +24,8 @@ export async function rename(
   title: string,
 ): Promise<ConversationModel | null> {
   try {
-    const updated = await client.$executeRaw`UPDATE "Conversation" SET "title" = ${title} WHERE "id" = ${conversationId} AND "userId" = ${userId}`;
+    const updated =
+      await client.$executeRaw`UPDATE "Conversation" SET "title" = ${title} WHERE "id" = ${conversationId} AND "userId" = ${userId}`;
 
     if (updated === 0) {
       logger.warn(
