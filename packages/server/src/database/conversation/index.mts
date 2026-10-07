@@ -6,6 +6,7 @@ export * from "./getRecentCheckInEntries.mjs";
 export * from "./list.mjs";
 export * from "./listPage.mjs";
 export * from "./remove.mjs";
+export * from "./rename.mjs";
 export * from "./addMessage.mjs";
 export * from "./setTitleIfNull.mjs";
 export * from "./updateTitle.mjs";

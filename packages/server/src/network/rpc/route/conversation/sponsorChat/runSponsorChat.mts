@@ -5,7 +5,11 @@ import {
 } from "@onerlaw/framework/backend/rpc";
 import { TRPCError } from "@trpc/server";
 import type { Context } from "../../../../../context.mjs";
-import { MessageRole } from "../../../../../util/database.mjs";
+import {
+  MessageRole,
+  type ConversationMessageModel,
+  type UserJourneyModelWithEntries,
+} from "../../../../../util/database.mjs";
 import {
   GeminiError,
   type ChatResult,
@@ -99,19 +103,7 @@ async function runTurn(
   // History is read after persisting, so even an unserialized concurrent turn
   // (lock wait timed out, or another instance) sees every committed user row.
   const [journeysWithCheckIns, page] = await Promise.all([
-    Promise.all(
-      journeys.map(
-        async (journey): Promise<JourneyWithCheckIns> => ({
-          journey,
-          recentCheckIns:
-            await ctx.database.conversation.getRecentCheckInEntries(
-              journey.id,
-              userId,
-              RECENT_CHECK_INS,
-            ),
-        }),
-      ),
-    ),
+    loadCheckIns(ctx, userId, journeys),
     ctx.database.conversation.getMessagesPage(input.conversationId, userId, {
       limit: HISTORY_MAX_MESSAGES + 1,
     }),
@@ -121,18 +113,79 @@ async function runTurn(
     throw new NotFoundError("Conversation not found.");
   }
 
+  const reply = await generateReply(ctx, {
+    userId,
+    storedTimeZone,
+    conversationId: input.conversationId,
+    conversationTitle,
+    current: { id: userMessage.id, text: input.text },
+    rows: page.messages,
+    journeysWithCheckIns,
+    now,
+  });
+
+  return {
+    response: reply.response,
+    userMessageId: userMessage.id,
+    modelMessageId: reply.modelMessageId,
+  };
+}
+
+export async function loadCheckIns(
+  ctx: Context,
+  userId: string,
+  journeys: UserJourneyModelWithEntries[],
+): Promise<JourneyWithCheckIns[]> {
+  return Promise.all(
+    journeys.map(
+      async (journey): Promise<JourneyWithCheckIns> => ({
+        journey,
+        recentCheckIns: await ctx.database.conversation.getRecentCheckInEntries(
+          journey.id,
+          userId,
+          RECENT_CHECK_INS,
+        ),
+      }),
+    ),
+  );
+}
+
+export type GenerateReplyParams = {
+  userId: string;
+  storedTimeZone: string | null | undefined;
+  conversationId: string;
+  conversationTitle: string | null;
+  // The already-persisted user message this reply answers.
+  current: { id: string; text: string };
+  // Recent rows (chronological), possibly including `current`.
+  rows: ConversationMessageModel[];
+  journeysWithCheckIns: JourneyWithCheckIns[];
+  now: Date;
+};
+
+/**
+ * Generates and persists the reply to an already-persisted user message.
+ * Shared by sponsorChat (right after persisting) and retrySponsorChat (for a
+ * message saved by an earlier, failed turn). Never persists a user message.
+ */
+export async function generateReply(
+  ctx: Context,
+  params: GenerateReplyParams,
+): Promise<{ response: string; modelMessageId: string }> {
+  const { userId, conversationId, current } = params;
+
   // The current message goes last; earlier rows (including our own, which is
-  // re-appended from the input text) come from the database.
+  // re-appended from its text) come from the database.
   const previousMessages = await decryptMessages(
     ctx,
-    page.messages.filter((message) => message.id !== userMessage.id),
+    params.rows.filter((message) => message.id !== current.id),
   );
 
-  const timeZone = safeTimeZone(storedTimeZone);
+  const timeZone = safeTimeZone(params.storedTimeZone);
   const systemPrompt =
     BASE_SYSTEM_PROMPT +
-    buildCurrentTimeContext(now, timeZone) +
-    buildJourneyContext(journeysWithCheckIns, now, timeZone);
+    buildCurrentTimeContext(params.now, timeZone) +
+    buildJourneyContext(params.journeysWithCheckIns, params.now, timeZone);
 
   const history = buildHistory([
     ...previousMessages.map((message) => ({
@@ -142,7 +195,7 @@ async function runTurn(
           : ("model" as const),
       text: message.content,
     })),
-    { role: "user" as const, text: input.text },
+    { role: "user" as const, text: current.text },
   ]);
 
   let result: ChatResult;
@@ -173,20 +226,20 @@ async function runTurn(
   const modelMessage = await persistMessage(
     ctx,
     userId,
-    input.conversationId,
+    conversationId,
     MessageRole.MODEL,
     reply,
   );
 
   // "" is treated like null: an empty title is never shown to users as-is.
-  if (result.status === "ok" && !conversationTitle) {
+  if (result.status === "ok" && !params.conversationTitle) {
     // Fire and forget: never delays the reply, never an unhandled rejection.
-    generateTitle(ctx, input.conversationId, userId, input.text).catch(
+    generateTitle(ctx, conversationId, userId, current.text).catch(
       (error: unknown) => {
         ctx.logger.error(
           {
             error,
-            attributes: { conversationId: input.conversationId },
+            attributes: { conversationId },
             tags: ["rpc", "conversation", "sponsorChat", "generateTitle"],
           },
           "Failed to generate conversation title",
@@ -195,11 +248,7 @@ async function runTurn(
     );
   }
 
-  return {
-    response: reply,
-    userMessageId: userMessage.id,
-    modelMessageId: modelMessage.id,
-  };
+  return { response: reply, modelMessageId: modelMessage.id };
 }
 
 /**
