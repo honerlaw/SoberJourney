@@ -9,10 +9,10 @@ describe("pushToken.upsert", () => {
     const row = { id: "row", userId: "user-b", token: "tok", revoked: false };
     const lockedTokens: unknown[] = [];
     const tx = {
-      $queryRaw: mock.fn(
+      $executeRaw: mock.fn(
         async (_strings: TemplateStringsArray, ...values: unknown[]) => {
           lockedTokens.push(...values);
-          return [];
+          return 0;
         },
       ),
       userPushToken: {

@@ -25,8 +25,10 @@ export async function upsert(
   try {
     return await client.$transaction(async (tx) => {
       // serialize concurrent registrations of the same token, so two users
-      // registering it at once cannot both end up non-revoked
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${token}))`;
+      // registering it at once cannot both end up non-revoked. $executeRaw,
+      // not $queryRaw: pg_advisory_xact_lock returns void, which the pg
+      // adapter cannot deserialize as a result column (P2010).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${token}))`;
 
       await tx.userPushToken.updateMany({
         where: {
