@@ -103,8 +103,8 @@ export async function* runStreamSponsorChat(
             result = next.value;
             break;
           }
-          // Do not rely on the SDK alone to stop on abort: a stopped reply
-          // must never be persisted.
+          // Do not rely on the SDK alone to stop on abort: a reply stopped
+          // mid-stream is never persisted.
           abort.signal.throwIfAborted();
           channel.push({ type: "delta", text: next.value });
         }

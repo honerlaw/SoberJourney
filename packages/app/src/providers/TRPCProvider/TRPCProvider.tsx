@@ -35,9 +35,11 @@ import { STREAM_PROCEDURE_PATH } from "@/src/providers/ConversationProvider/conv
 
 // tRPC's JSONL reader pipes the response body (a ReadableStream, created by
 // expo/fetch from the global at runtime) through TransformStreams into a
-// WritableStream. Hermes has none of these. Streams only pipe into streams of
-// the same implementation, so unless all three exist natively (web), install
-// all three from one polyfill.
+// WritableStream. Hermes has none of these natively; Expo >= 54's Metro
+// injects all three (expo/virtual/streams.js) before any module runs, and
+// browsers have them. This is a fallback for a bundle without them: streams
+// only pipe into streams of the same implementation, so if any is missing,
+// install all three from one polyfill.
 if (
   typeof globalThis !== "undefined" &&
   (typeof globalThis.ReadableStream === "undefined" ||
