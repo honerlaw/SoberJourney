@@ -13,7 +13,13 @@
  * `?sslmode=require` would silently replace our `ssl` object with `{}` and drop
  * the CA. With the CA set, `sslmode=disable` / `no-verify` are intentionally
  * overridden to verified TLS.
+ *
+ * Hostname checking needs a DNS host in DATABASE_URL (DigitalOcean's are): for
+ * an IP-literal host pg sends no servername, so Node checks the certificate
+ * against a fallback name instead of the IP.
  */
+
+import { X509Certificate } from "node:crypto";
 
 // shaped like process.env (reads DATABASE_URL and DATABASE_CA_CERT)
 type DatabaseEnv = Record<string, string | undefined>;
@@ -25,7 +31,9 @@ export type PgConfig =
       ssl: { ca: string; rejectUnauthorized: true };
     };
 
-// every query param pg-connection-string (2.x) derives `ssl` from
+// every query param pg-connection-string (2.9.x) derives `ssl` from. Re-check
+// this list whenever pg / pg-connection-string is upgraded; the guard test in
+// __tests__/databaseConfig.test.mts feeds every libpq ssl* key through pg.
 const SSL_PARAMS = new Set([
   "ssl",
   "sslmode",
@@ -36,6 +44,8 @@ const SSL_PARAMS = new Set([
 ]);
 
 const PEM_MARKER = "-----BEGIN CERTIFICATE-----";
+const PEM_BLOCK =
+  /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g;
 
 function decodeKey(rawKey: string): string | null {
   try {
@@ -96,6 +106,23 @@ export function normalizeCaCert(value: string | undefined): string | null {
     throw new Error(
       `DATABASE_CA_CERT is set but is not a PEM certificate (missing "${PEM_MARKER}")`,
     );
+  }
+  // Node's TLS layer silently ignores a corrupt CA and every connection then
+  // fails as "unable to verify"; parse each block so a bad paste fails at boot
+  const blocks = pem.match(PEM_BLOCK) ?? [];
+  if (blocks.length === 0) {
+    throw new Error(
+      "DATABASE_CA_CERT is set but has no complete PEM certificate block",
+    );
+  }
+  for (const block of blocks) {
+    try {
+      new X509Certificate(block);
+    } catch {
+      throw new Error(
+        "DATABASE_CA_CERT is set but contains an unparseable certificate",
+      );
+    }
   }
   return pem;
 }

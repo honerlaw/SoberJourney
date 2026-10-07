@@ -1,7 +1,7 @@
 # Proposal: db-tls-ca-cert
 
 **Date**: 2026-10-07
-**Status**: Draft
+**Status**: Shipped (2026-10-07)
 **Closes**: #48
 
 ## Goal
@@ -18,7 +18,7 @@ Issue #48. DO's managed Postgres presents a cert signed by a per-cluster CA that
 
 ## Approach
 
-Approach A (below). Base branch `epic/leftovers`.
+Shipped as Approach A (below). Base branch `epic/leftovers`. Files: `packages/server/src/util/databaseConfig.mts` (new: `buildPgConfig`, `stripSslParams`, `normalizeCaCert`), `packages/server/src/util/database.mts` (`new PrismaPg(buildPgConfig(process.env))`), `packages/server/src/util/__tests__/databaseConfig.test.mts` (21 tests, incl. a guard that feeds every libpq ssl* key through pg's `ConnectionParameters`). `prisma.config.ts` unchanged. No env docs exist in the repo to update. E2E results: see archive/scratchpad.md.
 
 ### Facts checked (repo, package-lock versions)
 
@@ -29,7 +29,7 @@ Approach A (below). Base branch `epic/leftovers`.
 
 ### Candidate approaches
 
-**A (recommended). Strip SSL params from the URL, pass an explicit `ssl` object.** New pure module `packages/server/src/util/databaseConfig.mts` exporting `buildPgConfig(env)`; when `DATABASE_CA_CERT` is set it removes `sslmode`, `ssl`, `sslcert`, `sslkey`, `sslrootcert`, `uselibpqcompat` query params by filtering the raw query string on `&`-separated segments by (decoded) key — everything before `?` (scheme, userinfo, host, path) and every kept segment is left byte-identical, no `URL`/`URLSearchParams` re-serialisation — and returns `{ connectionString: stripped, ssl: { ca, rejectUnauthorized: true } }`; otherwise returns `{ connectionString: \`${env.DATABASE_URL}\` }`. Normalises a PEM pasted with literal `\n` escapes and `\r\n`, trims; a multi-cert bundle passes through; a non-blank value with no `-----BEGIN CERTIFICATE-----` throws a clear error at startup (fail fast, instead of an opaque TLS error at first query). With the CA set, `sslmode=disable`/`no-verify` in the URL are intentionally overridden to verified TLS. `database.mts` uses it. Tests (node:test) assert the output AND feed it through pg's own `ConnectionParameters` to prove the effective `ssl` keeps `ca` + `rejectUnauthorized: true` even when the URL has `sslmode=require`, and prove the unstripped URL would have clobbered it (regression guard on pg semantics).
+**A (recommended). Strip SSL params from the URL, pass an explicit `ssl` object.** New pure module `packages/server/src/util/databaseConfig.mts` exporting `buildPgConfig(env)`; when `DATABASE_CA_CERT` is set it removes `sslmode`, `ssl`, `sslcert`, `sslkey`, `sslrootcert`, `uselibpqcompat` query params by filtering the raw query string on `&`-separated segments by (decoded) key — everything before `?` (scheme, userinfo, host, path) and every kept segment is left byte-identical, no `URL`/`URLSearchParams` re-serialisation — and returns `{ connectionString: stripped, ssl: { ca, rejectUnauthorized: true } }`; otherwise returns `{ connectionString: \`${env.DATABASE_URL}\` }`. Normalises a PEM pasted with literal `\n` escapes and `\r\n`, trims; a multi-cert bundle passes through; a non-blank value with no `-----BEGIN CERTIFICATE-----`, or any block that `crypto.X509Certificate` cannot parse (added after code review: Node's TLS layer silently ignores a corrupt CA), throws a clear error at startup (fail fast, instead of an opaque TLS error at first query). With the CA set, `sslmode=disable`/`no-verify` in the URL are intentionally overridden to verified TLS. `database.mts` uses it. Tests (node:test) assert the output AND feed it through pg's own `ConnectionParameters` to prove the effective `ssl` keeps `ca` + `rejectUnauthorized: true` even when the URL has `sslmode=require`, and prove the unstripped URL would have clobbered it (regression guard on pg semantics).
 
 **B. Parse URL into discrete fields, drop `connectionString`.** Use `pg-connection-string` parse output (host, port, user, password, database, options...) as the Pool config and override `ssl`. Rejected: relies on parse output shape matching PoolConfig (string port, `options`, `application_name`, etc.), larger surface, and needs `pg-connection-string` as a direct dep.
 
@@ -43,7 +43,7 @@ A dominates on: no new deps, no FS, minimal surface, exact unchanged path when u
 
 ### Scope
 
-One unit, one PR. Files: new `util/databaseConfig.mts`, `util/database.mts` (2 lines), new test file, `.env.example`/README mention if such an env doc exists. `prisma.config.ts` unchanged (schema engine not affected). No API surface change.
+One unit, one PR. Files: new `util/databaseConfig.mts`, `util/database.mts` (2 lines), new test file, (no `.env.example`/README env docs exist). `prisma.config.ts` unchanged (schema engine not affected). No API surface change.
 
 ## Success criteria
 

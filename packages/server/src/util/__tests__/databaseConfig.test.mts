@@ -24,9 +24,21 @@ const ConnectionParameters = require("pg/lib/connection-parameters.js") as new (
   config: object,
 ) => Params;
 
+// a real self-signed certificate (normalizeCaCert parses it)
 const CA = [
   "-----BEGIN CERTIFICATE-----",
-  "MIIBszCCAVmgAwIBAgIUTEST",
+  "MIICIzCCAcoCCQDzCEBq0GIZ/zAKBggqhkjOPQQDAjAfMR0wGwYDVQQDDBRTb2Jl",
+  "ckpvdXJuZXkgdGVzdCBDQTAgFw0yNjEwMDcxNjU0MjJaGA8yMTI2MDkxMzE2NTQy",
+  "MlowHzEdMBsGA1UEAwwUU29iZXJKb3VybmV5IHRlc3QgQ0EwggFLMIIBAwYHKoZI",
+  "zj0CATCB9wIBATAsBgcqhkjOPQEBAiEA/////wAAAAEAAAAAAAAAAAAAAAD/////",
+  "//////////8wWwQg/////wAAAAEAAAAAAAAAAAAAAAD///////////////wEIFrG",
+  "NdiqOpPns+u9VXaYhrxlHQawzFOw9jvOPD4n0mBLAxUAxJ02CIbnBJNqZnjhE50m",
+  "t4GffpAEQQRrF9Hy4SxCR/i85uVjpEDydwN9gS3rM6D0oTlF2JjClk/jQuL+Gn+b",
+  "jufrSnwPnhYrzjNXazFezsu2QGg3v1H1AiEA/////wAAAAD//////////7zm+q2n",
+  "F56E87nKwvxjJVECAQEDQgAEPwpXn1b0cPloDcO0HvKiKbnmj78B/1vMPfV+lzio",
+  "sRB4VO+w4SsPvKp6swlK8sw7QR8UNyn75bg1M1xLusYoSTAKBggqhkjOPQQDAgNH",
+  "ADBEAiBWLiZK+iiQSgFwzOcvPxQ+0fK+v9vmzSVTxwpdZBafQQIgcye92wUqSV22",
+  "DXFXFCdX+ceCrbL1lLfLbGoJ6Dqmlr0=",
   "-----END CERTIFICATE-----",
 ].join("\n");
 
@@ -59,27 +71,31 @@ describe("buildPgConfig", () => {
   });
 
   describe("with DATABASE_CA_CERT", () => {
-    const urls = [
-      `${BASE}?sslmode=require`,
-      `${BASE}?sslmode=disable`,
-      `${BASE}?sslmode=verify-full`,
-      `${BASE}?sslmode=no-verify`,
-      `${BASE}?ssl=true`,
-      `${BASE}?ssl=0`,
-      `${BASE}?sslrootcert=/nonexistent/ca.crt`,
-      `${BASE}?uselibpqcompat=true&sslmode=require`,
-      `${BASE}?sslmode=require&connection_limit=5`,
-      BASE,
+    // [DATABASE_URL, expected stripped URL]
+    const urls: Array<[string, string]> = [
+      [`${BASE}?sslmode=require`, BASE],
+      [`${BASE}?sslmode=disable`, BASE],
+      [`${BASE}?sslmode=verify-full`, BASE],
+      [`${BASE}?sslmode=no-verify`, BASE],
+      [`${BASE}?ssl=true`, BASE],
+      [`${BASE}?ssl=0`, BASE],
+      [`${BASE}?sslrootcert=/nonexistent/ca.crt`, BASE],
+      [`${BASE}?uselibpqcompat=true&sslmode=require`, BASE],
+      [
+        `${BASE}?sslmode=require&connection_limit=5`,
+        `${BASE}?connection_limit=5`,
+      ],
+      [BASE, BASE],
     ];
 
-    for (const url of urls) {
+    for (const [url, expected] of urls) {
       it(`pg ends up verifying against the CA for ${url.slice(BASE.length) || "(no query)"}`, () => {
         const config = buildPgConfig({
           DATABASE_URL: url,
           DATABASE_CA_CERT: CA,
         });
         assert.deepStrictEqual(config, {
-          connectionString: stripSslParams(url),
+          connectionString: expected,
           ssl: { ca: CA, rejectUnauthorized: true },
         });
 
@@ -126,6 +142,61 @@ describe("buildPgConfig", () => {
         () => buildPgConfig({ DATABASE_URL: BASE, DATABASE_CA_CERT: "oops" }),
         /DATABASE_CA_CERT is set but is not a PEM certificate/,
       );
+    });
+
+    it("throws for a PEM whose body is corrupt or truncated", () => {
+      const lines = CA.split("\n");
+      const corrupt = [lines[0], "not*base64!!", lines.at(-1)].join("\n");
+      const truncated = lines.slice(0, -1).join("\n");
+      assert.throws(
+        () => normalizeCaCert(corrupt),
+        /contains an unparseable certificate/,
+      );
+      assert.throws(
+        () => normalizeCaCert(truncated),
+        /has no complete PEM certificate block/,
+      );
+      assert.throws(
+        () => normalizeCaCert(`${CA}\n${corrupt}`),
+        /contains an unparseable certificate/,
+      );
+    });
+
+    it("no libpq ssl* param left in the URL can override the CA (pg upgrade guard)", () => {
+      // every libpq SSL-related connection parameter, plus pg-specific ones
+      const keys = [
+        "ssl",
+        "sslmode",
+        "sslcert",
+        "sslkey",
+        "sslrootcert",
+        "sslpassword",
+        "sslcrl",
+        "sslcrldir",
+        "sslsni",
+        "sslcompression",
+        "sslcertmode",
+        "sslnegotiation",
+        "ssl_min_protocol_version",
+        "ssl_max_protocol_version",
+        "requiressl",
+        "uselibpqcompat",
+      ];
+      const values: Record<string, string> = {
+        ssl: "true",
+        sslmode: "require",
+        sslcert: "/nonexistent/c",
+        sslkey: "/nonexistent/k",
+        sslrootcert: "/nonexistent/r",
+        uselibpqcompat: "true",
+      };
+      const query = keys.map((k) => `${k}=${values[k] ?? "1"}`).join("&");
+      const config = buildPgConfig({
+        DATABASE_URL: `${BASE}?${query}`,
+        DATABASE_CA_CERT: CA,
+      });
+      const params = new ConnectionParameters(config);
+      assert.deepStrictEqual(params.ssl, { ca: CA, rejectUnauthorized: true });
     });
   });
 });
