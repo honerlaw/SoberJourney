@@ -16,6 +16,7 @@ import type {
   ConversationListItem,
   ConversationListOutput,
   Message,
+  SponsorChatStreamEvent,
 } from "./ConversationContext"
 
 /** The subset of TanStack's `InfiniteData` these helpers read and write. */
@@ -128,9 +129,107 @@ export function mergePending(
   messages: Message[],
   pending: Message | undefined,
 ): Message[] {
-  if (!pending) return messages
-  if (messages.some((message) => message.id === pending.id)) return messages
-  return [...messages, pending]
+  return mergePendingMessages(messages, [pending])
+}
+
+/**
+ * Like `mergePending` for several pending messages (a pending user bubble and
+ * the reply streaming in after it), appended in order, each only when its id
+ * is not in the cache yet.
+ */
+export function mergePendingMessages(
+  messages: Message[],
+  pending: (Message | undefined)[],
+): Message[] {
+  const ids = new Set(messages.map((message) => message.id))
+  const extra = pending.filter(
+    (message): message is Message => !!message && !ids.has(message.id),
+  )
+  return extra.length > 0 ? [...messages, ...extra] : messages
+}
+
+/**
+ * Client id of the reply to a pending send. The streaming bubble and the
+ * reply appended to the cache when the stream completes share it, so the
+ * list never remounts or duplicates the reply.
+ */
+export const replyIdFor = (clientId: string): string => `${clientId}-reply`
+
+/** The partially streamed reply, rendered as a MODEL bubble. */
+export function streamingReplyMessage(
+  clientId: string,
+  text: string,
+  createdAt: Date,
+): Message {
+  return { id: replyIdFor(clientId), role: "MODEL", content: text, createdAt }
+}
+
+/** What a streamed send has produced so far. */
+export type StreamState = {
+  /** Server id of the user message, once the server reported it saved. */
+  userMessageId: string | null
+  /** Concatenated `delta` text (replaced by `done.response` at the end). */
+  replyText: string
+  /** The final event: the persisted reply. */
+  done: {
+    response: string
+    userMessageId: string
+    modelMessageId: string
+  } | null
+}
+
+export const INITIAL_STREAM_STATE: StreamState = {
+  userMessageId: null,
+  replyText: "",
+  done: null,
+}
+
+/**
+ * Folds one stream event into the state. Order-tolerant: events can arrive
+ * one by one or all at once (an edge that buffers the response), and `done`
+ * always wins, its `response` replacing the streamed text (it differs when a
+ * safety block turned the reply into a fallback message).
+ */
+export function applyStreamEvent(
+  state: StreamState,
+  event: SponsorChatStreamEvent,
+): StreamState {
+  switch (event.type) {
+    case "saved":
+      return { ...state, userMessageId: event.userMessageId }
+    case "delta":
+      if (state.done) return state
+      return { ...state, replyText: state.replyText + event.text }
+    case "done":
+      return {
+        userMessageId: event.userMessageId,
+        replyText: event.response,
+        done: {
+          response: event.response,
+          userMessageId: event.userMessageId,
+          modelMessageId: event.modelMessageId,
+        },
+      }
+  }
+}
+
+/** The streaming procedure's path (see `isMissingProcedureError`). */
+export const STREAM_PROCEDURE_PATH = "conversation.streamSponsorChat"
+
+/**
+ * True for a NOT_FOUND on the streaming procedure's path before any event
+ * arrived: what a server without that procedure returns (e.g. after a server
+ * rollback). Only then may a send fall back to the non-streaming procedure.
+ * An unknown procedure never runs, so nothing was saved and the fallback
+ * cannot duplicate the message. The same code also covers the procedure's own
+ * "Conversation not found." (raised before anything is saved), where the
+ * fallback simply fails the same way.
+ */
+export function isMissingProcedureError(
+  data: { code?: unknown; path?: unknown } | null | undefined,
+  path: string = STREAM_PROCEDURE_PATH,
+): boolean {
+  return data?.code === "NOT_FOUND" && data.path === path
 }
 
 /** Server-assigned message ids currently known (client `pending-…` ids excluded). */

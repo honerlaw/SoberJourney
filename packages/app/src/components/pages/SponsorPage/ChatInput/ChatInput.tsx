@@ -1,5 +1,5 @@
 import { XStack, YStack, TextArea, Button } from "tamagui"
-import { Send } from "@tamagui/lucide-icons"
+import { Send, Square } from "@tamagui/lucide-icons"
 import { useEffect, useRef, useState } from "react"
 import {
   Platform,
@@ -19,6 +19,9 @@ type ChatInputProps = {
   /** Resolves `true` when the message was sent; the text is kept otherwise. */
   onSend: (text: string) => Promise<boolean>
   disabled?: boolean
+  /** A reply is streaming and can be stopped: Stop replaces Send. */
+  canStop?: boolean
+  onStop?: () => void
   bottomPadding: number | string
   /** Text of a failed send to restore into an empty input. */
   failedDraft?: string
@@ -37,6 +40,8 @@ type WebKeyPressEvent = NativeSyntheticEvent<
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   disabled,
+  canStop,
+  onStop,
   bottomPadding,
   failedDraft,
   onFailedDraftConsumed,
@@ -129,15 +134,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           editable={!disabled}
           accessibilityLabel="Message your AI sponsor"
         />
-        <Button
-          onPress={() => void handleSend()}
-          disabled={!canSend}
-          themeInverse
-          icon={<Send size="$1" pointerEvents="none" />}
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          accessibilityState={{ disabled: !canSend }}
-        />
+        {canStop && onStop ? (
+          <Button
+            onPress={onStop}
+            themeInverse
+            icon={<Square size="$1" pointerEvents="none" />}
+            accessibilityRole="button"
+            accessibilityLabel="Stop the reply"
+          />
+        ) : (
+          <Button
+            onPress={() => void handleSend()}
+            disabled={!canSend}
+            themeInverse
+            icon={<Send size="$1" pointerEvents="none" />}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: !canSend }}
+          />
+        )}
       </XStack>
     </YStack>
   )

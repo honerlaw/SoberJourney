@@ -15,6 +15,14 @@ export type Message = Conversation["messages"][number]
 
 export type MessageRole = Message["role"]
 
+/** Events of `conversation.streamSponsorChat` (`saved` → `delta`* → `done`). */
+export type SponsorChatStreamEvent =
+  RouterOutputs["conversation"]["streamSponsorChat"] extends AsyncIterable<
+    infer TEvent
+  >
+    ? TEvent
+    : never
+
 /** Shape of a `conversation.list` response (one page of the drawer). */
 export type ConversationListOutput = RouterOutputs["conversation"]["list"]
 
@@ -72,8 +80,16 @@ export type ConversationContextType = {
   conversationError: unknown
   isConversationNotFound: boolean
   isLoadingConversations: boolean
-  /** The current conversation is waiting for a reply. */
+  /** The current conversation is waiting for the first part of a reply. */
   isThinking: boolean
+  /** A streamed send is in flight for the current conversation and can be stopped. */
+  canCancelReply: boolean
+  /**
+   * Stops the in-flight streamed reply of the current conversation. The
+   * message stays saved (with a Retry action) when the server kept it; no
+   * error toast is shown.
+   */
+  cancelReply: () => void
 }
 
 export const ConversationContext =

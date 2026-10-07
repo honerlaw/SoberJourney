@@ -55,22 +55,31 @@ const BLOCKING_FINISH_REASONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Classifies a raw generateContent response. Exported for unit tests.
+ * The parts of a (possibly streamed) response that decide its outcome.
+ * `text` is the full reply text: a single response's text, or the
+ * concatenation of every streamed chunk.
  */
-export function classifyResponse(
-  response: GenerateContentResponse,
-): ChatResult {
-  const blockReason = response.promptFeedback?.blockReason;
+export type ResponseOutcome = {
+  blockReason?: string | null | undefined;
+  finishReason?: string | null | undefined;
+  text?: string | null | undefined;
+};
+
+/**
+ * Classifies a finished response from its block reason, finish reason and
+ * text. Shared by `chat` (one response) and `chatStream` (accumulated chunks).
+ */
+export function classifyOutcome(outcome: ResponseOutcome): ChatResult {
+  const { blockReason, finishReason } = outcome;
   if (blockReason && blockReason !== BlockedReason.BLOCKED_REASON_UNSPECIFIED) {
     return { status: "blocked", reason: String(blockReason) };
   }
 
-  const finishReason = response.candidates?.[0]?.finishReason;
   if (finishReason && BLOCKING_FINISH_REASONS.has(finishReason)) {
     return { status: "blocked", reason: String(finishReason) };
   }
 
-  const text = response.text?.trim() ?? "";
+  const text = outcome.text?.trim() ?? "";
 
   if (finishReason === FinishReason.MAX_TOKENS) {
     return { status: "truncated", text };
@@ -86,7 +95,24 @@ export function classifyResponse(
   return { status: "ok", text };
 }
 
-function classifyError(error: unknown): GeminiError {
+/**
+ * Classifies a raw generateContent response. Exported for unit tests.
+ */
+export function classifyResponse(
+  response: GenerateContentResponse,
+): ChatResult {
+  return classifyOutcome({
+    blockReason: response.promptFeedback?.blockReason,
+    finishReason: response.candidates?.[0]?.finishReason,
+    text: response.text,
+  });
+}
+
+/**
+ * Maps an SDK (or classification) error to a GeminiError. Shared by `chat`
+ * and `chatStream`.
+ */
+export function classifyError(error: unknown): GeminiError {
   if (error instanceof GeminiError) {
     return error;
   }
@@ -103,6 +129,32 @@ function classifyError(error: unknown): GeminiError {
     }
   }
   return new GeminiError("unknown", "Gemini request failed.", { cause: error });
+}
+
+/**
+ * Logs a blocked or truncated result (never its text). Shared by `chat` and
+ * `chatStream`.
+ */
+export function logNonOkResult(
+  logger: Logger,
+  model: string,
+  result: ChatResult,
+  tag: string,
+): void {
+  if (result.status === "ok") {
+    return;
+  }
+  logger.warn(
+    {
+      attributes: {
+        model,
+        status: result.status,
+        reason: result.status === "blocked" ? result.reason : undefined,
+      },
+      tags: ["datasource", "gemini", tag],
+    },
+    "Gemini returned a non-ok response",
+  );
 }
 
 export async function chat(
@@ -122,19 +174,7 @@ export async function chat(
       },
     });
     const result = classifyResponse(response);
-    if (result.status !== "ok") {
-      logger.warn(
-        {
-          attributes: {
-            model,
-            status: result.status,
-            reason: result.status === "blocked" ? result.reason : undefined,
-          },
-          tags: ["datasource", "gemini", "chat"],
-        },
-        "Gemini returned a non-ok response",
-      );
-    }
+    logNonOkResult(logger, model, result, "chat");
     return result;
   } catch (error) {
     const geminiError = classifyError(error);
