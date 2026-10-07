@@ -28,3 +28,4 @@ Local-diff mode (fresh-context subagent) code review + inline minerva audit.
 - CR9 [low] duplicated LIST_PLACEHOLDER_TITLE → FIX: exported from conversationCache.
 - A1 [low, minerva audit] proposal says Retry (error view) trims before refetch; retryConversation did a full refetch → FIX.
 Spec fidelity otherwise matches Approach 1–8; knowledge compliance: no `get` invalidation on the send path, lock reused, database exports take (logger, client).
+- Re-review of fix commit 2c8af08 (fresh-context reviewer): CR1–CR9/A1 confirmed fixed; 5 new low findings all FIX: per-query fetchStatus guard on older-page loads (overlapping refreshes), NOT_FOUND delete check uses a one-off full `list` under its own key (no joining an in-flight drawer fetch, no clobbering the drawer query's retry options), "answered" failed sends still reported, rename cancels an in-flight older-page fetch before writing the title (not during send/refresh), web-specific a11y hint.

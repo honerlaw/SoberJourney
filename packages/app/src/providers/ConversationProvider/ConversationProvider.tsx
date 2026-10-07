@@ -387,6 +387,10 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         // is shown with a Retry action.
         if (outcome === "saved-unanswered") {
           showError(error, "Your message was saved, but no reply came back.")
+        } else {
+          // Answered: only the response was lost. Nothing to tell the user,
+          // but keep it visible to error reporting.
+          reportRef.current(error)
         }
         clearFailedDraft(targetId)
         void invalidateList()
@@ -536,19 +540,22 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         // device), but the server also reports database errors (and an older
         // server an unknown procedure) as NOT_FOUND. Only treat it as deleted
         // when a fresh list no longer contains it.
+        // A one-off full list (no pagination input) under its own cache
+        // key, so it neither joins an in-flight drawer fetch nor changes the
+        // drawer query's options.
+        const fullListOptions = trpc.conversation.list.queryOptions()
         const stillListed =
           isNotFoundError(error) &&
           (await queryClient
-            .fetchInfiniteQuery(
-              trpc.conversation.list.infiniteQueryOptions(
-                { limit: LIST_PAGE_SIZE },
-                { getNextPageParam: nextListCursor, staleTime: 0 },
-              ),
-            )
-            .then((fresh) =>
-              flattenConversations(fresh).some((c) => c.id === id),
-            )
-            .catch(() => true))
+            .fetchQuery({ ...fullListOptions, staleTime: 0 })
+            .then((fresh) => fresh.conversations.some((c) => c.id === id))
+            .catch(() => true)
+            .finally(() =>
+              queryClient.removeQueries({
+                queryKey: fullListOptions.queryKey,
+                exact: true,
+              }),
+            ))
         if (!isNotFoundError(error) || stillListed) {
           showError(error, "Failed to delete conversation.")
           return false
@@ -601,6 +608,14 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
           title,
         })
         const saved = result.conversation.title ?? title
+        // An in-flight older-page fetch would write back the old title. Leave
+        // a send/retry/refresh alone (those fetch only the newest page and
+        // pick the new title up from the server).
+        if (!pendingRef.current[id] && !refreshingRef.current.has(id)) {
+          await queryClient.cancelQueries({
+            queryKey: conversationQueryKey(id),
+          })
+        }
         queryClient.setQueryData<ConversationListPages>(listQueryKey, (old) =>
           renameInList(old, id, saved),
         )
@@ -652,13 +667,21 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       !id ||
       pendingRef.current[id] ||
       refreshingRef.current.has(id) ||
+      queryClient.getQueryState(conversationQueryKey(id))?.fetchStatus ===
+        "fetching" ||
       !hasOlderMessages ||
       isLoadingOlderMessages
     ) {
       return
     }
     void fetchOlderMessages().catch(() => undefined)
-  }, [hasOlderMessages, isLoadingOlderMessages, fetchOlderMessages])
+  }, [
+    hasOlderMessages,
+    isLoadingOlderMessages,
+    fetchOlderMessages,
+    queryClient,
+    conversationQueryKey,
+  ])
 
   const loadMoreConversations = useCallback(() => {
     if (hasMoreConversations && !isLoadingMoreConversations) {

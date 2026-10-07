@@ -47,7 +47,11 @@ export const RenderItem: React.FC<RenderItemProps> = ({
       borderColor={isActive ? "$color8" : undefined}
       accessibilityRole="button"
       accessibilityLabel={item.title}
-      accessibilityHint="Opens this conversation. Long press for rename and delete."
+      accessibilityHint={
+        Platform.OS === "web"
+          ? "Opens this conversation"
+          : "Opens this conversation. Long press for rename and delete."
+      }
       accessibilityState={{ selected: isActive }}
     >
       <XStack alignItems="center" gap="$2">
