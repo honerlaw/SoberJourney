@@ -11,6 +11,7 @@ import {
   NOT_RETRYABLE_MESSAGE,
 } from "../runRetrySponsorChat.mjs";
 import { runSponsorChat } from "../runSponsorChat.mjs";
+import { SAFETY_FALLBACK_REPLY } from "../utils/fallback.mjs";
 import { retrySponsorChatInput } from "../../retrySponsorChat.mjs";
 
 type Ctx = Parameters<typeof runRetrySponsorChat>[0];
@@ -230,6 +231,40 @@ describe("runRetrySponsorChat", () => {
       chat: async () => {
         throw new GeminiError("unavailable", "down");
       },
+    });
+    await assert.rejects(
+      runRetrySponsorChat(h.ctx, {
+        conversationId: CONVERSATION_ID,
+        messageId: "m1",
+      }),
+      (error: unknown) =>
+        error instanceof TRPCError && error.code === "INTERNAL_SERVER_ERROR",
+    );
+    assert.equal(h.stored.length, 1);
+  });
+
+  it("stores the supportive fallback when the retried generation is safety-blocked", async () => {
+    const h = harness({
+      existing: [row("m1", "USER", "hello")],
+      chat: async () => ({ status: "blocked", reason: "SAFETY" }) as ChatResult,
+    });
+    const result = await runRetrySponsorChat(h.ctx, {
+      conversationId: CONVERSATION_ID,
+      messageId: "m1",
+    });
+    assert.equal(result.response, SAFETY_FALLBACK_REPLY);
+    assert.deepEqual(
+      h.stored.map((r) => r.role),
+      ["USER", "MODEL"],
+    );
+    await flush();
+    assert.ok(!h.events.includes("gemini:title"));
+  });
+
+  it("stores nothing for a truncated reply, so the message stays retryable", async () => {
+    const h = harness({
+      existing: [row("m1", "USER", "hello")],
+      chat: async () => ({ status: "truncated", text: "par" }) as ChatResult,
     });
     await assert.rejects(
       runRetrySponsorChat(h.ctx, {

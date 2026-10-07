@@ -15,7 +15,8 @@ import {
   flattenConversations,
   flattenMessages,
   isPendingId,
-  isSendConfirmedSaved,
+  classifyFailedSend,
+  LIST_PLACEHOLDER_TITLE,
   mergePending,
   nextConversationAfterDelete,
   nextListCursor,
@@ -236,7 +237,7 @@ check("serverMessageIds excludes client ids", () => {
 });
 
 check(
-  "isSendConfirmedSaved: a new USER row with the exact text confirms",
+  "classifyFailedSend: a new USER row with the exact text and no reply is saved-unanswered",
   () => {
     const before = new Set(["m1", "m2"]);
     const after = [
@@ -244,41 +245,56 @@ check(
       msg("m2", "MODEL"),
       msg("m3", "USER", "hello"),
     ];
-    assert.equal(isSendConfirmedSaved(after, "hello", before), true);
+    assert.equal(
+      classifyFailedSend(after, "hello", before),
+      "saved-unanswered",
+    );
   },
 );
 
 check(
-  "isSendConfirmedSaved: an older identical unanswered message does not confirm",
+  "classifyFailedSend: message and reply both stored (lost response) is answered",
+  () => {
+    const before = new Set(["m1"]);
+    const after = [
+      msg("m1", "MODEL"),
+      msg("m3", "USER", "hello"),
+      msg("m4", "MODEL"),
+    ];
+    assert.equal(classifyFailedSend(after, "hello", before), "answered");
+  },
+);
+
+check(
+  "classifyFailedSend: an older identical unanswered message is not-saved",
   () => {
     // m2 "hello" was saved by an earlier failed turn; this send's persist failed.
     const before = new Set(["m1", "m2"]);
     const after = [msg("m1", "MODEL"), msg("m2", "USER", "hello")];
-    assert.equal(isSendConfirmedSaved(after, "hello", before), false);
+    assert.equal(classifyFailedSend(after, "hello", before), "not-saved");
+    // ... also when that older message has since been answered
+    const answered = [msg("m2", "USER", "hello"), msg("m5", "MODEL")];
+    assert.equal(classifyFailedSend(answered, "hello", before), "not-saved");
   },
 );
 
 check(
-  "isSendConfirmedSaved: other text, a MODEL row, a pending id or nothing do not confirm",
+  "classifyFailedSend: other text, only MODEL rows, a pending id or nothing are not-saved",
   () => {
     const before = new Set<string>();
     assert.equal(
-      isSendConfirmedSaved([msg("m3", "USER", "hello!")], "hello", before),
-      false,
+      classifyFailedSend([msg("m3", "USER", "hello!")], "hello", before),
+      "not-saved",
     );
     assert.equal(
-      isSendConfirmedSaved([msg("m3", "MODEL", "hello")], "hello", before),
-      false,
+      classifyFailedSend([msg("m3", "MODEL", "hello")], "hello", before),
+      "not-saved",
     );
     assert.equal(
-      isSendConfirmedSaved(
-        [msg("pending-z", "USER", "hello")],
-        "hello",
-        before,
-      ),
-      false,
+      classifyFailedSend([msg("pending-z", "USER", "hello")], "hello", before),
+      "not-saved",
     );
-    assert.equal(isSendConfirmedSaved([], "hello", before), false);
+    assert.equal(classifyFailedSend([], "hello", before), "not-saved");
   },
 );
 
@@ -346,7 +362,7 @@ check(
   "rename field: placeholder prefills empty; Save needs non-blank text",
   () => {
     assert.equal(
-      renameFieldInitialValue("New conversation", "New conversation"),
+      renameFieldInitialValue(LIST_PLACEHOLDER_TITLE, LIST_PLACEHOLDER_TITLE),
       "",
     );
     assert.equal(renameFieldInitialValue(null, "New conversation"), "");

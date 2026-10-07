@@ -5,11 +5,10 @@ import { Button, Input, Text, XStack, YStack, View } from "tamagui"
 import type { ConversationListItem } from "@/src/providers/ConversationProvider/ConversationContext"
 import {
   canSaveTitle,
+  LIST_PLACEHOLDER_TITLE,
   renameFieldInitialValue,
 } from "@/src/providers/ConversationProvider/conversationCache"
 
-/** Title `conversation.list` returns for an untitled conversation. */
-const LIST_PLACEHOLDER_TITLE = "New conversation"
 /** Matches the server's rename cap (longer titles are clamped there too). */
 const MAX_TITLE_LENGTH = 100
 

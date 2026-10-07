@@ -141,24 +141,39 @@ export function serverMessageIds(messages: Message[]): Set<string> {
 }
 
 /**
- * After a failed send and a refetch: did the server save the user message?
- * Only if the newest message is a USER row with a server id that was not
- * known before the send and the exact text the client sent. An older,
- * identical, unanswered message does not count.
+ * What the server kept of a send that failed on the client:
+ * - "not-saved": no new copy of the message (restore the typed text);
+ * - "saved-unanswered": the message is stored but has no reply (offer Retry);
+ * - "answered": message and reply are both stored (the client only lost the
+ *   response, e.g. a dropped connection).
+ *
+ * The newest USER row after the refetch counts only if its server id was not
+ * known before the send and it holds the exact text the client sent, so an
+ * older, identical message never counts.
  */
-export function isSendConfirmedSaved(
+export type FailedSendOutcome = "not-saved" | "saved-unanswered" | "answered"
+
+export function classifyFailedSend(
   messagesAfterRefetch: Message[],
   sentText: string,
   serverIdsBeforeSend: Set<string>,
-): boolean {
-  const newest = messagesAfterRefetch[messagesAfterRefetch.length - 1]
-  return (
-    !!newest &&
-    newest.role === "USER" &&
-    !isPendingId(newest.id) &&
-    !serverIdsBeforeSend.has(newest.id) &&
-    newest.content === sentText
-  )
+): FailedSendOutcome {
+  let index = messagesAfterRefetch.length - 1
+  while (index >= 0 && messagesAfterRefetch[index]!.role === "MODEL") {
+    index--
+  }
+  const newestUser = messagesAfterRefetch[index]
+  if (
+    !newestUser ||
+    isPendingId(newestUser.id) ||
+    serverIdsBeforeSend.has(newestUser.id) ||
+    newestUser.content !== sentText
+  ) {
+    return "not-saved"
+  }
+  return index === messagesAfterRefetch.length - 1
+    ? "saved-unanswered"
+    : "answered"
 }
 
 /**
@@ -234,6 +249,9 @@ export function nextConversationAfterDelete(
 ): string | null {
   return conversations.find((c) => c.id !== deletedId)?.id ?? null
 }
+
+/** Title `conversation.list` returns for an untitled conversation. */
+export const LIST_PLACEHOLDER_TITLE = "New conversation"
 
 /** Title shown in the rename field: empty for the list's untitled placeholder. */
 export function renameFieldInitialValue(

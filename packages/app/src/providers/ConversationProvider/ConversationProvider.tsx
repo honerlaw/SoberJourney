@@ -19,7 +19,7 @@ import {
   createPendingId,
   flattenConversations,
   flattenMessages,
-  isSendConfirmedSaved,
+  classifyFailedSend,
   mergePending,
   nextConversationAfterDelete,
   nextListCursor,
@@ -93,6 +93,8 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   // Synchronous mirror of pendingByConversation: the double-send guard.
   const pendingRef = useRef<Record<string, PendingSend>>({})
   const initStartedRef = useRef(false)
+  // Conversations whose newest page is being refetched (older-page loads wait).
+  const refreshingRef = useRef(new Set<string>())
   const titleTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>())
 
   useEffect(() => {
@@ -268,12 +270,20 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     async (id: string): Promise<ConversationPages | undefined> => {
       const queryKey = conversationQueryKey(id)
       if (!queryClient.getQueryData(queryKey)) return undefined
-      queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
-        trimToNewestPage(old),
-      )
-      await queryClient
-        .refetchQueries({ queryKey }, { cancelRefetch: false })
-        .catch(() => undefined)
+      refreshingRef.current.add(id)
+      try {
+        // Cancel an in-flight load of older pages first: a refetch would
+        // otherwise join it and resolve with the old newest page.
+        await queryClient.cancelQueries({ queryKey })
+        queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
+          trimToNewestPage(old),
+        )
+        await queryClient
+          .refetchQueries({ queryKey }, { cancelRefetch: true })
+          .catch(() => undefined)
+      } finally {
+        refreshingRef.current.delete(id)
+      }
       const state = queryClient.getQueryState(queryKey)
       return state?.status === "success" && !state.error
         ? queryClient.getQueryData<ConversationPages>(queryKey)
@@ -358,25 +368,32 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         }
         return true
       } catch (error) {
-        showError(error, "Failed to send message.")
         // The server persists the user message before generating, so it may
-        // have saved it even though the reply failed. Check (newest page only)
-        // while the pending bubble is still shown; restore the typed text only
-        // when the server did not keep a new copy of it.
+        // have saved it (and even the reply) although the call failed. Check
+        // (newest page only) while the pending bubble is still shown; restore
+        // the typed text only when the server did not keep a new copy of it.
         const after = await refreshConversation(targetId)
-        const saved =
-          !!after &&
-          isSendConfirmedSaved(flattenMessages(after), text, knownServerIds)
+        const outcome = after
+          ? classifyFailedSend(flattenMessages(after), text, knownServerIds)
+          : "not-saved"
         clearPending(targetId)
-        if (saved) {
-          // The message is on the server and shown with a Retry action, so
-          // the input clears as for a successful send (no duplicate re-send).
-          clearFailedDraft(targetId)
-          void invalidateList()
-          return true
+        if (outcome === "not-saved") {
+          showError(error, "Failed to send message.")
+          setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
+          return false
         }
-        setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
-        return false
+        // The message is on the server, so the input clears as for a
+        // successful send (re-sending would duplicate it). Without a reply it
+        // is shown with a Retry action.
+        if (outcome === "saved-unanswered") {
+          showError(error, "Your message was saved, but no reply came back.")
+        }
+        clearFailedDraft(targetId)
+        void invalidateList()
+        if (!hadTitle) {
+          refreshListForTitle()
+        }
+        return true
       }
     },
     [
@@ -515,8 +532,24 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       try {
         await removeConversationMutation({ conversationId: id })
       } catch (error) {
-        // Already deleted (e.g. on another device): treat as success.
-        if (!isNotFoundError(error)) {
+        // NOT_FOUND usually means it was already deleted (e.g. on another
+        // device), but the server also reports database errors (and an older
+        // server an unknown procedure) as NOT_FOUND. Only treat it as deleted
+        // when a fresh list no longer contains it.
+        const stillListed =
+          isNotFoundError(error) &&
+          (await queryClient
+            .fetchInfiniteQuery(
+              trpc.conversation.list.infiniteQueryOptions(
+                { limit: LIST_PAGE_SIZE },
+                { getNextPageParam: nextListCursor, staleTime: 0 },
+              ),
+            )
+            .then((fresh) =>
+              flattenConversations(fresh).some((c) => c.id === id),
+            )
+            .catch(() => true))
+        if (!isNotFoundError(error) || stillListed) {
           showError(error, "Failed to delete conversation.")
           return false
         }
@@ -548,6 +581,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       removeConversationMutation,
       showError,
       queryClient,
+      trpc,
       listQueryKey,
       conversationQueryKey,
       clearFailedDraft,
@@ -597,13 +631,33 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   )
 
   const retryConversation = useCallback(() => {
-    void refetchConversation()
-  }, [refetchConversation])
+    const id = conversationIdRef.current
+    if (id && queryClient.getQueryData(conversationQueryKey(id))) {
+      void refreshConversation(id)
+    } else {
+      void refetchConversation()
+    }
+  }, [
+    queryClient,
+    conversationQueryKey,
+    refreshConversation,
+    refetchConversation,
+  ])
 
   const loadOlderMessages = useCallback(() => {
-    if (hasOlderMessages && !isLoadingOlderMessages) {
-      void fetchOlderMessages().catch(() => undefined)
+    const id = conversationIdRef.current
+    // Never while a send/retry/refresh is in flight: a page fetch writes back
+    // the pages it started from, dropping an append made meanwhile.
+    if (
+      !id ||
+      pendingRef.current[id] ||
+      refreshingRef.current.has(id) ||
+      !hasOlderMessages ||
+      isLoadingOlderMessages
+    ) {
+      return
     }
+    void fetchOlderMessages().catch(() => undefined)
   }, [hasOlderMessages, isLoadingOlderMessages, fetchOlderMessages])
 
   const loadMoreConversations = useCallback(() => {

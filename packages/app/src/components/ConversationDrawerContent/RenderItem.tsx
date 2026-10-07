@@ -1,3 +1,4 @@
+import { Platform } from "react-native"
 import { Text, Card, XStack, YStack, Button } from "tamagui"
 import { MoreHorizontal } from "@tamagui/lucide-icons"
 import { format } from "date-fns"
@@ -32,7 +33,11 @@ export const RenderItem: React.FC<RenderItemProps> = ({
     <Card
       bordered
       onPress={handlePress}
-      onLongPress={() => onOpenActions(item)}
+      // tamagui's web press handler fires onLongPress on every click, so
+      // long-press is native-only; the "more" button covers web.
+      onLongPress={
+        Platform.OS === "web" ? undefined : () => onOpenActions(item)
+      }
       marginHorizontal="$3"
       marginVertical="$1.5"
       paddingVertical="$3"

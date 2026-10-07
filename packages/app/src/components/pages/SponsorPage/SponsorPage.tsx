@@ -14,11 +14,10 @@ import { EmptyChatView } from "./EmptyChatView"
 import { ChatErrorView } from "./ChatErrorView"
 import { RetryNotice } from "./RetryNotice"
 import type { Message } from "@/src/providers/ConversationProvider"
+import { LIST_PLACEHOLDER_TITLE } from "@/src/providers/ConversationProvider/conversationCache"
 
 /** Must match the static `headerTitle` of the sponsor tab in `(tabs)/_layout.tsx`. */
 const DEFAULT_HEADER_TITLE = "Sponsor"
-/** Title `conversation.list` returns for an untitled conversation. */
-const LIST_PLACEHOLDER_TITLE = "New conversation"
 
 export const SponsorPage: React.FC = () => {
   const listRef = useRef<FlatList<Message>>(null)
@@ -154,6 +153,9 @@ export const SponsorPage: React.FC = () => {
     <YStack flex={1}>
       {hasMessages ? (
         <FlatList
+          // A fresh list per conversation: opens at the newest message rather
+          // than at the previous conversation's scroll offset.
+          key={conversationId ?? "none"}
           ref={listRef}
           inverted
           data={invertedMessages}
