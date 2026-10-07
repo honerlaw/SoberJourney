@@ -16,9 +16,8 @@ export async function get(
       },
       include: {
         messages: {
-          orderBy: {
-            createdAt: "asc",
-          },
+          // id breaks createdAt ties so the order is deterministic
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         },
       },
     });
