@@ -16,3 +16,12 @@
 
 ## Work notes
 - Empirical (pre-implementation, docker postgres:16 hostssl-only, self-signed CA): `prisma migrate deploy` with `?sslmode=require` and NODE_TLS_REJECT_UNAUTHORIZED unset → applied 25 migrations; `sslmode=disable` → P1010 rejected (TLS was in use); `sslmode=require&sslaccept=strict` → P1011 cert not trusted. Schema engine = native Rust binary, ignores the Node flag.
+- Implemented `packages/server/src/util/databaseConfig.mts` (buildPgConfig / stripSslParams / normalizeCaCert) + `database.mts` wiring + 19 tests in `src/util/__tests__/databaseConfig.test.mts` (pg's own ConnectionParameters via createRequire). TS gotcha: an all-optional `{DATABASE_URL?, DATABASE_CA_CERT?}` param type is a "weak type" and rejects `process.env` (TS2559) — typed it `Record<string, string | undefined>`.
+- E2E (docker postgres:16, hostssl-only, server cert SAN localhost/127.0.0.1 from self-signed CA, built dist `client.$queryRaw` of pg_stat_ssl), URL always `?sslmode=require`:
+  - right CA, flag unset → OK ssl=true; escaped-\n CA → OK; right CA + `sslmode=disable` URL → OK ssl=true (override)
+  - wrong CA, flag unset → FAIL "unable to verify the first certificate"; wrong CA + NODE_TLS_REJECT_UNAUTHORIZED=0 → still FAIL (explicit rejectUnauthorized wins)
+  - right CA, DNS host not in SAN (`$(hostname)`, `127.0.0.1.nip.io`) → FAIL "Hostname/IP does not match certificate's altnames" (verify-full). IP literal hosts: pg sends no servername, so Node checks a fallback name — passed with 0.0.0.0. DO URLs are DNS names, so SAN coverage matters.
+  - no CA var, flag unset → FAIL (legacy behavior); no CA var + flag=0 → OK (current prod unchanged)
+  - non-PEM CA → throws at import with clear message
+  - `prisma migrate deploy` (worktree prisma.config.ts) on a fresh TLS db, flag unset, sslmode=require → all 25 migrations applied.
+- build / test (225 pass) / server lint green.
