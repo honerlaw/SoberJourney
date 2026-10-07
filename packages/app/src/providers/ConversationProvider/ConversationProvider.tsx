@@ -5,30 +5,36 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { TRPCClientError } from "@trpc/client"
-import { useTRPC } from "@/src/providers/TRPCProvider"
+import { useTRPC, useTRPCClient } from "@/src/providers/TRPCProvider"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useToastError } from "@/src/hooks/useToastError"
 import {
   ConversationContext,
   type ConversationContextType,
   type Message,
+  type SponsorChatStreamEvent,
 } from "./ConversationContext"
 import {
   appendToNewestPage,
+  applyStreamEvent,
   conversationFromPages,
   createPendingId,
   flattenConversations,
   flattenMessages,
   classifyFailedSend,
-  mergePending,
+  INITIAL_STREAM_STATE,
+  isMissingProcedureError,
+  mergePendingMessages,
   nextConversationAfterDelete,
   nextListCursor,
   nextMessagesCursor,
   removeFromList,
   renameInList,
+  replyIdFor,
   retryableMessageId as getRetryableMessageId,
   serverMessageIds,
   setConversationTitle,
+  streamingReplyMessage,
   trimToNewestPage,
   type ConversationListPages,
   type ConversationPages,
@@ -36,12 +42,26 @@ import {
 
 /**
  * An in-flight send (rendered as an optimistic user bubble until the reply
- * lands) or retry (no bubble: the user message is already shown).
+ * lands, with the reply growing below it while it streams) or retry (no
+ * bubble: the user message is already shown).
  */
 type PendingSend = {
   clientId: string
   userMessage?: Message
+  /** Reply text streamed so far (sends only). */
+  replyText?: string
+  /** Aborts a streamed send (Stop). */
+  abort?: AbortController
 }
+
+type StreamTurnVariables = {
+  conversationId: string
+  text: string
+  signal: AbortSignal
+  onEvent: (event: SponsorChatStreamEvent) => void
+}
+
+type TurnResult = { response: string }
 
 /** Delays (ms) after a first message at which the drawer list is refetched to pick up the async title. */
 const TITLE_REFRESH_DELAYS_MS = [3_000, 8_000]
@@ -79,6 +99,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   const [initError, setInitError] = useState<unknown>(null)
 
   const trpc = useTRPC()
+  const trpcClient = useTRPCClient()
   const queryClient = useQueryClient()
   const { report } = useReportError()
   const { handleError } = useToastError()
@@ -161,6 +182,47 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   const { mutateAsync: sendMessageMutation } = useMutation(
     trpc.conversation.sponsorChat.mutationOptions(),
   )
+
+  // A streamed send, run through useMutation so its errors reach the global
+  // MutationCache handler (auth / logout) like every other call.
+  const { mutateAsync: streamMessageMutation } = useMutation({
+    mutationFn: async ({
+      conversationId: id,
+      text,
+      signal,
+      onEvent,
+    }: StreamTurnVariables): Promise<TurnResult> => {
+      let state = INITIAL_STREAM_STATE
+      let received = false
+      try {
+        const events = await trpcClient.conversation.streamSponsorChat.mutate(
+          { conversationId: id, text },
+          { signal },
+        )
+        for await (const event of events) {
+          received = true
+          state = applyStreamEvent(state, event)
+          onEvent(event)
+        }
+      } catch (error) {
+        // A server without the streaming procedure (e.g. rolled back): use
+        // the non-streaming one. Nothing was saved, so this cannot duplicate.
+        if (
+          !received &&
+          !signal.aborted &&
+          error instanceof TRPCClientError &&
+          isMissingProcedureError(error.data)
+        ) {
+          return await sendMessageMutation({ conversationId: id, text })
+        }
+        throw error
+      }
+      if (!state.done) {
+        throw new Error("The reply stream ended before the reply was saved.")
+      }
+      return state.done
+    },
+  })
 
   const { mutateAsync: retryMessageMutation } = useMutation(
     trpc.conversation.retrySponsorChat.mutationOptions(),
@@ -331,31 +393,50 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         content: text,
         createdAt: new Date(),
       }
+      const abort = new AbortController()
       updatePending((prev) => ({
         ...prev,
-        [targetId]: { clientId, userMessage },
+        [targetId]: { clientId, userMessage, abort },
       }))
       void queryClient.cancelQueries({ queryKey })
 
+      // Streamed text goes into this send's own pending entry (never another
+      // conversation's), and only while this send is still the pending one.
+      const onEvent = (event: SponsorChatStreamEvent) => {
+        if (event.type !== "delta") return
+        updatePending((prev) => {
+          const current = prev[targetId]
+          if (current?.clientId !== clientId) return prev
+          return {
+            ...prev,
+            [targetId]: {
+              ...current,
+              replyText: (current.replyText ?? "") + event.text,
+            },
+          }
+        })
+      }
+
       try {
-        // Only the long-standing `response` field is read, so this works
-        // against servers with or without additive response fields.
-        const result = await sendMessageMutation({
+        const result = await streamMessageMutation({
           conversationId: targetId,
           text,
+          signal: abort.signal,
+          onEvent,
         })
         const reply: Message = {
-          id: `${clientId}-reply`,
+          id: replyIdFor(clientId),
           role: "MODEL",
           content: result.response,
           createdAt: new Date(),
         }
 
-        // The user message enters the cache under the same clientId as the
-        // pending bubble, so the merged list never shows it twice or drops it,
-        // whichever of these two updates renders first. If the entry was
-        // garbage-collected (nobody is viewing X), this is a no-op and the next
-        // open of X fetches the persisted messages.
+        // The user message and the reply enter the cache under the same
+        // client ids as the pending bubbles, so the merged list never shows
+        // them twice or drops them, whichever of these two updates renders
+        // first. If the entry was garbage-collected (nobody is viewing X),
+        // this is a no-op and the next open of X fetches the persisted
+        // messages.
         queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
           appendToNewestPage(old, [userMessage, reply]),
         )
@@ -368,24 +449,29 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         }
         return true
       } catch (error) {
+        // Stop pressed: same reconciliation, but nothing to tell the user.
+        const cancelled = abort.signal.aborted
         // The server persists the user message before generating, so it may
-        // have saved it (and even the reply) although the call failed. Check
-        // (newest page only) while the pending bubble is still shown; restore
-        // the typed text only when the server did not keep a new copy of it.
+        // have saved it (and even the reply) although the call failed or was
+        // stopped. Check (newest page only) while the pending bubble is still
+        // shown; restore the typed text only when the server did not keep a
+        // new copy of it. Never re-sent automatically.
         const after = await refreshConversation(targetId)
         const outcome = after
           ? classifyFailedSend(flattenMessages(after), text, knownServerIds)
           : "not-saved"
         clearPending(targetId)
         if (outcome === "not-saved") {
-          showError(error, "Failed to send message.")
+          if (!cancelled) showError(error, "Failed to send message.")
           setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
           return false
         }
         // The message is on the server, so the input clears as for a
         // successful send (re-sending would duplicate it). Without a reply it
         // is shown with a Retry action.
-        if (outcome === "saved-unanswered") {
+        if (cancelled) {
+          // Nothing to report.
+        } else if (outcome === "saved-unanswered") {
           showError(error, "Your message was saved, but no reply came back.")
         } else {
           // Answered: only the response was lost. Nothing to tell the user,
@@ -404,7 +490,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       conversationId,
       conversationQueryKey,
       queryClient,
-      sendMessageMutation,
+      streamMessageMutation,
       updatePending,
       clearPending,
       clearFailedDraft,
@@ -414,6 +500,12 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       showError,
     ],
   )
+
+  const cancelReply = useCallback(() => {
+    const id = conversationIdRef.current
+    if (!id) return
+    pendingRef.current[id]?.abort?.abort()
+  }, [])
 
   const retryMessage = useCallback(
     async (messageId: string): Promise<boolean> => {
@@ -689,10 +781,20 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     }
   }, [hasMoreConversations, isLoadingMoreConversations, fetchMoreConversations])
 
-  // Merge cached messages with this conversation's pending bubble (id-keyed).
+  // Merge cached messages with this conversation's pending bubble and the
+  // reply streaming in after it (id-keyed).
   const messages = useMemo(
     () =>
-      mergePending(conversation?.messages ?? [], currentPending?.userMessage),
+      mergePendingMessages(conversation?.messages ?? [], [
+        currentPending?.userMessage,
+        currentPending?.replyText
+          ? streamingReplyMessage(
+              currentPending.clientId,
+              currentPending.replyText,
+              currentPending.userMessage?.createdAt ?? new Date(),
+            )
+          : undefined,
+      ]),
     [conversation?.messages, currentPending],
   )
 
@@ -738,7 +840,9 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     conversationError,
     isConversationNotFound: isNotFoundError(conversationError),
     isLoadingConversations,
-    isThinking: isSending,
+    isThinking: isSending && !currentPending?.replyText,
+    canCancelReply: !!currentPending?.abort,
+    cancelReply,
   }
 
   return (

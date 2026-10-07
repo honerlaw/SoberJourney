@@ -196,7 +196,7 @@ describe("runStreamSponsorChat", () => {
       h.stored.map((r) => r.content),
       ["enc:I feel an urge", "enc:You've got this."],
     );
-    const [contents] = h.chatStream.mock.calls[0]!.arguments as [
+    const [contents] = h.chatStream.mock.calls[0]!.arguments as unknown as [
       Array<{ role: string; parts: Array<{ text: string }> }>,
     ];
     assert.deepEqual(contents.at(-1), {
