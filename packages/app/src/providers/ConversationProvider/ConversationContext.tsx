@@ -15,17 +15,45 @@ export type Message = Conversation["messages"][number]
 
 export type MessageRole = Message["role"]
 
+/** Shape of a `conversation.list` response (one page of the drawer). */
+export type ConversationListOutput = RouterOutputs["conversation"]["list"]
+
 /** A drawer entry, as returned by `conversation.list`. */
 export type ConversationListItem =
-  RouterOutputs["conversation"]["list"]["conversations"][number]
+  ConversationListOutput["conversations"][number]
 
 export type ConversationContextType = {
   conversationId: string | null
   conversation: Conversation | null
   conversations: ConversationListItem[]
   messages: Message[]
-  /** Resolves `true` when the send succeeded, `false` otherwise. Never rejects. */
+  /**
+   * Resolves `true` when the message reached the server (the input clears),
+   * even if the reply then failed: the saved message is shown with a Retry
+   * action (`retryableMessageId`). Resolves `false` when the server did not
+   * keep it (the text stays in, or is restored to, the input). Never rejects.
+   */
   sendMessage: (text: string) => Promise<boolean>
+  /**
+   * Server id of the newest message when it is a saved USER message with no
+   * reply (a failed turn) and nothing is in flight; null otherwise.
+   */
+  retryableMessageId: string | null
+  /** Generates the missing reply to a saved user message without re-saving it. Never rejects. */
+  retryMessage: (messageId: string) => Promise<boolean>
+  /** Deletes a conversation (after the UI confirmed). Resolves `true` when it is gone. Never rejects. */
+  deleteConversation: (id: string) => Promise<boolean>
+  /** Renames a conversation. Resolves `true` on success. Never rejects. */
+  renameConversation: (id: string, title: string) => Promise<boolean>
+  /** A send or retry is in flight for this conversation (delete is disabled then). */
+  isConversationBusy: (id: string) => boolean
+  /** Older messages of the current conversation exist on the server. */
+  hasOlderMessages: boolean
+  isLoadingOlderMessages: boolean
+  loadOlderMessages: () => void
+  hasMoreConversations: boolean
+  isLoadingMoreConversations: boolean
+  loadMoreConversations: () => void
   createConversation: () => Promise<void>
   selectConversation: (id: string) => void
   /** Lazily resolves the initial conversation. Idempotent. */

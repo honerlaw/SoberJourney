@@ -5,9 +5,10 @@ import { router } from "../../../router.mjs";
 import { list, listConversationsInput } from "../list.mjs";
 import { get } from "../get.mjs";
 import { remove } from "../remove.mjs";
+import { rename, normalizeRenameTitle } from "../rename.mjs";
 
 const CONVERSATION_ID = "11111111-1111-4111-8111-111111111111";
-const appRouter = router({ list, get, remove });
+const appRouter = router({ list, get, remove, rename });
 
 const conv = (id: string, title: string | null, n: number) => ({
   id,
@@ -183,6 +184,65 @@ describe("conversation.remove", () => {
     await assert.rejects(
       caller({ remove: async () => null }).remove({
         conversationId: CONVERSATION_ID,
+      }),
+      (error: unknown) =>
+        error instanceof TRPCError && error.code === "NOT_FOUND",
+    );
+  });
+});
+
+describe("conversation.rename", () => {
+  it("normalizes the title and returns the conversation", async () => {
+    const renameFn = mock.fn(
+      async (_id: string, _user: string, title: string) => ({
+        ...conv(CONVERSATION_ID, title, 1),
+      }),
+    );
+    const result = await caller({ rename: renameFn }).rename({
+      conversationId: CONVERSATION_ID,
+      title: "  My\n  sober   plan \t ",
+    });
+    assert.deepEqual(renameFn.mock.calls[0]!.arguments, [
+      CONVERSATION_ID,
+      "user-1",
+      "My sober plan",
+    ]);
+    assert.deepEqual(result, {
+      conversation: {
+        id: CONVERSATION_ID,
+        title: "My sober plan",
+        createdAt: new Date(1),
+        updatedAt: new Date(2),
+      },
+    });
+  });
+
+  it("clamps an over-long title at a word boundary instead of rejecting it", () => {
+    const long = "word ".repeat(40);
+    const title = normalizeRenameTitle(long);
+    assert.ok(title.length <= 100);
+    assert.ok(!title.endsWith(" "));
+    assert.equal(normalizeRenameTitle("x".repeat(150)).length, 100);
+  });
+
+  it("rejects an empty title with BAD_REQUEST (never UNAUTHORIZED)", async () => {
+    const renameFn = mock.fn();
+    await assert.rejects(
+      caller({ rename: renameFn }).rename({
+        conversationId: CONVERSATION_ID,
+        title: " \n ",
+      }),
+      (error: unknown) =>
+        error instanceof TRPCError && error.code === "BAD_REQUEST",
+    );
+    assert.equal(renameFn.mock.callCount(), 0);
+  });
+
+  it("returns NOT_FOUND when missing or not owned", async () => {
+    await assert.rejects(
+      caller({ rename: async () => null }).rename({
+        conversationId: CONVERSATION_ID,
+        title: "x",
       }),
       (error: unknown) =>
         error instanceof TRPCError && error.code === "NOT_FOUND",

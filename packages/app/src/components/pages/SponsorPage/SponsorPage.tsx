@@ -1,6 +1,6 @@
-import { YStack, ScrollView } from "tamagui"
-import { useCallback, useEffect, useRef } from "react"
-import type { ScrollView as ScrollViewType } from "react-native"
+import { YStack, Spinner } from "tamagui"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { FlatList, type ListRenderItem } from "react-native"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs"
 import { useNavigation } from "expo-router"
 
@@ -12,14 +12,15 @@ import { ChatInput } from "./ChatInput"
 import { ThinkingIndicator } from "./ThinkingIndicator"
 import { EmptyChatView } from "./EmptyChatView"
 import { ChatErrorView } from "./ChatErrorView"
+import { RetryNotice } from "./RetryNotice"
+import type { Message } from "@/src/providers/ConversationProvider"
+import { LIST_PLACEHOLDER_TITLE } from "@/src/providers/ConversationProvider/conversationCache"
 
 /** Must match the static `headerTitle` of the sponsor tab in `(tabs)/_layout.tsx`. */
 const DEFAULT_HEADER_TITLE = "Sponsor"
-/** Title `conversation.list` returns for an untitled conversation. */
-const LIST_PLACEHOLDER_TITLE = "New conversation"
 
 export const SponsorPage: React.FC = () => {
-  const scrollViewRef = useRef<ScrollViewType>(null)
+  const listRef = useRef<FlatList<Message>>(null)
   const tabBarHeight = useBottomTabBarHeight()
   const keyboardHeight = useKeyboardHeight()
   const navigation = useNavigation()
@@ -44,6 +45,11 @@ export const SponsorPage: React.FC = () => {
     conversationError,
     isConversationNotFound,
     isThinking,
+    retryableMessageId,
+    retryMessage,
+    hasOlderMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
   } = useConversation()
 
   // Resolve the initial conversation only once the user opens Sponsor.
@@ -63,15 +69,35 @@ export const SponsorPage: React.FC = () => {
     navigation.setOptions({ headerTitle })
   }, [navigation, headerTitle])
 
-  // Scroll to bottom when messages change, when sending (to show the thinking
-  // indicator), or when the keyboard opens.
+  // The list is inverted (newest message at the bottom, offset 0), so it
+  // stays anchored at the newest message on its own. Jump back there when a
+  // send or retry starts, in case the user had scrolled up.
   useEffect(() => {
-    if (!messages.length && !isSending) return
-    const timer = setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true })
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [messages.length, isSending, keyboardHeight])
+    if (!isSending) return
+    listRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }, [isSending])
+
+  // Inverted list data: newest first.
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages])
+
+  const renderMessage = useCallback<ListRenderItem<Message>>(
+    ({ item }) => (
+      <YStack>
+        <MessageBubble message={item} />
+        {item.id === retryableMessageId ? (
+          <RetryNotice onRetry={() => void retryMessage(item.id)} />
+        ) : null}
+      </YStack>
+    ),
+    [retryableMessageId, retryMessage],
+  )
+
+  const onEndReached = useCallback(() => {
+    // Can fire right away when the content is shorter than the viewport.
+    if (hasOlderMessages && !isLoadingOlderMessages) {
+      loadOlderMessages()
+    }
+  }, [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages])
 
   const failedDraft = conversationId ? failedDrafts[conversationId] : undefined
   const onFailedDraftConsumed = useCallback(() => {
@@ -126,20 +152,33 @@ export const SponsorPage: React.FC = () => {
   return (
     <YStack flex={1}>
       {hasMessages ? (
-        <ScrollView
-          ref={scrollViewRef}
-          flex={1}
+        <FlatList
+          // A fresh list per conversation: opens at the newest message rather
+          // than at the previous conversation's scroll offset.
+          key={conversationId ?? "none"}
+          ref={listRef}
+          inverted
+          data={invertedMessages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          extraData={retryableMessageId}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          // Inverted: the header renders at the bottom, the footer at the top.
+          ListHeaderComponent={isThinking ? <ThinkingIndicator /> : null}
+          ListFooterComponent={
+            isLoadingOlderMessages ? (
+              <YStack paddingVertical="$3" alignItems="center">
+                <Spinner accessibilityLabel="Loading older messages" />
+              </YStack>
+            ) : null
+          }
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-        >
-          <YStack gap="$3" flex={1} paddingHorizontal="$3">
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))}
-            {isThinking && <ThinkingIndicator />}
-          </YStack>
-        </ScrollView>
+        />
       ) : (
         <EmptyChatView />
       )}
