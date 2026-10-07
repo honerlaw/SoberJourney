@@ -21,6 +21,8 @@
     - fix (arbiter 9): importers grepped (only CustomEventSource/* + TRPCProvider); verify-*.ts convention recorded; HTTP test pins non-JSONL responses identical
 - [reviewed — clean] whole-proposal (first wave, discarded as stale): Skeptic accepted (responseMeta gating safe for released apps; refactor must keep persist-then-read order)
 - [reviewed — clean] whole-proposal (restart): re-reviewed because the approach fold rewrote ## Success criteria (tier: reviewer; parallel wave restart). Skeptic accepted; non-load-bearing polish applied: abort-after-completion test added to criterion 3, burst-delivery + lost-done verify cases added to criterion 6, expo lint made unconditional in criterion 7, native rebuild release note
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–7 (232 tests, verify script, tsc, lints); PR body deferred to ship (tier: reviewer floor — no interface change beyond what the proposal approved)
+- [solo] review triage: 11 FIX / 0 SUGGEST / 1 IGNORE (tier: default-solo row — no finding had two defensible dispositions; #11 is the documented ChatInput contract)
 
 ## Work notes 2026-10-07
 - Server half committed (88a856d). `runSponsorChat` split into startTurn / buildGeneration / finishReply; `generateReply` composes them so sponsorChat + retry tests pass unmodified. 232 server tests green.
@@ -30,3 +32,18 @@
 - Fallback detector keys on `data.code === "NOT_FOUND" && data.path === <stream path>` only (panel fix). It also matches the procedure's own pre-save "Conversation not found." — harmless: the fallback `sponsorChat` then fails the same way with nothing saved.
 - Streamed sends run through `useMutation({ mutationFn })` so their errors still reach the global MutationCache auth/logout handler.
 - `npm uninstall eventsource rn-eventsource-reborn`: lockfile diff removes only those packages (+ `eventsource-parser` and rn-eventsource-reborn's bundled shrinkwrap tree); the router/rpc-websockets hunks are diff alignment noise.
+
+## Review triage 2026-10-07
+Sources: completion Verifier (accept, all criteria met; PR body at ship) + independent local-diff code review (12 findings).
+1. [high] FIX — Hermes lacks WritableStream (tRPC JSONL reader `pipeTo(new WritableStream)`); TRPCProvider now installs Readable/Transform/WritableStream together from web-streams-polyfill unless all three exist natively (no mixed implementations; expo/fetch builds its body from the global at runtime).
+2. [medium] FIX — Stop / dropped connection before `saved` could refetch before the server persisted → draft restored → duplicate on re-send. Now: not provably saved + no server error response → re-check once after 1.5 s before restoring the text.
+3. [medium] FIX — `saved` received but refetch failed → was "not-saved". Now a `saved` event forces at least "saved-unanswered".
+4. [low] FIX — fallback `sponsorChat` call now gets the abort signal (Stop works on a rolled-back server).
+5. [low] FIX — fallback uses the vanilla client inside the outer mutation (no double MutationCache onError); the separate `sponsorChat` useMutation is gone.
+6. [low] FIX — `throwIfAborted()` after every streamed chunk, so a stopped reply is never persisted even if the SDK keeps delivering buffered chunks.
+7. [low] FIX — `saved` now emitted from `startTurn`'s `onSaved` right after persisting (before history reads), matching the proposal; test added.
+8. [low] FIX — lockfile rebuilt from the base lockfile with only eventsource / eventsource-parser / rn-eventsource-reborn (883 entries) and the two app deps removed (npm 11.19 had flipped 174 unrelated `peer` flags); `npm ci --dry-run` OK.
+9. [low] FIX — single reducer: the provider's pending reply text comes from the `applyStreamEvent` state via `onProgress`.
+10. [low] FIX — TRPCProvider imports `STREAM_PROCEDURE_PATH`.
+11. [low] IGNORE — sent text stays in the disabled input until the turn resolves: pre-existing ChatInput contract (text kept until the send resolves so a failure never loses it), unchanged by streaming.
+12. [low] FIX — tests added: responseMeta with missing/other `info`, abort after ownership check before persist, error after a yield delivered with code/httpStatus over JSONL. Client provider flows stay on the manual gate.

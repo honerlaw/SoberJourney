@@ -25,13 +25,31 @@ import { useCalendars } from "expo-localization"
 
 // Polyfills for the streamed (JSONL) responses read by httpBatchStreamLink
 import "@azure/core-asynciterator-polyfill"
-import { ReadableStream, TransformStream } from "web-streams-polyfill"
+import {
+  ReadableStream,
+  TransformStream,
+  WritableStream,
+} from "web-streams-polyfill"
 import { streamingFetch } from "@/src/utils/streamingFetch"
+import { STREAM_PROCEDURE_PATH } from "@/src/providers/ConversationProvider/conversationCache"
 
-// Ensure global objects are available for React Native
-if (typeof globalThis !== "undefined") {
-  globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream
-  globalThis.TransformStream = globalThis.TransformStream || TransformStream
+// tRPC's JSONL reader pipes the response body (a ReadableStream, created by
+// expo/fetch from the global at runtime) through TransformStreams into a
+// WritableStream. Hermes has none of these. Streams only pipe into streams of
+// the same implementation, so unless all three exist natively (web), install
+// all three from one polyfill.
+if (
+  typeof globalThis !== "undefined" &&
+  (typeof globalThis.ReadableStream === "undefined" ||
+    typeof globalThis.TransformStream === "undefined" ||
+    typeof globalThis.WritableStream === "undefined")
+) {
+  globalThis.ReadableStream =
+    ReadableStream as unknown as typeof globalThis.ReadableStream
+  globalThis.TransformStream =
+    TransformStream as unknown as typeof globalThis.TransformStream
+  globalThis.WritableStream =
+    WritableStream as unknown as typeof globalThis.WritableStream
 }
 
 const context = createTRPCContext<AppRouter>()
@@ -45,9 +63,7 @@ export const useTRPCClient = context.useTRPCClient
  * Procedures whose output is streamed (an async iterable). Only these go
  * through `httpBatchStreamLink`; everything else keeps the plain batch link.
  */
-const STREAMED_PATHS: ReadonlySet<string> = new Set([
-  "conversation.streamSponsorChat",
-])
+const STREAMED_PATHS: ReadonlySet<string> = new Set([STREAM_PROCEDURE_PATH])
 
 // Auth errors: a released server only returns UNAUTHORIZED / 401 for real auth
 // failures (epic #34 rule 4), so these are the logout candidates.

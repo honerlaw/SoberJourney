@@ -79,6 +79,7 @@ function harness(options: {
   title?: string | null;
   beforePersistModel?: () => Promise<void>;
   noUser?: boolean;
+  onLoad?: (call: number) => void;
 }) {
   const events: string[] = [];
   const stored: Row[] = [];
@@ -95,8 +96,10 @@ function harness(options: {
       return row;
     },
   );
+  let loads = 0;
   const getMessagesPage = mock.fn(async () => {
     events.push("load");
+    options.onLoad?.(++loads);
     if (options.conversationExists === false) return null;
     return {
       conversation: { id: CONVERSATION_ID, title: options.title ?? "Titled" },
@@ -388,6 +391,40 @@ describe("runStreamSponsorChat", () => {
     assert.deepEqual(
       h.stored.map((r) => r.content),
       ["enc:I feel an urge", "enc:done text"],
+    );
+  });
+
+  it("persists nothing when aborted after the ownership check, before saving", async () => {
+    const abort = new AbortController();
+    const h = harness({
+      stream: streamOf(["x"]),
+      onLoad: (call) => {
+        if (call === 1) abort.abort();
+      },
+    });
+    const { events, error } = await collect(
+      runStreamSponsorChat(h.ctx, input, abort.signal),
+    );
+    assert.deepEqual(events, []);
+    assert.equal(error, undefined);
+    await waitForLockRelease();
+    assert.equal(h.stored.length, 0);
+    assert.equal(h.chatStream.mock.callCount(), 0);
+  });
+
+  it("emits saved right after persisting, before an error reading history", async () => {
+    const h = harness({
+      stream: streamOf(["x"]),
+      onLoad: (call) => {
+        if (call === 2) throw new Error("db down");
+      },
+    });
+    const { events, error } = await collect(runStreamSponsorChat(h.ctx, input));
+    assert.deepEqual(events, [{ type: "saved", userMessageId: "m1" }]);
+    assert.ok(error instanceof Error);
+    assert.deepEqual(
+      h.stored.map((r) => r.role),
+      ["USER"],
     );
   });
 });

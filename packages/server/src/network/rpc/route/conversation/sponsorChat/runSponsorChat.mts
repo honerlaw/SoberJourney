@@ -94,12 +94,18 @@ export type StartedTurn = {
   params: GenerateReplyParams;
 };
 
+export type StartTurnOptions = {
+  // Checked right before persisting: when aborted, nothing is persisted and
+  // the abort reason is thrown.
+  signal?: AbortSignal;
+  // Called right after the user's message is persisted.
+  onSaved?: (userMessageId: string) => void;
+};
+
 /**
  * The first half of a sponsor-chat turn, shared by sponsorChat and
  * streamSponsorChat (callers hold the conversation lock): ownership check,
- * persist the user's message, then read history and check-ins. When `signal`
- * is already aborted right before persisting, nothing is persisted and the
- * abort reason is thrown.
+ * persist the user's message, then read history and check-ins.
  */
 export async function startTurn(
   ctx: Context,
@@ -107,7 +113,7 @@ export async function startTurn(
   storedTimeZone: string | null | undefined,
   input: SponsorChatInput,
   now: Date,
-  signal?: AbortSignal,
+  options: StartTurnOptions = {},
 ): Promise<StartedTurn> {
   // Ownership check (and the title), plus the user's journeys
   const [conversationCheck, journeys] = await Promise.all([
@@ -122,7 +128,7 @@ export async function startTurn(
   }
   const conversationTitle = conversationCheck.conversation.title;
 
-  signal?.throwIfAborted();
+  options.signal?.throwIfAborted();
 
   // Persist the user's message before generating, so it survives any failure.
   const userMessage = await persistMessage(
@@ -132,6 +138,7 @@ export async function startTurn(
     MessageRole.USER,
     input.text,
   );
+  options.onSaved?.(userMessage.id);
 
   // History is read after persisting, so even an unserialized concurrent turn
   // (lock wait timed out, or another instance) sees every committed user row.

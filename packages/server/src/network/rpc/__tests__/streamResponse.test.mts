@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import express from "express";
 import superjson from "superjson";
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import {
   STREAM_RESPONSE_HEADERS,
@@ -30,6 +30,10 @@ const appRouter = t.router({
       releaseSecond = resolve;
     });
     yield { n: 2 };
+  }),
+  failsAfterYield: t.procedure.mutation(async function* () {
+    yield { saved: true };
+    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "busy" });
   }),
   // Records the request signal and stays open until it aborts.
   abortable: t.procedure.mutation(async function* ({ signal }) {
@@ -132,6 +136,31 @@ describe("streamed tRPC responses", () => {
       await new Promise((r) => setTimeout(r, 10));
     }
     assert.equal(abortableSignal?.aborted, true);
+  });
+
+  it("delivers an error thrown after a yield with its code (client error handling)", async () => {
+    const response = await fetch(urlOf(withMeta, "failsAfterYield?batch=1"), {
+      method: "POST",
+      headers: JSONL_HEADERS,
+      body: JSON.stringify({ 0: {} }),
+    });
+    const body = await response.text();
+    assert.match(body, /"saved":true/);
+    assert.match(body, /"code":"TOO_MANY_REQUESTS"/);
+    assert.match(body, /"httpStatus":429/);
+  });
+
+  it("adds headers only for JSONL requests and tolerates a missing info", () => {
+    assert.deepEqual(streamResponseMeta({}), {});
+    assert.deepEqual(streamResponseMeta({ info: undefined }), {});
+    const info = (accept: string | null) =>
+      ({ accept }) as unknown as Parameters<
+        typeof streamResponseMeta
+      >[0]["info"];
+    assert.deepEqual(streamResponseMeta({ info: info(null) }), {});
+    assert.deepEqual(streamResponseMeta({ info: info("application/jsonl") }), {
+      headers: { ...STREAM_RESPONSE_HEADERS },
+    });
   });
 
   it("leaves non-streamed responses unchanged", async () => {

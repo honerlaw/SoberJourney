@@ -12,7 +12,6 @@ import {
   ConversationContext,
   type ConversationContextType,
   type Message,
-  type SponsorChatStreamEvent,
 } from "./ConversationContext"
 import {
   appendToNewestPage,
@@ -38,6 +37,7 @@ import {
   trimToNewestPage,
   type ConversationListPages,
   type ConversationPages,
+  type StreamState,
 } from "./conversationCache"
 
 /**
@@ -58,10 +58,19 @@ type StreamTurnVariables = {
   conversationId: string
   text: string
   signal: AbortSignal
-  onEvent: (event: SponsorChatStreamEvent) => void
+  /** Called with the stream's state after every event. */
+  onProgress: (state: StreamState) => void
 }
 
 type TurnResult = { response: string }
+
+/**
+ * After a failed send that the client cannot prove reached the server (no
+ * `saved` event, no error response from the server), how long to wait before
+ * checking a second time whether the server saved it anyway, e.g. when Stop
+ * or a dropped connection raced the server persisting the message.
+ */
+const UNCONFIRMED_SEND_RECHECK_MS = 1_500
 
 /** Delays (ms) after a first message at which the drawer list is refetched to pick up the async title. */
 const TITLE_REFRESH_DELAYS_MS = [3_000, 8_000]
@@ -179,10 +188,6 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     trpc.conversation.rename.mutationOptions(),
   )
 
-  const { mutateAsync: sendMessageMutation } = useMutation(
-    trpc.conversation.sponsorChat.mutationOptions(),
-  )
-
   // A streamed send, run through useMutation so its errors reach the global
   // MutationCache handler (auth / logout) like every other call.
   const { mutateAsync: streamMessageMutation } = useMutation({
@@ -190,7 +195,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       conversationId: id,
       text,
       signal,
-      onEvent,
+      onProgress,
     }: StreamTurnVariables): Promise<TurnResult> => {
       let state = INITIAL_STREAM_STATE
       let received = false
@@ -202,7 +207,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         for await (const event of events) {
           received = true
           state = applyStreamEvent(state, event)
-          onEvent(event)
+          onProgress(state)
         }
       } catch (error) {
         // A server without the streaming procedure (e.g. rolled back): use
@@ -213,7 +218,10 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
           error instanceof TRPCClientError &&
           isMissingProcedureError(error.data)
         ) {
-          return await sendMessageMutation({ conversationId: id, text })
+          return await trpcClient.conversation.sponsorChat.mutate(
+            { conversationId: id, text },
+            { signal },
+          )
         }
         throw error
       }
@@ -400,19 +408,19 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       }))
       void queryClient.cancelQueries({ queryKey })
 
+      // Server id of the user message once the server reported it saved.
+      let savedUserMessageId: string | null = null
       // Streamed text goes into this send's own pending entry (never another
       // conversation's), and only while this send is still the pending one.
-      const onEvent = (event: SponsorChatStreamEvent) => {
-        if (event.type !== "delta") return
+      const onProgress = (state: StreamState) => {
+        savedUserMessageId = state.userMessageId
         updatePending((prev) => {
           const current = prev[targetId]
           if (current?.clientId !== clientId) return prev
+          if (current.replyText === state.replyText) return prev
           return {
             ...prev,
-            [targetId]: {
-              ...current,
-              replyText: (current.replyText ?? "") + event.text,
-            },
+            [targetId]: { ...current, replyText: state.replyText },
           }
         })
       }
@@ -422,7 +430,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
           conversationId: targetId,
           text,
           signal: abort.signal,
-          onEvent,
+          onProgress,
         })
         const reply: Message = {
           id: replyIdFor(clientId),
@@ -456,10 +464,28 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         // stopped. Check (newest page only) while the pending bubble is still
         // shown; restore the typed text only when the server did not keep a
         // new copy of it. Never re-sent automatically.
-        const after = await refreshConversation(targetId)
-        const outcome = after
-          ? classifyFailedSend(flattenMessages(after), text, knownServerIds)
-          : "not-saved"
+        const saved = savedUserMessageId !== null
+        const check = async () => {
+          const after = await refreshConversation(targetId)
+          const result = after
+            ? classifyFailedSend(flattenMessages(after), text, knownServerIds)
+            : "not-saved"
+          // The server said it saved the message: never offer to re-send it.
+          return saved && result === "not-saved" ? "saved-unanswered" : result
+        }
+        let outcome = await check()
+        // Not provably saved and no error response from the server (Stop, a
+        // dropped connection): the server may still be about to persist it.
+        // Check once more before giving the text back, so a re-send does not
+        // duplicate it.
+        const serverResponded =
+          error instanceof TRPCClientError && error.data != null
+        if (outcome === "not-saved" && !saved && !serverResponded) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, UNCONFIRMED_SEND_RECHECK_MS),
+          )
+          outcome = await check()
+        }
         clearPending(targetId)
         if (outcome === "not-saved") {
           if (!cancelled) showError(error, "Failed to send message.")

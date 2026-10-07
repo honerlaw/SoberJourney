@@ -80,9 +80,12 @@ export async function* runStreamSponsorChat(
         user.timezone,
         input,
         now(),
-        abort.signal,
+        {
+          signal: abort.signal,
+          onSaved: (userMessageId) =>
+            channel.push({ type: "saved", userMessageId }),
+        },
       );
-      channel.push({ type: "saved", userMessageId: started.userMessageId });
 
       const generation = await buildGeneration(ctx, started.params);
       abort.signal.throwIfAborted();
@@ -100,6 +103,9 @@ export async function* runStreamSponsorChat(
             result = next.value;
             break;
           }
+          // Do not rely on the SDK alone to stop on abort: a stopped reply
+          // must never be persisted.
+          abort.signal.throwIfAborted();
           channel.push({ type: "delta", text: next.value });
         }
       } catch (error) {
