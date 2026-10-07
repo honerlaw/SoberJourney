@@ -1,1 +1,2 @@
-export { useExpoNotifications } from "./useExpoNotifications"
+export { useNotificationPermission } from "./useNotificationPermission"
+export { usePushTokenSync } from "./usePushTokenSync"
