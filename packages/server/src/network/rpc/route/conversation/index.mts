@@ -6,3 +6,4 @@ export { create } from "./create.mjs";
 export { remove } from "./remove.mjs";
 export { rename } from "./rename.mjs";
 export { retrySponsorChat } from "./retrySponsorChat.mjs";
+export { streamSponsorChat } from "./streamSponsorChat.mjs";
