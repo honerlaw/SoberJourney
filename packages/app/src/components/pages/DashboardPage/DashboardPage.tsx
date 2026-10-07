@@ -22,10 +22,14 @@ export const DashboardPage: React.FC = () => {
   const { reorderJourneys } = useJourneyReorder()
   const [localJourneys, setLocalJourneys] = useState<JourneyItem[]>([])
   const isDragging = useRef(false)
+  // Latest server order, used to roll back a failed reorder
+  const serverJourneysRef = useRef<JourneyItem[]>(journeys)
   const { bottom } = useSafeAreaInsets()
 
   // Sync local state with server data
   useEffect(() => {
+    serverJourneysRef.current = journeys
+
     // Don't sync while actively dragging to prevent flickering
     if (isDragging.current) return
 
@@ -48,8 +52,15 @@ export const DashboardPage: React.FC = () => {
         position: index,
       }))
 
-      await reorderJourneys(items)
-      isDragging.current = false
+      try {
+        const success = await reorderJourneys(items)
+        if (!success) {
+          // Roll back to the last known server order
+          setLocalJourneys(serverJourneysRef.current)
+        }
+      } finally {
+        isDragging.current = false
+      }
     },
     [reorderJourneys],
   )

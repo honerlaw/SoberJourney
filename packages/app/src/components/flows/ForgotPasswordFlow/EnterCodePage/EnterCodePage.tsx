@@ -6,8 +6,15 @@ import { useForgotPasswordContext } from "../providers/ForgotPasswordProvider"
 
 export const EnterCodePage: React.FC = () => {
   const router = useRouter()
-  const { emailAddress, code, setCode, errors, isSubmitting, onCodeSubmit } =
-    useForgotPasswordContext()
+  const {
+    emailAddress,
+    code,
+    setCode,
+    errors,
+    isSubmitting,
+    onCodeSubmit,
+    goBackToEmailStep,
+  } = useForgotPasswordContext()
 
   const handleCodeSubmit = async () => {
     const success = await onCodeSubmit()
@@ -18,6 +25,7 @@ export const EnterCodePage: React.FC = () => {
   }
 
   const handleBackPress = () => {
+    goBackToEmailStep()
     router.back()
   }
   return (

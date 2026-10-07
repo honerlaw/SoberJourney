@@ -5,6 +5,7 @@ import {
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import { UserPushNotificationScheduleFrequency } from "../../../../generated/prisma/enums.js";
+import { journeyTitleSchema } from "./inputs.mjs";
 
 const notificationSettingsSchema = z.object({
   enabled: z.boolean(),
@@ -17,9 +18,9 @@ const notificationSettingsSchema = z.object({
   minuteOfDay: z.number().min(0).max(1439), // 0-1439 (24 hours * 60 minutes - 1)
 });
 
-const updateJourneyInput = z.object({
+export const updateJourneyInput = z.object({
   journeyId: z.uuid(),
-  title: z.string().min(1, "Journey name is required."),
+  title: journeyTitleSchema,
   notificationSettings: notificationSettingsSchema.optional(),
 });
 

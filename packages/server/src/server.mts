@@ -1,30 +1,41 @@
 import { clerkMiddleware } from "@clerk/express";
 import express from "express";
 import path from "path";
-import { contextMiddleware } from "./context.mjs";
 import { expressTRPCMiddleware } from "./network/rpc/index.mjs";
-import { config } from "./network/http/index.mjs";
+import { apiNotFound, config } from "./network/http/index.mjs";
 import { getConfig } from "./util/config.mjs";
 import cors from "cors";
 import { register, logger } from "./util/logger/index.mjs";
-import { redirectToWwwMiddleware } from "./util/middleware/redirect.mjs";
+import {
+  parseApexHosts,
+  redirectToWwwMiddleware,
+} from "./util/middleware/redirect.mjs";
 import * as dataMigrations from "./util/migrations/index.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
+const REDIRECT_APEX_HOSTS = await getConfig(
+  "REDIRECT_APEX_HOSTS",
+  "soberjourney.app",
+);
 
-app.use(redirectToWwwMiddleware);
+// the app runs behind a single TLS terminating proxy hop
+app.set("trust proxy", 1);
+
+app.use(redirectToWwwMiddleware(parseApexHosts(REDIRECT_APEX_HOSTS)));
 
 app.use(
   clerkMiddleware({
-    debug: true,
+    // read directly so a config load failure can never re-enable debug
+    debug: process.env.NODE_ENV !== "production",
     enableHandshake: true,
   }),
 );
 
 app.use(cors());
 
-app.use(contextMiddleware());
+// note: the request context (and user upsert) is created once per request by
+// the tRPC adapter, so it is intentionally not a global middleware
 
 register({ app: app as unknown as express.Express, logger });
 
@@ -35,6 +46,9 @@ app.get("/api/health", express.json(), (req, res) =>
 app.use("/api/trpc", express.json(), expressTRPCMiddleware);
 
 app.use("/api/app/config", express.json(), config);
+
+// unknown api paths should not fall through to the SPA's index.html
+app.all("/api/{*splat}", apiNotFound);
 
 // Serve static files from public directory (including .well-known)
 app.use(express.static(path.join(process.cwd(), "public")));

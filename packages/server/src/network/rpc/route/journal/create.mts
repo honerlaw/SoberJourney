@@ -5,8 +5,15 @@ import {
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
 
-const createJournalEntryInput = z.object({
-  content: z.string().min(1, "Journal entry content is required."),
+// generous bound, released apps have no limit on the journal input (the
+// request body is already capped at 100kb by express.json)
+export const MAX_JOURNAL_CONTENT_LENGTH = 100_000;
+
+export const createJournalEntryInput = z.object({
+  content: z
+    .string()
+    .min(1, "Journal entry content is required.")
+    .max(MAX_JOURNAL_CONTENT_LENGTH, "Journal entry is too long."),
 });
 
 export const create = procedure

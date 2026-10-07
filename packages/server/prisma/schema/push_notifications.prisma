@@ -50,6 +50,7 @@ model UserPushNotification {
   @@unique([pushTokenId, scheduleId, receiptId])
   @@index([pushTokenId])
   @@index([scheduleId])
+  @@index([status])
 }
 
 // @todo implement a ONCE frequency if we ever need it
@@ -82,4 +83,6 @@ model UserPushNotificationSchedule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

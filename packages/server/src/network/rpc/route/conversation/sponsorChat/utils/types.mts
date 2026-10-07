@@ -7,23 +7,11 @@ import type {
 // Maximum message length to prevent excessive API costs (roughly ~4,000 words)
 const MAX_MESSAGE_LENGTH = 16000;
 
-// Patterns that could be used for prompt injection attacks
-const SPECIAL_TOKEN_PATTERNS = [
-  /<\|[\w_]+\|>/gi, // Tokens like <|im_start|>, <|endoftext|>, <|system|>
-  /\[\[[\w_]+\]\]/gi, // Tokens like [[SYSTEM]], [[USER]]
-  /<<[\w_]+>>/gi, // Tokens like <<SYS>>, <<INST>>
-];
-
-/**
- * Sanitizes user input by removing potential prompt injection tokens
- */
-const sanitizeInput = (text: string): string => {
-  let sanitized = text;
-  for (const pattern of SPECIAL_TOKEN_PATTERNS) {
-    sanitized = sanitized.replace(pattern, "");
-  }
-  return sanitized.trim();
-};
+// No prompt-injection token stripping: Gemini receives user text as a
+// structured `role: "user"` part, so other models' chat-template tokens
+// (<|im_start|>, [[SYSTEM]], <<SYS>>) have no special meaning, and stripping
+// them silently deleted legitimate text such as "<<draft>>" or "[[note]]".
+const normalizeInput = (text: string): string => text.trim();
 
 export const chatInput = z.object({
   conversationId: z.uuid(),
@@ -34,9 +22,9 @@ export const chatInput = z.object({
       MAX_MESSAGE_LENGTH,
       `Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`,
     )
-    .transform(sanitizeInput)
+    .transform(normalizeInput)
     .refine((text) => text.length > 0, {
-      message: "Message cannot be empty after sanitization",
+      message: "Message cannot be empty",
     }),
 });
 

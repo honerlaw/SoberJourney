@@ -16,6 +16,8 @@ import { JourneyNotFoundView } from "./JourneyNotFoundView"
 import { ResetHistoryCard } from "./ResetHistoryCard"
 import { CheckInsCard } from "./CheckInsCard"
 import type { TabValue } from "./types"
+import { deriveResetHistory } from "./utils/deriveResetHistory"
+import { isNotFoundError } from "./utils/isNotFoundError"
 
 const TABS = [
   { value: "checkins" as const, label: "Check-ins" },
@@ -30,25 +32,29 @@ export const JourneyInfoPage: React.FC = () => {
   const { bottom } = useSafeAreaInsets()
   const [activeTab, setActiveTab] = useState<TabValue>("checkins")
 
-  const lastEntry = journey?.entries[0]
+  const { startEntry, currentEntry, resets } = deriveResetHistory(
+    journey?.entries ?? [],
+  )
   const { sections } = useDurationSections({
-    startDate: lastEntry?.createdAt || new Date(),
+    startDate: currentEntry?.createdAt || new Date(),
   })
 
   if (isLoading) {
     return <LoadingView />
   }
 
+  // A deep link to a deleted journey surfaces as a NOT_FOUND error
+  if (isNotFoundError(error)) {
+    return <JourneyNotFoundView />
+  }
+
   if (error) {
     return <ErrorView error={error} />
   }
 
-  if (!journey || journey.entries.length === 0) {
+  if (!journey || !startEntry || !currentEntry) {
     return <JourneyNotFoundView />
   }
-
-  const resets = journey.entries.slice(1)
-  const startEntry = journey.entries[journey.entries.length - 1]
 
   return (
     <>
@@ -63,7 +69,7 @@ export const JourneyInfoPage: React.FC = () => {
           <CurrentStreakCard
             sections={sections}
             startDate={new Date(startEntry.createdAt)}
-            currentStreakDate={new Date(lastEntry!.createdAt)}
+            currentStreakDate={new Date(currentEntry.createdAt)}
             resetCount={resets.length}
           />
           <TabSelector
@@ -72,11 +78,7 @@ export const JourneyInfoPage: React.FC = () => {
             onTabChange={setActiveTab}
           />
           {activeTab === "resets" ? (
-            <ResetHistoryCard
-              resets={resets}
-              entries={journey.entries}
-              startEntry={startEntry}
-            />
+            <ResetHistoryCard resets={resets} />
           ) : (
             <CheckInsCard entries={checkInEntries} />
           )}

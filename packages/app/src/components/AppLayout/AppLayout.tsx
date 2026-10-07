@@ -12,9 +12,7 @@ import { isRunningInExpoGo } from "expo"
 import { Platform } from "react-native"
 import Head from "expo-router/head"
 import { CustomToast } from "../CustomToast"
-import { LoadingProvider } from "@/src/providers/LoadingProvider"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
-import { usePushNotifications } from "@/src/hooks/usePushNotifications"
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync()
@@ -49,9 +47,6 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     SplashScreen.hideAsync()
   })
 
-  // handle push notifications
-  usePushNotifications()
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {Platform.OS === "web" && (
@@ -64,12 +59,10 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           <AuthProvider>
             <TRPCProvider>
               <ToastProvider>
-                <LoadingProvider>
-                  {children}
-                  <StatusBar style="auto" />
-                  <ToastViewport />
-                  <CustomToast />
-                </LoadingProvider>
+                {children}
+                <StatusBar style="auto" />
+                <ToastViewport />
+                <CustomToast />
               </ToastProvider>
             </TRPCProvider>
           </AuthProvider>

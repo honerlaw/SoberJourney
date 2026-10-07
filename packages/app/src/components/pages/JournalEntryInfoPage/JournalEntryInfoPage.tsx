@@ -16,6 +16,7 @@ export const JournalEntryInfoPage: React.FC = () => {
   const { entry, isLoading, error } = useJournalEntryInfo(entryId)
   const { removeEntry, isPending } = useJournalRemove()
   const alertModalRef = useRef<AlertModalRef>(null)
+  const isDeletingRef = useRef(false)
   const { bottom } = useSafeAreaInsets()
 
   if (isLoading) {
@@ -39,8 +40,17 @@ export const JournalEntryInfoPage: React.FC = () => {
   const formattedTime = format(createdDate, "h:mm a")
 
   const onDelete = async () => {
-    await removeEntry(entryId)
-    router.back()
+    if (isDeletingRef.current) return
+    isDeletingRef.current = true
+    try {
+      // Only leave the page when the delete actually succeeded
+      const success = await removeEntry(entryId)
+      if (success) {
+        router.back()
+      }
+    } finally {
+      isDeletingRef.current = false
+    }
   }
 
   return (

@@ -103,7 +103,11 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     // this is the final text, so it shows the entire transcript
     // in final processing form
     if (event.isFinal) {
-      setText((prev) => prev + event.results[0]?.transcript)
+      const transcript = event.results[0]?.transcript?.trim() ?? ""
+      if (transcript) {
+        // Separate consecutive final results with a space.
+        setText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+      }
       // reset the interim text at the end of the final result
       setInterimText("")
       return
@@ -115,7 +119,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
 
   return {
     isListening,
-    text: text + interimText,
+    text: [text, interimText.trim()].filter(Boolean).join(" "),
     start,
     stop,
     reset,

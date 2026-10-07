@@ -26,6 +26,8 @@ model UserJourney {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /**
@@ -42,4 +44,6 @@ model UserJourneyEntry {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([journeyId])
 }

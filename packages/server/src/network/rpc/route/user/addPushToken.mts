@@ -2,15 +2,11 @@ import {
   InternalServerError,
   UnauthorizedError,
 } from "@onerlaw/framework/backend/rpc";
-import { z } from "zod";
 import { procedure } from "../../router.mjs";
-
-const addPushTokenInput = z.object({
-  token: z.string().min(1, "Push token is required."),
-});
+import { pushTokenInput } from "./pushTokenInput.mjs";
 
 export const addPushToken = procedure
-  .input(addPushTokenInput)
+  .input(pushTokenInput)
   .mutation(async ({ ctx, input }) => {
     if (!ctx.auth.user) {
       throw new UnauthorizedError();
@@ -23,6 +19,17 @@ export const addPushToken = procedure
 
     if (!pushToken) {
       throw new InternalServerError("Failed to add push token.");
+    }
+
+    // an explicit re-registration by the signed-in user means the token is
+    // live for them again (e.g. sign out revoked it, then they signed back in).
+    // Best effort: a failure is logged by the helper and never fails the
+    // registration, as released apps treat any error here as fatal.
+    if (pushToken.revoked) {
+      await ctx.database.user.reactivatePushToken(
+        ctx.auth.user.id,
+        input.token,
+      );
     }
 
     return {

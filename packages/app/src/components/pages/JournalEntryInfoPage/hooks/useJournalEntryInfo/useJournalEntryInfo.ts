@@ -2,7 +2,7 @@ import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider"
 import { useQuery } from "@tanstack/react-query"
 import { useFocusEffect } from "expo-router"
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 
 type JournalEntryInfo = {
   id: string
@@ -19,11 +19,13 @@ export function useJournalEntryInfo(entryId: string) {
     trpc.journal.get.queryOptions({ entryId }, { enabled: !!entryId }),
   )
 
-  useFocusEffect(() => {
-    if (entryId) {
-      refetch()
-    }
-  })
+  useFocusEffect(
+    useCallback(() => {
+      if (entryId) {
+        refetch()
+      }
+    }, [entryId, refetch]),
+  )
 
   useEffect(() => {
     if (error) {

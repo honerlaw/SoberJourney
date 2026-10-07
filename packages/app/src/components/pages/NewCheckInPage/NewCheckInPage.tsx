@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { YStack, Button } from "tamagui"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
@@ -22,6 +22,7 @@ export const NewCheckInPage: React.FC = () => {
   const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null)
   const [urgeStrength, setUrgeStrength] = useState<number>(1)
   const [journalEntry, setJournalEntry] = useState<string>("")
+  const isSubmittingRef = useRef(false)
 
   const onCompleteCheckIn = async () => {
     if (!journeyId) {
@@ -40,19 +41,26 @@ export const NewCheckInPage: React.FC = () => {
       return
     }
 
-    const success = await createCheckIn({
-      journeyId,
-      mood: selectedMood,
-      urgeStrength,
-      journalEntry: journalEntry.trim() || null,
-    })
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
-    if (success) {
-      toast.show("Check-in completed!", {
-        type: "success",
-        native: false,
+    try {
+      const success = await createCheckIn({
+        journeyId,
+        mood: selectedMood,
+        urgeStrength,
+        journalEntry: journalEntry.trim() || null,
       })
-      router.back()
+
+      if (success) {
+        toast.show("Check-in completed!", {
+          type: "success",
+          native: false,
+        })
+        router.back()
+      }
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 

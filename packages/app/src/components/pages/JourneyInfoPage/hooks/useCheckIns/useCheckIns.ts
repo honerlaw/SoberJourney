@@ -2,7 +2,7 @@ import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { useTRPC } from "@/src/providers/TRPCProvider/TRPCProvider"
 import { useQuery } from "@tanstack/react-query"
 import { useFocusEffect } from "expo-router"
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 
 export function useCheckIns(journeyId: string) {
   const { report } = useReportError()
@@ -15,11 +15,13 @@ export function useCheckIns(journeyId: string) {
     ),
   )
 
-  useFocusEffect(() => {
-    if (journeyId) {
-      refetch()
-    }
-  })
+  useFocusEffect(
+    useCallback(() => {
+      if (journeyId) {
+        refetch()
+      }
+    }, [journeyId, refetch]),
+  )
 
   useEffect(() => {
     if (error) {
