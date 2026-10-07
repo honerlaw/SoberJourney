@@ -1,11 +1,9 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { TRPCClientError } from "@trpc/client"
 import { useTRPC } from "@/src/providers/TRPCProvider"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
@@ -13,18 +11,45 @@ import { useToastError } from "@/src/hooks/useToastError"
 import {
   ConversationContext,
   type ConversationContextType,
-  type ConversationGetOutput,
   type Message,
 } from "./ConversationContext"
+import {
+  appendToNewestPage,
+  conversationFromPages,
+  createPendingId,
+  flattenConversations,
+  flattenMessages,
+  isSendConfirmedSaved,
+  mergePending,
+  nextConversationAfterDelete,
+  nextListCursor,
+  nextMessagesCursor,
+  removeFromList,
+  renameInList,
+  retryableMessageId as getRetryableMessageId,
+  serverMessageIds,
+  setConversationTitle,
+  trimToNewestPage,
+  type ConversationListPages,
+  type ConversationPages,
+} from "./conversationCache"
 
-/** An in-flight send, rendered as an optimistic user bubble until the reply lands. */
+/**
+ * An in-flight send (rendered as an optimistic user bubble until the reply
+ * lands) or retry (no bubble: the user message is already shown).
+ */
 type PendingSend = {
   clientId: string
-  userMessage: Message
+  userMessage?: Message
 }
 
 /** Delays (ms) after a first message at which the drawer list is refetched to pick up the async title. */
 const TITLE_REFRESH_DELAYS_MS = [3_000, 8_000]
+
+/** Messages per `conversation.get` page; older pages load on scroll up. */
+const MESSAGE_PAGE_SIZE = 30
+/** Drawer entries per `conversation.list` page. */
+const LIST_PAGE_SIZE = 20
 
 const errorCode = (error: unknown): string | undefined =>
   error instanceof TRPCClientError ? error.data?.code : undefined
@@ -43,9 +68,6 @@ const NON_RETRYABLE_CODES = new Set([
   "BAD_REQUEST",
 ])
 
-const createClientId = (): string =>
-  `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-
 export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
@@ -61,8 +83,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   const { report } = useReportError()
   const { handleError } = useToastError()
 
-  // Read through refs so no effect or callback depends on these identities
-  // (useToastError returns a new handleError every render).
+  // Read through refs so no effect or callback depends on these identities.
   const handleErrorRef = useRef(handleError)
   handleErrorRef.current = handleError
   const reportRef = useRef(report)
@@ -83,8 +104,8 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   }, [])
 
   /**
-   * Shows an error toast. Never throws: the toast hook can itself throw on
-   * some error shapes, and a throw here must not break a send's contract.
+   * Shows an error toast. Never throws: a throw here must not break a send's
+   * contract.
    */
   const showError = useCallback((error: unknown, fallbackMessage: string) => {
     try {
@@ -107,6 +128,17 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     [],
   )
 
+  const clearPending = useCallback(
+    (id: string) =>
+      updatePending((prev) => {
+        if (!(id in prev)) return prev
+        const next = { ...prev }
+        delete next[id]
+        return next
+      }),
+    [updatePending],
+  )
+
   const { mutateAsync: getOrCreateConversationMutation } = useMutation(
     trpc.conversation.getOrCreate.mutationOptions(),
   )
@@ -116,20 +148,41 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     isPending: isCreatingConversation,
   } = useMutation(trpc.conversation.create.mutationOptions())
 
+  const { mutateAsync: removeConversationMutation } = useMutation(
+    trpc.conversation.remove.mutationOptions(),
+  )
+
+  const { mutateAsync: renameConversationMutation } = useMutation(
+    trpc.conversation.rename.mutationOptions(),
+  )
+
+  const { mutateAsync: sendMessageMutation } = useMutation(
+    trpc.conversation.sponsorChat.mutationOptions(),
+  )
+
+  const { mutateAsync: retryMessageMutation } = useMutation(
+    trpc.conversation.retrySponsorChat.mutationOptions(),
+  )
+
   // Freshness is explicit (select / retry / failed send), never on
-  // mount/focus/reconnect, so a send never triggers a full refetch and nothing
-  // can refetch a conversation while one of its sends is in flight.
+  // mount/focus/reconnect, so a send never triggers a refetch and nothing can
+  // refetch a conversation while one of its sends is in flight. Pages are
+  // newest first; older ones load on scroll up.
   const {
     data: conversationData,
     error: conversationError,
     isLoading: isLoadingConversation,
+    hasNextPage: hasOlderMessages,
+    isFetchingNextPage: isLoadingOlderMessages,
+    fetchNextPage: fetchOlderMessages,
     refetch: refetchConversation,
-  } = useQuery(
-    trpc.conversation.get.queryOptions(
-      { conversationId: conversationId ?? "" },
+  } = useInfiniteQuery(
+    trpc.conversation.get.infiniteQueryOptions(
+      { conversationId: conversationId ?? "", limit: MESSAGE_PAGE_SIZE },
       {
         enabled: !!conversationId,
         staleTime: Infinity,
+        getNextPageParam: nextMessagesCursor,
         retry: (failureCount, error) => {
           const code = errorCode(error)
           return !(code && NON_RETRYABLE_CODES.has(code)) && failureCount < 3
@@ -138,11 +191,17 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     ),
   )
 
-  const { data: conversationsData, isLoading: isLoadingConversations } =
-    useQuery(trpc.conversation.list.queryOptions())
-
-  const { mutateAsync: sendMessageMutation } = useMutation(
-    trpc.conversation.sponsorChat.mutationOptions(),
+  const {
+    data: conversationsData,
+    isLoading: isLoadingConversations,
+    hasNextPage: hasMoreConversations,
+    isFetchingNextPage: isLoadingMoreConversations,
+    fetchNextPage: fetchMoreConversations,
+  } = useInfiniteQuery(
+    trpc.conversation.list.infiniteQueryOptions(
+      { limit: LIST_PAGE_SIZE },
+      { getNextPageParam: nextListCursor },
+    ),
   )
 
   useEffect(() => {
@@ -180,21 +239,67 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
   }, [runInit])
 
   const conversationQueryKey = useCallback(
-    (id: string) => trpc.conversation.get.queryKey({ conversationId: id }),
+    (id: string) =>
+      trpc.conversation.get.infiniteQueryKey({
+        conversationId: id,
+        limit: MESSAGE_PAGE_SIZE,
+      }),
     [trpc],
+  )
+
+  const listQueryKey = useMemo(
+    () => trpc.conversation.list.infiniteQueryKey({ limit: LIST_PAGE_SIZE }),
+    [trpc],
+  )
+
+  const invalidateList = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: trpc.conversation.list.pathKey(),
+      }),
+    [queryClient, trpc],
+  )
+
+  /**
+   * Refetches a conversation from its newest page only (one request however
+   * far the user scrolled). Resolves the refreshed cache entry; never rejects.
+   */
+  const refreshConversation = useCallback(
+    async (id: string): Promise<ConversationPages | undefined> => {
+      const queryKey = conversationQueryKey(id)
+      if (!queryClient.getQueryData(queryKey)) return undefined
+      queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
+        trimToNewestPage(old),
+      )
+      await queryClient
+        .refetchQueries({ queryKey }, { cancelRefetch: false })
+        .catch(() => undefined)
+      const state = queryClient.getQueryState(queryKey)
+      return state?.status === "success" && !state.error
+        ? queryClient.getQueryData<ConversationPages>(queryKey)
+        : undefined
+    },
+    [conversationQueryKey, queryClient],
   )
 
   const refreshListForTitle = useCallback(() => {
     for (const delay of TITLE_REFRESH_DELAYS_MS) {
       const timer = setTimeout(() => {
         titleTimersRef.current.delete(timer)
-        void queryClient.invalidateQueries({
-          queryKey: trpc.conversation.list.queryKey(),
-        })
+        void invalidateList()
       }, delay)
       titleTimersRef.current.add(timer)
     }
-  }, [queryClient, trpc])
+  }, [invalidateList])
+
+  const clearFailedDraft = useCallback((id: string) => {
+    setFailedDrafts((prev) => {
+      if (!(id in prev)) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }, [])
 
   const sendMessage = useCallback(
     async (rawText: string): Promise<boolean> => {
@@ -203,11 +308,13 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       if (!text || !targetId || pendingRef.current[targetId]) return false
 
       const queryKey = conversationQueryKey(targetId)
-      const before = queryClient.getQueryData<ConversationGetOutput>(queryKey)
-      if (!before?.conversation) return false
-      const hadTitle = !!before.conversation.title
+      const before = queryClient.getQueryData<ConversationPages>(queryKey)
+      const beforeConversation = conversationFromPages(before)
+      if (!beforeConversation) return false
+      const hadTitle = !!beforeConversation.title
+      const knownServerIds = serverMessageIds(beforeConversation.messages)
 
-      const clientId = createClientId()
+      const clientId = createPendingId()
       const userMessage: Message = {
         id: clientId,
         role: "USER",
@@ -239,48 +346,36 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         // whichever of these two updates renders first. If the entry was
         // garbage-collected (nobody is viewing X), this is a no-op and the next
         // open of X fetches the persisted messages.
-        queryClient.setQueryData<ConversationGetOutput>(queryKey, (old) =>
-          old?.conversation
-            ? {
-                ...old,
-                conversation: {
-                  ...old.conversation,
-                  updatedAt: new Date(),
-                  messages: [...old.conversation.messages, userMessage, reply],
-                },
-              }
-            : old,
+        queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
+          appendToNewestPage(old, [userMessage, reply]),
         )
-        updatePending((prev) => {
-          const next = { ...prev }
-          delete next[targetId]
-          return next
-        })
-        setFailedDrafts((prev) => {
-          if (!(targetId in prev)) return prev
-          const next = { ...prev }
-          delete next[targetId]
-          return next
-        })
+        clearPending(targetId)
+        clearFailedDraft(targetId)
 
-        void queryClient.invalidateQueries({
-          queryKey: trpc.conversation.list.queryKey(),
-        })
+        void invalidateList()
         if (!hadTitle) {
           refreshListForTitle()
         }
         return true
       } catch (error) {
-        updatePending((prev) => {
-          const next = { ...prev }
-          delete next[targetId]
-          return next
-        })
-        setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
-        // A server that persists the user message before generating may have
-        // saved it even though the reply failed; show what the server has.
-        void queryClient.refetchQueries({ queryKey }).catch(() => undefined)
         showError(error, "Failed to send message.")
+        // The server persists the user message before generating, so it may
+        // have saved it even though the reply failed. Check (newest page only)
+        // while the pending bubble is still shown; restore the typed text only
+        // when the server did not keep a new copy of it.
+        const after = await refreshConversation(targetId)
+        const saved =
+          !!after &&
+          isSendConfirmedSaved(flattenMessages(after), text, knownServerIds)
+        clearPending(targetId)
+        if (saved) {
+          // The message is on the server and shown with a Retry action, so
+          // the input clears as for a successful send (no duplicate re-send).
+          clearFailedDraft(targetId)
+          void invalidateList()
+          return true
+        }
+        setFailedDrafts((prev) => ({ ...prev, [targetId]: text }))
         return false
       }
     },
@@ -289,27 +384,84 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       conversationQueryKey,
       queryClient,
       sendMessageMutation,
-      trpc,
       updatePending,
+      clearPending,
+      clearFailedDraft,
+      invalidateList,
       refreshListForTitle,
+      refreshConversation,
       showError,
     ],
   )
 
-  const clearFailedDraft = useCallback((id: string) => {
-    setFailedDrafts((prev) => {
-      if (!(id in prev)) return prev
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }, [])
+  const retryMessage = useCallback(
+    async (messageId: string): Promise<boolean> => {
+      const targetId = conversationId
+      if (!targetId || pendingRef.current[targetId]) return false
 
-  const conversation = conversationData?.conversation ?? null
-  const conversations = useMemo(
-    () => conversationsData?.conversations ?? [],
-    [conversationsData?.conversations],
+      const queryKey = conversationQueryKey(targetId)
+      const hadTitle = !!conversationFromPages(
+        queryClient.getQueryData<ConversationPages>(queryKey),
+      )?.title
+      const clientId = createPendingId()
+      updatePending((prev) => ({ ...prev, [targetId]: { clientId } }))
+      void queryClient.cancelQueries({ queryKey })
+
+      try {
+        const result = await retryMessageMutation({
+          conversationId: targetId,
+          messageId,
+        })
+        const reply: Message = {
+          id: result.modelMessageId || `${clientId}-reply`,
+          role: "MODEL",
+          content: result.response,
+          createdAt: new Date(),
+        }
+        queryClient.setQueryData<ConversationPages>(queryKey, (old) =>
+          appendToNewestPage(old, [reply]),
+        )
+        clearPending(targetId)
+        void invalidateList()
+        if (!hadTitle) {
+          refreshListForTitle()
+        }
+        return true
+      } catch (error) {
+        // A CONFLICT means the message was answered meanwhile (e.g. on another
+        // device): the refetch shows that reply.
+        if (errorCode(error) !== "CONFLICT") {
+          showError(error, "Failed to get a reply.")
+        }
+        await refreshConversation(targetId)
+        clearPending(targetId)
+        return false
+      }
+    },
+    [
+      conversationId,
+      conversationQueryKey,
+      queryClient,
+      retryMessageMutation,
+      updatePending,
+      clearPending,
+      invalidateList,
+      refreshListForTitle,
+      refreshConversation,
+      showError,
+    ],
   )
+
+  const conversation = useMemo(
+    () => conversationFromPages(conversationData),
+    [conversationData],
+  )
+  const conversations = useMemo(
+    () => flattenConversations(conversationsData),
+    [conversationsData],
+  )
+  const conversationsRef = useRef(conversations)
+  conversationsRef.current = conversations
 
   const currentPending = conversationId
     ? pendingByConversation[conversationId]
@@ -332,9 +484,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
         setConversationId(result.conversation.id)
         setInitError(null)
       }
-      await queryClient.invalidateQueries({
-        queryKey: trpc.conversation.list.queryKey(),
-      })
+      await invalidateList()
     } catch (error) {
       showError(error, "Failed to create conversation.")
     }
@@ -342,8 +492,7 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     conversationId,
     conversation,
     createConversationMutation,
-    queryClient,
-    trpc,
+    invalidateList,
     showError,
   ])
 
@@ -353,29 +502,128 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
       setInitError(null)
       // Reconcile an already-cached conversation with the server, unless a send
       // for it is in flight. An uncached one is fetched by the query itself.
-      const queryKey = conversationQueryKey(id)
-      if (!pendingRef.current[id] && queryClient.getQueryData(queryKey)) {
-        void queryClient
-          .refetchQueries({ queryKey }, { cancelRefetch: false })
-          .catch(() => undefined)
+      if (!pendingRef.current[id]) {
+        void refreshConversation(id)
       }
     },
-    [conversationQueryKey, queryClient],
+    [refreshConversation],
+  )
+
+  const deleteConversation = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (pendingRef.current[id]) return false
+      try {
+        await removeConversationMutation({ conversationId: id })
+      } catch (error) {
+        // Already deleted (e.g. on another device): treat as success.
+        if (!isNotFoundError(error)) {
+          showError(error, "Failed to delete conversation.")
+          return false
+        }
+      }
+
+      const next = nextConversationAfterDelete(conversationsRef.current, id)
+      queryClient.setQueryData<ConversationListPages>(listQueryKey, (old) =>
+        removeFromList(old, id),
+      )
+      queryClient.removeQueries({ queryKey: conversationQueryKey(id) })
+      clearFailedDraft(id)
+
+      if (conversationIdRef.current === id) {
+        if (next) {
+          selectConversation(next)
+        } else {
+          // Nothing left: start fresh (getOrCreate returns the most recent
+          // remaining conversation, or a new empty one).
+          setConversationId(null)
+          setInitError(null)
+          initStartedRef.current = true
+          void runInit()
+        }
+      }
+      void invalidateList()
+      return true
+    },
+    [
+      removeConversationMutation,
+      showError,
+      queryClient,
+      listQueryKey,
+      conversationQueryKey,
+      clearFailedDraft,
+      selectConversation,
+      runInit,
+      invalidateList,
+    ],
+  )
+
+  const renameConversation = useCallback(
+    async (id: string, rawTitle: string): Promise<boolean> => {
+      const title = rawTitle.trim()
+      if (!title) return false
+      try {
+        const result = await renameConversationMutation({
+          conversationId: id,
+          title,
+        })
+        const saved = result.conversation.title ?? title
+        queryClient.setQueryData<ConversationListPages>(listQueryKey, (old) =>
+          renameInList(old, id, saved),
+        )
+        queryClient.setQueryData<ConversationPages>(
+          conversationQueryKey(id),
+          (old) => setConversationTitle(old, saved),
+        )
+        void invalidateList()
+        return true
+      } catch (error) {
+        showError(error, "Failed to rename conversation.")
+        return false
+      }
+    },
+    [
+      renameConversationMutation,
+      queryClient,
+      listQueryKey,
+      conversationQueryKey,
+      invalidateList,
+      showError,
+    ],
+  )
+
+  const isConversationBusy = useCallback(
+    (id: string) => !!pendingByConversation[id],
+    [pendingByConversation],
   )
 
   const retryConversation = useCallback(() => {
     void refetchConversation()
   }, [refetchConversation])
 
+  const loadOlderMessages = useCallback(() => {
+    if (hasOlderMessages && !isLoadingOlderMessages) {
+      void fetchOlderMessages().catch(() => undefined)
+    }
+  }, [hasOlderMessages, isLoadingOlderMessages, fetchOlderMessages])
+
+  const loadMoreConversations = useCallback(() => {
+    if (hasMoreConversations && !isLoadingMoreConversations) {
+      void fetchMoreConversations().catch(() => undefined)
+    }
+  }, [hasMoreConversations, isLoadingMoreConversations, fetchMoreConversations])
+
   // Merge cached messages with this conversation's pending bubble (id-keyed).
-  const messages = useMemo(() => {
-    const base = conversation?.messages ?? []
-    if (!currentPending) return base
-    if (base.some((msg) => msg.id === currentPending.clientId)) return base
-    return [...base, currentPending.userMessage]
-  }, [conversation?.messages, currentPending])
+  const messages = useMemo(
+    () =>
+      mergePending(conversation?.messages ?? [], currentPending?.userMessage),
+    [conversation?.messages, currentPending],
+  )
 
   const isSending = !!currentPending
+  const retryableMessageId = useMemo(
+    () => getRetryableMessageId(messages, isSending),
+    [messages, isSending],
+  )
   // True until a conversation is selected (SponsorPage triggers initialize on
   // mount), false once init has failed so the error view can render.
   const isInitializing = !conversationId && !initError
@@ -387,6 +635,17 @@ export const ConversationProvider: React.FC<React.PropsWithChildren> = ({
     conversations,
     messages,
     sendMessage,
+    retryableMessageId,
+    retryMessage,
+    deleteConversation,
+    renameConversation,
+    isConversationBusy,
+    hasOlderMessages: !!hasOlderMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
+    hasMoreConversations: !!hasMoreConversations,
+    isLoadingMoreConversations,
+    loadMoreConversations,
     createConversation,
     selectConversation,
     initialize,
