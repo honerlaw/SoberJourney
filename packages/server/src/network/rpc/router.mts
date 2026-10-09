@@ -1,6 +1,7 @@
 import { initTRPC } from "@trpc/server";
 import type { Context } from "../../context.mjs";
 import superjson from "superjson";
+import { TRPC_OPTIONS } from "./trpcOptions.mjs";
 
 /**
  * Initialization of tRPC backend
@@ -8,6 +9,7 @@ import superjson from "superjson";
  */
 const trpc = initTRPC.context<Context>().create({
   transformer: superjson,
+  ...TRPC_OPTIONS,
 });
 
 /**

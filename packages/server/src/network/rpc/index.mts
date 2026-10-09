@@ -9,6 +9,7 @@ import * as conversationRoutes from "./route/conversation/index.mjs";
 import * as checkinRoutes from "./route/checkin/index.mjs";
 import * as notificationRoutes from "./route/notification/index.mjs";
 import type { UserModel } from "../../util/database.mjs";
+import { streamResponseMeta } from "./streamResponseMeta.mjs";
 
 const appRouter = router({
   user: router(userRoutes),
@@ -23,6 +24,8 @@ export type AppRouter = typeof appRouter;
 
 export const expressTRPCMiddleware = trpcExpress.createExpressMiddleware({
   router: appRouter,
+  // Anti-buffering headers on streamed (JSONL) responses only.
+  responseMeta: streamResponseMeta,
   createContext: async ({ req }) => {
     return await createContext(
       req as unknown as ContextRequest<UserModel, Context>,

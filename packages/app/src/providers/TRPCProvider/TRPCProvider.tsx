@@ -11,7 +11,7 @@ import superjson from "superjson"
 import {
   createTRPCClient,
   httpBatchLink,
-  httpSubscriptionLink,
+  httpBatchStreamLink,
   loggerLink,
   splitLink,
   TRPCClientError,
@@ -23,15 +23,35 @@ import { useReportError } from "@/src/hooks/useReportError"
 import { endSession } from "@/src/hooks/useAuth/endSession"
 import { useCalendars } from "expo-localization"
 
-// Polyfills for React Native SSE support
+// Polyfills for the streamed (JSONL) responses read by httpBatchStreamLink
 import "@azure/core-asynciterator-polyfill"
-import { ReadableStream, TransformStream } from "web-streams-polyfill"
-import { CustomEventSource } from "@/src/utils/CustomEventSource"
+import {
+  ReadableStream,
+  TransformStream,
+  WritableStream,
+} from "web-streams-polyfill"
+import { streamingFetch } from "@/src/utils/streamingFetch"
+import { STREAM_PROCEDURE_PATH } from "@/src/providers/ConversationProvider/conversationCache"
 
-// Ensure global objects are available for React Native
-if (typeof globalThis !== "undefined") {
-  globalThis.ReadableStream = globalThis.ReadableStream || ReadableStream
-  globalThis.TransformStream = globalThis.TransformStream || TransformStream
+// tRPC's JSONL reader pipes the response body (a ReadableStream, created by
+// expo/fetch from the global at runtime) through TransformStreams into a
+// WritableStream. Hermes has none of these natively; Expo >= 54's Metro
+// injects all three (expo/virtual/streams.js) before any module runs, and
+// browsers have them. This is a fallback for a bundle without them: streams
+// only pipe into streams of the same implementation, so if any is missing,
+// install all three from one polyfill.
+if (
+  typeof globalThis !== "undefined" &&
+  (typeof globalThis.ReadableStream === "undefined" ||
+    typeof globalThis.TransformStream === "undefined" ||
+    typeof globalThis.WritableStream === "undefined")
+) {
+  globalThis.ReadableStream =
+    ReadableStream as unknown as typeof globalThis.ReadableStream
+  globalThis.TransformStream =
+    TransformStream as unknown as typeof globalThis.TransformStream
+  globalThis.WritableStream =
+    WritableStream as unknown as typeof globalThis.WritableStream
 }
 
 const context = createTRPCContext<AppRouter>()
@@ -39,6 +59,13 @@ const context = createTRPCContext<AppRouter>()
 const TRPCContextProvider = context.TRPCProvider
 
 export const useTRPC = context.useTRPC
+export const useTRPCClient = context.useTRPCClient
+
+/**
+ * Procedures whose output is streamed (an async iterable). Only these go
+ * through `httpBatchStreamLink`; everything else keeps the plain batch link.
+ */
+const STREAMED_PATHS: ReadonlySet<string> = new Set([STREAM_PROCEDURE_PATH])
 
 // Auth errors: a released server only returns UNAUTHORIZED / 401 for real auth
 // failures (epic #34 rule 4), so these are the logout candidates.
@@ -224,21 +251,15 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
       links: [
         loggerLink(),
         splitLink({
-          condition: (op) => {
-            return op.type === "subscription"
-          },
-          true: httpSubscriptionLink({
+          condition: (op) => STREAMED_PATHS.has(op.path),
+          true: httpBatchStreamLink({
             transformer: superjson,
             url: `${config.baseUrl}${config.trpcRelativeUrl}`,
-            EventSource: CustomEventSource,
-            eventSourceOptions: async () => {
-              const headers = await getHeaders()
-              if (!headers.Authorization) {
-                return {} as any
-              }
-              return {
-                headers,
-              } as any
+            // React Native's fetch cannot stream a response body.
+            fetch: streamingFetch,
+            maxItems: 1,
+            async headers() {
+              return await getHeaders()
             },
           }),
           false: httpBatchLink({

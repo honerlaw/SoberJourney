@@ -45,6 +45,8 @@ export const SponsorPage: React.FC = () => {
     conversationError,
     isConversationNotFound,
     isThinking,
+    canCancelReply,
+    cancelReply,
     retryableMessageId,
     retryMessage,
     hasOlderMessages,
@@ -187,6 +189,8 @@ export const SponsorPage: React.FC = () => {
         key={conversationId ?? "none"}
         onSend={sendMessage}
         disabled={isSending}
+        canStop={canCancelReply}
+        onStop={cancelReply}
         bottomPadding={inputBottomPadding}
         failedDraft={failedDraft}
         onFailedDraftConsumed={onFailedDraftConsumed}

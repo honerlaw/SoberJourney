@@ -3,6 +3,7 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "@onerlaw/framework/backend/rpc";
+import { type Content } from "@google/genai";
 import { TRPCError } from "@trpc/server";
 import type { Context } from "../../../../../context.mjs";
 import {
@@ -78,6 +79,42 @@ async function runTurn(
   input: SponsorChatInput,
   now: Date,
 ): Promise<SponsorChatOutput> {
+  const turn = await startTurn(ctx, userId, storedTimeZone, input, now);
+  const reply = await generateReply(ctx, turn.params);
+
+  return {
+    response: reply.response,
+    userMessageId: turn.userMessageId,
+    modelMessageId: reply.modelMessageId,
+  };
+}
+
+export type StartedTurn = {
+  userMessageId: string;
+  params: GenerateReplyParams;
+};
+
+export type StartTurnOptions = {
+  // Checked right before persisting: when aborted, nothing is persisted and
+  // the abort reason is thrown.
+  signal?: AbortSignal;
+  // Called right after the user's message is persisted.
+  onSaved?: (userMessageId: string) => void;
+};
+
+/**
+ * The first half of a sponsor-chat turn, shared by sponsorChat and
+ * streamSponsorChat (callers hold the conversation lock): ownership check,
+ * persist the user's message, then read history and check-ins.
+ */
+export async function startTurn(
+  ctx: Context,
+  userId: string,
+  storedTimeZone: string | null | undefined,
+  input: SponsorChatInput,
+  now: Date,
+  options: StartTurnOptions = {},
+): Promise<StartedTurn> {
   // Ownership check (and the title), plus the user's journeys
   const [conversationCheck, journeys] = await Promise.all([
     ctx.database.conversation.getMessagesPage(input.conversationId, userId, {
@@ -91,6 +128,8 @@ async function runTurn(
   }
   const conversationTitle = conversationCheck.conversation.title;
 
+  options.signal?.throwIfAborted();
+
   // Persist the user's message before generating, so it survives any failure.
   const userMessage = await persistMessage(
     ctx,
@@ -99,6 +138,7 @@ async function runTurn(
     MessageRole.USER,
     input.text,
   );
+  options.onSaved?.(userMessage.id);
 
   // History is read after persisting, so even an unserialized concurrent turn
   // (lock wait timed out, or another instance) sees every committed user row.
@@ -113,21 +153,18 @@ async function runTurn(
     throw new NotFoundError("Conversation not found.");
   }
 
-  const reply = await generateReply(ctx, {
-    userId,
-    storedTimeZone,
-    conversationId: input.conversationId,
-    conversationTitle,
-    current: { id: userMessage.id, text: input.text },
-    rows: page.messages,
-    journeysWithCheckIns,
-    now,
-  });
-
   return {
-    response: reply.response,
     userMessageId: userMessage.id,
-    modelMessageId: reply.modelMessageId,
+    params: {
+      userId,
+      storedTimeZone,
+      conversationId: input.conversationId,
+      conversationTitle,
+      current: { id: userMessage.id, text: input.text },
+      rows: page.messages,
+      journeysWithCheckIns,
+      now,
+    },
   };
 }
 
@@ -172,7 +209,35 @@ export async function generateReply(
   ctx: Context,
   params: GenerateReplyParams,
 ): Promise<{ response: string; modelMessageId: string }> {
-  const { userId, conversationId, current } = params;
+  const generation = await buildGeneration(ctx, params);
+
+  let result: ChatResult;
+  try {
+    result = await ctx.datasource.gemini.chat(generation.history, {
+      systemInstruction: generation.systemInstruction,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    });
+  } catch (error) {
+    throw toRpcError(error);
+  }
+
+  return finishReply(ctx, params, result);
+}
+
+export type Generation = {
+  history: Content[];
+  systemInstruction: string;
+};
+
+/**
+ * Builds the Gemini request for a reply: the decrypted history (current
+ * message last) and the system prompt with time and journey context.
+ */
+export async function buildGeneration(
+  ctx: Context,
+  params: GenerateReplyParams,
+): Promise<Generation> {
+  const { current } = params;
 
   // The current message goes last; earlier rows (including our own, which is
   // re-appended from its text) come from the database.
@@ -182,7 +247,7 @@ export async function generateReply(
   );
 
   const timeZone = safeTimeZone(params.storedTimeZone);
-  const systemPrompt =
+  const systemInstruction =
     BASE_SYSTEM_PROMPT +
     buildCurrentTimeContext(params.now, timeZone) +
     buildJourneyContext(params.journeysWithCheckIns, params.now, timeZone);
@@ -198,15 +263,21 @@ export async function generateReply(
     { role: "user" as const, text: current.text },
   ]);
 
-  let result: ChatResult;
-  try {
-    result = await ctx.datasource.gemini.chat(history, {
-      systemInstruction: systemPrompt,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-    });
-  } catch (error) {
-    throw toRpcError(error);
-  }
+  return { history, systemInstruction };
+}
+
+/**
+ * Turns a generation result into the stored reply: ok text as-is, a blocked
+ * response as its fallback reply, a truncated one as an error (never stored).
+ * Persists the MODEL message once and starts title generation for an
+ * untitled conversation.
+ */
+export async function finishReply(
+  ctx: Context,
+  params: GenerateReplyParams,
+  result: ChatResult,
+): Promise<{ response: string; modelMessageId: string }> {
+  const { userId, conversationId, current } = params;
 
   let reply: string;
   switch (result.status) {
