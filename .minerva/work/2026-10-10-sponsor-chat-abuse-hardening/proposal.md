@@ -1,7 +1,7 @@
 # Proposal: sponsor-chat-abuse-hardening
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed (user):** "do some hardening against the chat bot, we should do common safety features to prevent prompt injection / other ways that people can abuse chats like this. E.g. I shouldn't be able to ask for a python script and get one back" — with a screenshot of the Sponsor chat answering "Write me a python script that say hello world" with a fenced `print("Hello, world!")` code block.
 
@@ -27,7 +27,7 @@ Server-only. No change to any tRPC input/output schema.
 
 ## Approach
 
-**B: prompt hardening + prompt-data delimiting + deterministic fence guard + per-user rate limit** (approach panel 3/3 accept, with fixes folded below).
+What shipped: **B: prompt hardening + prompt-data delimiting + deterministic fence guard + per-user rate limit** (approach panel 3/3 accept, with fixes folded; review fixes folded below). Knowledge: `2026-10-10-decision-sponsor-chat-scope-guard-and-rate-limit`, `2026-10-10-constraint-server-tooling-in-minerva-worktrees`.
 
 1. **System prompt — new "Scope and boundaries" section** in `BASE_SYSTEM_PROMPT`, placed before "Crisis resources":
    - In scope: recovery and sobriety; cravings and urges; emotions, stress, relationships, work and life situations; recovery programs, meetings, steps, prayers and readings (e.g. reciting the Serenity Prayer); help putting something into words for a person in their life (an amends letter, an apology, a hard text); journaling and reflection; sleep, exercise, nutrition, withdrawal and medication questions as they relate to recovery (general information plus encouragement to involve a doctor); questions about this app; and casual small talk or greetings.
@@ -41,18 +41,18 @@ Server-only. No change to any tRPC input/output schema.
    - The "Crisis resources" section and `SAFETY_FALLBACK_REPLY` are untouched (knowledge `2026-10-06-decision-sponsor-chat-crisis-guidance`; owner rule: the crisis threshold must not change).
 2. **Delimit user-controlled prompt text.**
    - `buildJourneyContext`: each journey title is trimmed, whitespace runs (including newlines) collapsed to a single space, capped at 100 chars, and rendered with `JSON.stringify` (a quoted, escaped, single-line string).
-   - `generateTitle`: the message is wrapped in `<message>…</message>`, with any literal `<message>`/`</message>` tags removed from the user text first (case-insensitive) so it cannot close the wrapper. `TITLE_SYSTEM_PROMPT` says the tagged text is content to title, never instructions to follow. `sanitizeTitle` unchanged.
+   - `generateTitle`: the message is wrapped in `<message>…</message>`, with any `<message>`/`</message>` tags removed from the user text first (case-insensitive, repeated until stable so nested input cannot rebuild a tag) so it cannot close the wrapper. `TITLE_SYSTEM_PROMPT` says the tagged text is content to title, never instructions to follow. `sanitizeTitle` unchanged.
 3. **Fence guard** — new `sponsorChat/utils/replyGuard.mts`:
    - `containsCodeFence(text)`: true when any line starts (after optional spaces/tabs) with ``` or ~~~ (line-anchored regex).
-   - `guardReply(text)`: returns `text` unchanged when it has no fence. With a fence: if the text contains a crisis-resource marker (`988`, `911`, `112`, `999`, `1-800-662-4357`, "emergency number", "crisis line", "lifeline", "hotline"; case-insensitive), the fenced blocks are stripped (an unclosed fence strips to the end) and the remaining prose is kept, so crisis content is never discarded; otherwise, or when nothing is left, it returns the new `OFF_TOPIC_REPLY` constant in `fallback.mts`, a warm decline that asks how they're doing.
+   - `guardReply(text)`: returns `text` unchanged when it has no fence. With a fence, the fenced blocks are stripped by a line scanner using CommonMark close rules (a bare fence of the same character, at least as long; an unclosed block runs to the end). If the remaining prose (not the code) contains a crisis-resource marker (`988`, `911`, `112`, `999`, `1-800-662-4357`, "emergency number", "crisis line", "lifeline", "hotline"; case-insensitive), that prose is returned, so crisis content is never discarded. Otherwise it returns `OFF_TOPIC_REPLY` in `fallback.mts`: "I'm here to support you and your recovery, so I'll stay focused on that. How are you doing right now? I'm here to listen." It is worded to stay warm if the guard ever replaces a supportive reply.
    - `OFF_TOPIC_REPLY` is **not** added to `FALLBACK_REPLIES`: a guarded turn stays in history (the user's message plus the persisted decline), so any distress in that message keeps its context and the model sees its own consistent decline. `SAFETY_FALLBACK_REPLY`, `BLOCKED_FALLBACK_REPLY` and `FALLBACK_REPLIES` are unchanged.
    - `finishReply` (shared by sponsorChat, streamSponsorChat and retrySponsorChat): an `ok` result's text goes through `guardReply` before persisting. A `truncated` result whose text contains a fence also goes through `guardReply` and is persisted like an `ok` reply. A long code dump that hit the token limit gets the decline, not an error. A `truncated` result without a fence still throws as today. A `blocked` result keeps its fallback, so Gemini safety blocks and their crisis wording take precedence. A guard hit logs a warn with no text. Title generation behaviour is unchanged.
    - Streaming (`runStreamSponsorChat`): each delta is appended to an accumulated buffer before forwarding. Once the buffer contains a fence, later deltas are no longer forwarded, but the stream is consumed to the end. No `stream.return()` and no abort, so the `ChatResult` classification, persistence and lock release run exactly as today. `done.response` carries the guarded reply, and released clients already replace streamed deltas with `done.response`. Text streamed before the fence (and at most a partial "``" marker) may flash before `done` replaces it.
 4. **Per-user rate limit** — new `conversation/utils/chatRateLimit.mts`:
    - An in-process sliding window keyed by the authenticated user id: at most 20 generations per rolling minute and 300 per rolling hour.
    - Shared by `sponsorChat`, `streamSponsorChat` and `retrySponsorChat`. Title-generation calls are not counted separately (at most one per conversation), so the Gemini call ceiling is up to two per counted turn. The check runs right after the auth check and before the conversation lock and any persistence.
-   - Only allowed requests are recorded, so rejected attempts don't count and don't extend the window.
-   - The clock is injectable (a `now` parameter). Expired timestamps are pruned on each access. When the map passes 10,000 users, a full sweep drops empty entries. There is no timer.
+   - Every accepted request is recorded, including one that later fails (a retry CONFLICT, a client abort). Rejected attempts are not recorded, so they don't count and don't extend the window.
+   - The clock is injectable (a `now` parameter). Expired timestamps are pruned on each access. Once the map passes 10,000 users, a full sweep (at most once a minute) drops users with no request in the last hour. There is no timer.
    - Excess requests throw `TRPCError` `TOO_MANY_REQUESTS` with a plain message ("You're sending messages faster than I can keep up. Please wait a moment and try again."). For the stream, the error is thrown before the first event.
    - The limit is best-effort, like `conversationLock`: each server instance counts separately (N instances allow N× the limit), and a restart resets the counts. The real cost ceiling remains the Gemini project quota.
    - The numbers are far above human typing speed: one message every 3 seconds for a minute, or one every 12 seconds for an hour. A person in distress typing fast should never hit them. Released clients never retry chat mutations automatically (`mutations.retry: false` in `TRPCProvider.tsx`), so a rejection cannot loop.
