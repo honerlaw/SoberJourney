@@ -18,6 +18,8 @@ import { LIST_PLACEHOLDER_TITLE } from "@/src/providers/ConversationProvider/con
 
 /** Must match the static `headerTitle` of the sponsor tab in `(tabs)/_layout.tsx`. */
 const DEFAULT_HEADER_TITLE = "Sponsor"
+/** Vertical space between message bubbles. */
+const MESSAGE_SPACING = 12
 
 export const SponsorPage: React.FC = () => {
   const listRef = useRef<FlatList<Message>>(null)
@@ -84,7 +86,11 @@ export const SponsorPage: React.FC = () => {
 
   const renderMessage = useCallback<ListRenderItem<Message>>(
     ({ item }) => (
-      <YStack>
+      // Spacing lives in the cell, not as `gap` on the content container:
+      // VirtualizedList sizes its placeholder spacers from measured cells and
+      // is unaware of container gap, so positions can shift as the inverted
+      // list renders in batches.
+      <YStack paddingVertical={MESSAGE_SPACING / 2}>
         <MessageBubble message={item} />
         {item.id === retryableMessageId ? (
           <RetryNotice onRetry={() => void retryMessage(item.id)} />
@@ -117,14 +123,6 @@ export const SponsorPage: React.FC = () => {
     )
   }
 
-  if (isInitializing || isLoading) {
-    return (
-      <YStack flex={1}>
-        <LoadingView />
-      </YStack>
-    )
-  }
-
   if (conversationError && !conversation) {
     return isConversationNotFound ? (
       <ChatErrorView
@@ -150,10 +148,17 @@ export const SponsorPage: React.FC = () => {
     keyboardHeight > 0 ? keyboardHeight - tabBarHeight + 14 : "$3"
 
   const hasMessages = messages.length > 0 || isSending
+  // The input stays mounted (disabled) while the conversation resolves, so
+  // the screen does not swap layouts and pop the input in once it loads.
+  const isResolving = isInitializing || isLoading
 
   return (
     <YStack flex={1}>
-      {hasMessages ? (
+      {isResolving ? (
+        <YStack flex={1}>
+          <LoadingView />
+        </YStack>
+      ) : hasMessages ? (
         <FlatList
           // A fresh list per conversation: opens at the newest message rather
           // than at the previous conversation's scroll offset.
@@ -176,7 +181,7 @@ export const SponsorPage: React.FC = () => {
             ) : null
           }
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}
+          contentContainerStyle={{ paddingHorizontal: 12 }}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -188,7 +193,7 @@ export const SponsorPage: React.FC = () => {
       <ChatInput
         key={conversationId ?? "none"}
         onSend={sendMessage}
-        disabled={isSending}
+        disabled={isSending || isResolving}
         canStop={canCancelReply}
         onStop={cancelReply}
         bottomPadding={inputBottomPadding}
