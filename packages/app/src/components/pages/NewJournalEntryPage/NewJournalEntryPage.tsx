@@ -62,6 +62,7 @@ export const NewJournalEntryPage: React.FC = () => {
           headerRight: () => (
             <HeaderButton
               icon={Check}
+              label="Save entry"
               onPress={onCreate}
               disabled={isPending}
             />

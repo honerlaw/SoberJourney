@@ -1,7 +1,7 @@
 import { Button } from "tamagui"
 import { Plus } from "@tamagui/lucide-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { DrawerContentComponentProps } from "@react-navigation/drawer"
+import { DrawerContentComponentProps } from "expo-router/drawer"
 
 type ListHeaderProps = {
   isCreatingConversation: boolean

@@ -1,6 +1,12 @@
 import { XStack, YStack, TextArea, Button } from "tamagui"
 import { Send, Square } from "@tamagui/lucide-icons"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   Platform,
   type NativeSyntheticEvent,
@@ -57,7 +63,7 @@ type ChatInputProps = {
   /** A reply is streaming and can be stopped: Stop replaces Send. */
   canStop?: boolean
   onStop?: () => void
-  bottomPadding: number | string
+  bottomPadding: number
   /** Text of a failed send to restore into an empty input. */
   failedDraft?: string
   onFailedDraftConsumed?: () => void

@@ -1,1 +1,1 @@
-export { SponsorPage } from "./SponsorPage"
+export { SponsorPage, SPONSOR_HEADER_TITLE } from "./SponsorPage"

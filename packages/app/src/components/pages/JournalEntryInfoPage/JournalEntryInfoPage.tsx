@@ -60,6 +60,7 @@ export const JournalEntryInfoPage: React.FC = () => {
           headerRight: () => (
             <HeaderButton
               icon={Trash2}
+              label="Delete entry"
               onPress={() => alertModalRef.current?.show()}
               disabled={isPending}
             />

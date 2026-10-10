@@ -7,7 +7,7 @@ import {
   useConversation,
   type ConversationListItem,
 } from "@/src/providers/ConversationProvider/ConversationContext"
-import type { DrawerContentComponentProps } from "@react-navigation/drawer"
+import type { DrawerContentComponentProps } from "expo-router/drawer"
 
 type RenderItemProps = {
   item: ConversationListItem
