@@ -1,6 +1,6 @@
 import { XStack, YStack, TextArea, Button } from "tamagui"
 import { Send, Square } from "@tamagui/lucide-icons"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import {
   Platform,
   type NativeSyntheticEvent,
@@ -12,8 +12,41 @@ import {
 const MAX_MESSAGE_LENGTH = 16000
 const MIN_INPUT_HEIGHT = 44
 const MAX_INPUT_HEIGHT = 140
-/** Vertical padding added on top of the text content height. */
+/** Vertical padding added on top of the text content height (native). */
 const INPUT_VERTICAL_PADDING = 20
+
+const clampInputHeight = (height: number) =>
+  Math.min(MAX_INPUT_HEIGHT, Math.max(MIN_INPUT_HEIGHT, Math.ceil(height)))
+
+/**
+ * Measures the web textarea's content height, independent of its current
+ * height.
+ *
+ * react-native-web reports `scrollHeight` as the content size, and a
+ * textarea's `scrollHeight` is never below its own client height. Sizing the
+ * box from that report feeds back on itself, so the input ratchets up to the
+ * cap on mount and never shrinks. Collapsing the box for the read gives the
+ * real content height (padding included).
+ */
+function measureWebInputHeight(node: unknown): number | undefined {
+  if (typeof HTMLTextAreaElement === "undefined") return undefined
+  if (!(node instanceof HTMLTextAreaElement)) {
+    if (__DEV__) {
+      console.warn("ChatInput: expected the web input ref to be a <textarea>")
+    }
+    return undefined
+  }
+  const border = node.offsetHeight - node.clientHeight
+  const previousHeight = node.style.height
+  const previousScrollTop = node.scrollTop
+  try {
+    node.style.height = "0px"
+    return clampInputHeight(node.scrollHeight + border)
+  } finally {
+    node.style.height = previousHeight
+    node.scrollTop = previousScrollTop
+  }
+}
 
 type ChatInputProps = {
   /** Resolves `true` when the message was sent; the text is kept otherwise. */
@@ -79,6 +112,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }
 
+  const isWeb = Platform.OS === "web"
+  const measureWebHeight = useCallback(() => {
+    const height = measureWebInputHeight(inputRef.current)
+    if (height !== undefined) setInputHeight(height)
+  }, [])
+
+  // Web sizes the input from its measured content whenever the text changes
+  // (after React commits the value, before paint).
+  useLayoutEffect(() => {
+    if (isWeb) measureWebHeight()
+  }, [isWeb, text, measureWebHeight])
+
   const handleKeyPress = (event: WebKeyPressEvent) => {
     if (Platform.OS !== "web") return
     const key = event.key ?? event.nativeEvent.key
@@ -113,18 +158,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           rows={undefined}
           numberOfLines={undefined}
           height={inputHeight}
-          onContentSizeChange={(event) => {
-            const contentHeight = event.nativeEvent.contentSize.height
-            setInputHeight(
-              Math.min(
-                MAX_INPUT_HEIGHT,
-                Math.max(
-                  MIN_INPUT_HEIGHT,
-                  Math.ceil(contentHeight) + INPUT_VERTICAL_PADDING,
-                ),
-              ),
-            )
-          }}
+          // Native reports the text's own height. Web is measured instead
+          // (see measureWebInputHeight); passing this on web makes
+          // react-native-web re-report the box's scrollHeight on every render.
+          onContentSizeChange={
+            isWeb
+              ? undefined
+              : (event) => {
+                  const contentHeight = event.nativeEvent.contentSize.height
+                  setInputHeight(
+                    clampInputHeight(contentHeight + INPUT_VERTICAL_PADDING),
+                  )
+                }
+          }
+          // Re-wrapping after a width change alters the web content height.
+          onLayout={isWeb ? measureWebHeight : undefined}
           scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
           placeholder="Chat with your AI sponsor"
           value={text}

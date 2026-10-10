@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-10
 **Status**: Draft
+**Replans**: 1 — see replan.md (2026-10-10, web one-line height is 52px)
 
 ## Goal
 
@@ -55,10 +56,10 @@ One unit, one PR. Files: `ChatInput.tsx`; a real-browser verification script com
 
 1. On web, `ChatInput` passes `onContentSizeChange={undefined}` to the TextArea. On native it still passes it, with the same formula. This is a direct code check. Native has no test runner, so "native unchanged" is verified by reviewing the diff, an accepted limit. If the web ref is not an `HTMLTextAreaElement`, a `__DEV__` warning fires, so the input can't get silently stuck at 44px in development.
 2. Real-browser check: a script committed as `.minerva/work/2026-10-10-chat-input-web-autogrow/verify-chat-input-autogrow.*` bundles the real `ChatInput` through react-native-web and Tamagui with the app's `tamagui.config.ts` (esbuild), and drives headless Chrome. It records the textarea height on every animation frame and asserts each of the following:
-   - (a) After mount, the height stays at 44px for ~1s, with zero changes.
-   - (b) After typing 3 lines, the height grows to a value in (44, 140) and is unchanged over the next 30 frames, with no `onLayout` loop.
+   - (a) After mount, every sampled frame for ~1s has the same height, H1. H1 is the measured one-line height: 52px was observed under the default Tamagui size, and the harness does not assert that number. H1 must equal max(44, what one line needs), computed in the page from the textarea's style as vertical padding + line height + borders. One line must also show without clipping (`scrollHeight <= clientHeight`).
+   - (b) After typing 3 short lines, the height is greater than H1 and less than 140, and is unchanged over the next 30 frames, with no `onLayout` loop.
    - (c) After typing past the cap, the height is 140, overflow scrolls, and after scrolling the textarea to the bottom and typing another character, `scrollTop` is within 2px of `scrollHeight − clientHeight`.
-   - (d) After clearing the text, the height returns to 44.
+   - (d) After clearing the text, the height returns to exactly H1 and holds there for 30 frames.
    - (e) After the container width is halved with multi-line text, the height re-measures larger and is unchanged over the next 30 frames.
    - (f) Run against the pre-fix `ChatInput`, assertion (a) fails, showing the ratchet, which proves the harness detects the bug.
 
