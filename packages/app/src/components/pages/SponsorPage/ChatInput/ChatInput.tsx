@@ -16,7 +16,16 @@ import {
 
 /** Server-side limit for a single sponsor chat message (`chatInput` schema). */
 const MAX_MESSAGE_LENGTH = 16000
+/** One line of input matches the Send/Stop button (Tamagui `$true` = 44). */
 const MIN_INPUT_HEIGHT = 44
+// Explicit typography and padding replace the TextArea size variant's
+// (14px text on a 24px line, 13px vertical padding): one line is
+// 2 × 11 padding + 20 line + 2 × 1 border = MIN_INPUT_HEIGHT, so the input and
+// the button share their top and bottom edges, and the text sits centered.
+const INPUT_FONT_SIZE = 16
+const INPUT_LINE_HEIGHT = 20
+const INPUT_PADDING_VERTICAL = 11
+const INPUT_PADDING_HORIZONTAL = 14
 const MAX_INPUT_HEIGHT = 140
 const clampInputHeight = (height: number) =>
   Math.min(MAX_INPUT_HEIGHT, Math.max(MIN_INPUT_HEIGHT, Math.ceil(height)))
@@ -166,6 +175,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           // instead, between one line and a capped maximum.
           rows={undefined}
           numberOfLines={undefined}
+          fontSize={INPUT_FONT_SIZE}
+          lineHeight={INPUT_LINE_HEIGHT}
+          paddingVertical={INPUT_PADDING_VERTICAL}
+          paddingHorizontal={INPUT_PADDING_HORIZONTAL}
           // Never size from onContentSizeChange: both platforms report a
           // size that depends on the box's own layout, so setting the height
           // from it loops (web ratchets to the cap; iOS re-reports on every
@@ -181,6 +194,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 // Android centers text vertically by default; keep it at the
                 // top, as on iOS, when the floor is taller than one line.
                 textAlignVertical: "top" as const,
+                // Android applies lineHeight to typed text only; without its
+                // font padding the empty placeholder line also stays under 44.
+                includeFontPadding: false,
               })}
           placeholder="Chat with your AI sponsor"
           value={text}
