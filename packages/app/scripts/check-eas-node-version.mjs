@@ -10,7 +10,8 @@
  * with --no-wait, stayed green.
  *
  * Checks:
- * - every build profile in eas.json sets `node`, equal to .nvmrc's version;
+ * - every build profile in eas.json sets `node`, equal to .nvmrc's version,
+ *   and any `ios`/`android` override of it is equal too;
  * - .nvmrc's major equals the major of the Node running this script (CI's).
  *
  * `extends` is not resolved: a profile must set its own `node`.
@@ -44,11 +45,24 @@ if (Object.keys(profiles).length === 0) {
   problems.push("eas.json has no build profiles")
 }
 for (const [name, profile] of Object.entries(profiles)) {
+  if (profile === null || typeof profile !== "object") {
+    problems.push(`build profile "${name}" is not an object`)
+    continue
+  }
   const node = profile.node
   if (typeof node !== "string") {
     problems.push(`build profile "${name}" does not pin "node" (EAS would use its image default)`)
   } else if (node.replace(/^v/, "") !== nvmrc) {
     problems.push(`build profile "${name}" pins node ${node}, but .nvmrc is ${nvmrc}`)
+  }
+  // A platform block may override the profile's node for that platform.
+  for (const platform of ["ios", "android"]) {
+    const override = profile[platform]?.node
+    if (override !== undefined && String(override).replace(/^v/, "") !== nvmrc) {
+      problems.push(
+        `build profile "${name}" pins ${platform}.node ${override}, but .nvmrc is ${nvmrc}`,
+      )
+    }
   }
 }
 

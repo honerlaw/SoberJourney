@@ -18,3 +18,10 @@
 - Guard verified: exit 0 on branch; exit 1 on origin/main eas.json (no node), all-22.23.1 pin, one profile at 24.11.1, and .nvmrc at v22.23.1 (major mismatch vs running 24.20.0).
 - `npx eas-cli config --platform ios --profile <p> --non-interactive` shows node 24.20.0 for all three profiles (schema accepts it).
 - Criteria 3–4 can only be checked on the PR: CI green, then the CI-queued EAS dev build must reach `finished` with Node 24.20.0 in its log BEFORE auto-merge (main is unprotected).
+
+## Decisions 2026-10-10 (completion + review)
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–2 (incl. extra negatives: numeric node, empty build, lts/* .nvmrc), confirmed 3 in place pre-PR and 4–5 correctly deferred to ship/promote (tier: reviewer floor)
+- [solo] review triage: 2 FIX / 0 SUGGEST / 2 IGNORE — FIX per-platform `ios`/`android` node override bypassing the guard (reproduced: exit 0 on ios.node 22) and null-profile TypeError; IGNORE `node-version-file: .nvmrc` in CI (out of scope, would make the major check trivial) and `"v24.20.0"` accepted (semver.valid accepts the v form). No item had two defensible dispositions (tier: default-solo row)
+
+## Review fixes 2026-10-10
+- Guard now checks `ios`/`android` node overrides and reports non-object profiles; re-verified: ios.node 22 → exit 1, matching override → 0, null profile → 1, prior negatives still 1.
