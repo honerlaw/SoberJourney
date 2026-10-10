@@ -7,6 +7,7 @@ import {
   GeminiError,
   getDefaultModel,
   GEMINI_TIMEOUT_MS,
+  withModelDefaults,
 } from "../chat.mjs";
 
 function clientReturning(impl: () => Promise<unknown>) {
@@ -41,7 +42,7 @@ describe("gemini chat", () => {
     };
     assert.equal(req.config.httpOptions.timeout, GEMINI_TIMEOUT_MS);
     assert.equal(req.config.maxOutputTokens, 10);
-    assert.equal(req.model, "gemini-2.0-flash");
+    assert.equal(req.model, "gemini-3.8-flash");
   });
 
   it("reads the model name from GEMINI_MODEL", async () => {
@@ -137,6 +138,38 @@ describe("gemini chat", () => {
       assert.equal(error.kind, "unknown");
       assert.equal(error.cause, network);
       return true;
+    });
+  });
+
+  it("defaults Gemini 3+ models to minimal thinking", async () => {
+    const { logger } = mockLogger();
+    const { client, generateContent } = clientReturning(async () =>
+      response({}),
+    );
+    await chat(logger, client, "x", { maxOutputTokens: 32 });
+    const req = (generateContent.mock.calls[0]!.arguments as unknown[])[0] as {
+      config: { thinkingConfig?: { thinkingLevel?: string } };
+    };
+    assert.deepEqual(req.config.thinkingConfig, { thinkingLevel: "MINIMAL" });
+  });
+});
+
+describe("withModelDefaults", () => {
+  it("leaves older models untouched (they reject thinkingLevel)", () => {
+    const config = { maxOutputTokens: 10 };
+    assert.equal(withModelDefaults("gemini-2.5-flash", config), config);
+    assert.equal(withModelDefaults("gemini-2.0-flash", config), config);
+    assert.equal(withModelDefaults("custom-model", config), config);
+  });
+
+  it("keeps a caller's own thinkingConfig", () => {
+    const config = { thinkingConfig: { thinkingBudget: 512 } };
+    assert.equal(withModelDefaults("gemini-3.8-flash", config), config);
+  });
+
+  it("applies to later major versions", () => {
+    assert.deepEqual(withModelDefaults("gemini-4-pro", {}), {
+      thinkingConfig: { thinkingLevel: "MINIMAL" },
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   getDefaultModel,
   logNonOkResult,
   type ChatResult,
+  withModelDefaults,
 } from "./chat.mjs";
 
 /**
@@ -42,7 +43,7 @@ export async function* chatStream(
       model,
       contents,
       config: {
-        ...config,
+        ...withModelDefaults(model, config),
         httpOptions: { timeout: GEMINI_TIMEOUT_MS, ...config.httpOptions },
       },
     });

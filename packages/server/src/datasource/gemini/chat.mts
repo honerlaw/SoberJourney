@@ -6,15 +6,33 @@ import {
   type GenerateContentConfig,
   type GenerateContentResponse,
   type GoogleGenAI,
+  ThinkingLevel,
 } from "@google/genai";
 import { type Logger } from "../../util/logger/index.mjs";
 
 // The model can be overridden per deployment with GEMINI_MODEL, without a code
 // change. Read here (not util/config.mts) so the default stays in this
-// datasource. Caveat: on "thinking" models (gemini-2.5-*) thinking tokens count
-// against maxOutputTokens, so callers' limits (sponsor reply 2048, title 32)
-// would need a thinkingConfig budget or higher limits before switching.
-const DEFAULT_MODEL = "gemini-2.0-flash";
+// datasource. gemini-2.0-flash was retired by Google (404 "no longer
+// available"), which took Sponsor chat down; gemini-3.8-flash is the
+// replacement Google names in that error.
+const DEFAULT_MODEL = "gemini-3.8-flash";
+
+// Gemini 3+ models "think" before answering, and thinking tokens count against
+// maxOutputTokens: left at the model default they can eat a caller's whole
+// budget (a 32-token title, or a reply that ends MAX_TOKENS and is never
+// stored). Callers here want short conversational text, so default those
+// models to minimal thinking unless the caller set a thinkingConfig itself.
+// Older models are left untouched: they reject thinkingLevel.
+export function withModelDefaults(
+  model: string,
+  config: GenerateContentConfig,
+): GenerateContentConfig {
+  const major = Number(/^gemini-(\d+)/.exec(model)?.[1]);
+  if (config.thinkingConfig || !(major >= 3)) {
+    return config;
+  }
+  return { ...config, thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } };
+}
 
 // Upper bound for a single generateContent call. The SDK performs no automatic
 // retries on this path, so this is the total time a call can take.
@@ -169,7 +187,7 @@ export async function chat(
       model,
       contents,
       config: {
-        ...config,
+        ...withModelDefaults(model, config),
         httpOptions: { timeout: GEMINI_TIMEOUT_MS, ...config.httpOptions },
       },
     });
