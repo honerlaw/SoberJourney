@@ -1,7 +1,7 @@
 # Proposal: chat-input-web-autogrow
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 **Replans**: 1 — see replan.md (2026-10-10, web one-line height is 52px)
 
 ## Goal
@@ -25,6 +25,16 @@ User report: "rapid expanding and scrolling and flickering on the chat screen" s
 - Native `onContentSizeChange` reports the text content height, so no loop on iOS/Android.
 
 ## Approach
+
+Shipped as Approach A (below), with one review addition: `overflow: hidden` during the read. Files:
+- `packages/app/src/components/pages/SponsorPage/ChatInput/ChatInput.tsx`:
+  - `clampInputHeight`;
+  - `measureWebInputHeight(node)`, which guards for `HTMLTextAreaElement` (with a `__DEV__` warning) and records `border = offsetHeight − clientHeight`. It then saves the inline height, overflow and `scrollTop`, sets `overflow: hidden; height: 0px`, reads `scrollHeight + border`, restores all three in `finally`, and clamps to [44, 140];
+  - on web, a `useLayoutEffect` on `[text]` and `onLayout`, with `onContentSizeChange={undefined}`;
+  - on native, the same `onContentSizeChange` formula as before.
+- `.minerva/work/2026-10-10-chat-input-web-autogrow/verify-chat-input-autogrow.mjs`: the real-browser harness. Results are in `archive/scratchpad.md`.
+
+The web one-line height is 52px under the default Tamagui size (replan 2026-10-10), and the 44 floor is native-tuned. Knowledge: [[2026-10-10-constraint-rn-web-textarea-autogrow-ratchet]] corrects the web half of [[2026-10-06-reference-rn-web-textarea-keyboard]], and [[2026-10-10-reference-real-browser-component-harness]] documents the harness.
 
 ### Candidate approaches
 
