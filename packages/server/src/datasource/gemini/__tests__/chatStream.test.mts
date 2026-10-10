@@ -66,8 +66,10 @@ describe("gemini chatStream", () => {
         httpOptions: { timeout: number };
         maxOutputTokens: number;
         abortSignal: AbortSignal;
+        thinkingConfig?: { thinkingLevel?: string };
       };
     };
+    assert.deepEqual(req.config.thinkingConfig, { thinkingLevel: "LOW" });
     assert.equal(req.config.httpOptions.timeout, GEMINI_TIMEOUT_MS);
     assert.equal(req.config.maxOutputTokens, 10);
     assert.equal(req.config.abortSignal, abort.signal);
