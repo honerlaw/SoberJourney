@@ -18,9 +18,10 @@ const KEYBOARD_GAP = 14
  * Native tabs can't report the tab bar's height, and the screen sits
  * differently on each platform: on iOS it extends under the tab bar (whose
  * height is in the tab's safe-area inset), on Android it ends above it. So the
- * screen root's distance to the bottom of the safe-area frame (the same window
- * coordinates `measureInWindow` reports) is measured, and only while the
- * keyboard is hidden: the keyboard never moves the root, and the padding this
+ * screen root's distance to the bottom of the safe-area frame is measured, and
+ * only while the keyboard is hidden. On Android that frame and
+ * `measureInWindow` share window coordinates; on iOS the frame is relative to
+ * the tab's view controller, which covers the window from its origin. And: the keyboard never moves the root, and the padding this
  * returns never changes the root's size, so the measurement can't feed back on
  * itself.
  */

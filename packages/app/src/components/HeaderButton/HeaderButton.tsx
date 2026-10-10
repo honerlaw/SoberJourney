@@ -59,6 +59,9 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
       }
       onPress={handlePress}
       disabled={disabled}
+      // `accessible` makes the button itself the VoiceOver element on iOS, so
+      // the label is read instead of descending into the unlabeled icon.
+      accessible
       aria-label={label}
     />
   )
