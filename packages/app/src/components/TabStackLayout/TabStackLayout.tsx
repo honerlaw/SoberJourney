@@ -11,9 +11,10 @@ type TabStackLayoutProps = {
 }
 
 /**
- * Web's JS header leaves only 4px between the left button and the title, so
- * tab headers pad their buttons on web. Native headers lay out their own bar
- * button items and get the buttons unwrapped.
+ * Web's JS header puts the title only 4px after the left button's own 7px
+ * margin, so tab headers pad their buttons 6px more on web (title gap 11 ->
+ * 17px, edge insets 7 -> 13px). Native headers lay out their own bar button
+ * items and get the buttons unwrapped.
  */
 const webHeaderSide = (render?: () => React.ReactNode) =>
   render && Platform.OS === "web"

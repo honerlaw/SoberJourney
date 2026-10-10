@@ -26,3 +26,21 @@
     - fix: tab layouts pass one headerRight each, short titles; harness asserts title clears the right button at 375px
     - fix: criterion 2 labelled a baseline-parity smoke check; criterion 1 "17 expected, 16 floor"
     - fix: no-headerRight → undefined, no wrapper (criterion 5, read from code); criterion 5 split diff-check vs code-read
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–6 (ran the harness normal + --ref origin/main --expect-fail, eslint, tsc); knip identity with main verified by the author, not the Verifier (tier: reviewer floor — panel predicate does not hold: no interface changed beyond the replan-approved TabStackLayout wrappers)
+- [solo] review triage: 4 FIX / 0 SUGGEST / 0 IGNORE (tier: default-solo row — each finding had a writable failure scenario and was small enough to absorb; none had two defensible dispositions)
+
+## Work notes
+- Root `node_modules` in the main checkout was stale (expo-router 6.0.21 / SDK 54) while package.json pins 57.0.25; expo-router 57 installs nested under `packages/app/node_modules`, and its forked react-navigation lives in `expo-router/build/react-navigation`. A harness resolving from the repo root silently tests SDK 54.
+- The user's screenshot showed the pre-#58 header (`HeaderButton forceGlass`: 44px GlassView circle + drop shadow). Main's web header buttons are already flat/transparent.
+- Web JS bottom tab bar: height = 49 + insets.bottom unless `tabBarStyle.height` is a number; any `tabBarStyle` padding eats into that fixed height (paddingTop 14 left 35px of items, icons 3.5px off the bottom). The UIKit tab item is a `justifyContent: flex-start` column on the inner `role="tab"` button — `tabBarItemStyle` lands on the outer wrapper and cannot center it; `tabBarIconStyle: { marginVertical: "auto" }` does. At >= 768px the bar uses its beside-icon layout; the same settings center there too.
+- Web stacking: an absolutely positioned fill paints over an in-flow Tamagui `Text` regardless of DOM order (CSS paints positioned descendants after in-flow content); native paints later siblings on top. Fix: `position="relative"` + `zIndex={1}` on the in-flow content.
+- expo-router 57's JS `Header` (web) sizes the title with `maxWidth = width − (52|16) − (52|16) − insets` — one button per side assumed; the title sits 4px after the left container. Multi-button right slots (JourneyInfoHeader: Edit + separator + Delete) let long titles run into the buttons on main. Not fixed (replan): needs a header-wide title-width decision; cosmetic.
+- Harness pattern extended: stub only `expo-router`'s `Stack`/`Tabs`/`router` onto `expo-router/native-stack` + `expo-router/js-tabs` (esbuild onResolve exact-match, so `expo-router/assets/*` still resolve), alias `expo-modules-core` from `expo`'s nested copy, `--ref <git-ref>` loads changed files via an esbuild onLoad plugin, and a `SafeAreaInsetsContext.Provider` override simulates the iOS home-indicator inset.
+- App `tsc --noEmit` needs a built server (`packages/server` `npm run build`, with a placeholder DATABASE_URL for prisma generate) because the app imports types from `@onerlaw/soberjourney-server/dist/...`; without it ~58 errors appear in tRPC-typed files. npm 11 also blocks install scripts by default (prisma, esbuild postinstall).
+
+## Review triage 2026-10-10
+Code review (local-diff mode, fresh-context subagent) + minerva audit (spec fidelity, knowledge compliance: no findings).
+1. FIX (medium) worktree `node_modules` symlinks untracked — `node_modules/` ignore pattern does not match symlinks; remove before ship, stage named paths only.
+2. FIX (low) TabStackLayout JSDoc said "only 4px" — reworded to 7px button margin + 4px title margin, 11 -> 17.
+3. FIX (low) harness measured header insets against the tab bar's tablist — now measured against the header row (closest common ancestor of both header buttons).
+4. FIX (low) tab-bar checks only at 466px portrait — added a 1280px (beside-icon layout) run; fails on main, passes on the branch.

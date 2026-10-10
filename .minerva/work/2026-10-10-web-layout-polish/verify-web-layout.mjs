@@ -265,6 +265,9 @@ const measureDashboard = (page) =>
     const newJourney = document.querySelector('[aria-label="New journey"]')
     const title = [...document.querySelectorAll('[role="heading"]')].find((e) => e.textContent === "Journeys")
     const tablist = document.querySelector('[role="tablist"]')
+    // The header row: the closest element holding both header buttons.
+    let headerRow = profile.parentElement
+    while (!headerRow.contains(newJourney)) headerRow = headerRow.parentElement
     const bar = tablist.parentElement
     const barStyle = getComputedStyle(bar)
     const barRect = rect(bar)
@@ -276,8 +279,8 @@ const measureDashboard = (page) =>
     return {
       titleGap: rect(title).left - rect(profile).right,
       titleClearance: rect(newJourney).left - rect(title).right,
-      leftInset: rect(profile).left - rect(tablist).left,
-      rightInset: rect(tablist).right - rect(newJourney).right,
+      leftInset: rect(profile).left - rect(headerRow).left,
+      rightInset: rect(headerRow).right - rect(newJourney).right,
       buttons: [profile, newJourney].map((b) => {
         const s = getComputedStyle(b)
         return { bg: s.backgroundColor, shadow: s.boxShadow }
@@ -336,15 +339,20 @@ for (const viewport of [
 
 // Tab bar (criterion 3) with and without a bottom safe-area inset, and the
 // progress labels (criterion 4).
-for (const insetBottom of [0, 34]) {
-  const page = await open(`insetBottom=${insetBottom}`, { width: 466, height: 780 })
+for (const [insetBottom, viewport] of [
+  [0, { width: 466, height: 780 }],
+  [34, { width: 466, height: 780 }],
+  // Desktop: the tab bar switches to its beside-icon layout at >= 768px.
+  [0, { width: 1280, height: 800 }],
+]) {
+  const page = await open(`insetBottom=${insetBottom}`, viewport)
   await page.waitForSelector('[data-testid="dashboard"]', { timeout: 15000 })
   await page.waitForTimeout(300)
   const m = await measureDashboard(page)
-  if (shots) await page.screenshot({ path: path.join(shots, `dashboard-inset${insetBottom}.png`) })
-  console.log(`tab bar inset ${insetBottom}:`, JSON.stringify({ barHeight: m.barHeight, iconCenterOffsets: m.iconCenterOffsets, iconBottomGaps: m.iconBottomGaps, labels: m.labels }))
-  const tag = `[inset ${insetBottom}]`
-  if (insetBottom === 0) {
+  if (shots) await page.screenshot({ path: path.join(shots, `tabbar-${viewport.width}-inset${insetBottom}.png`) })
+  console.log(`tab bar ${viewport.width}px inset ${insetBottom}:`, JSON.stringify({ barHeight: m.barHeight, iconCenterOffsets: m.iconCenterOffsets, iconBottomGaps: m.iconBottomGaps, labels: m.labels }))
+  const tag = `[${viewport.width}px inset ${insetBottom}]`
+  if (insetBottom === 0 && viewport.width === 466) {
     const labelsOnTop = (pattern) => m.labels.filter((l) => pattern.test(l.text))
     const onTop = (pattern) => labelsOnTop(pattern).length === 1 && labelsOnTop(pattern).every((l) => l.onTop)
     check("4 label on top at 0%", onTop(/^0 /), JSON.stringify(labelsOnTop(/^0 /)), false)
