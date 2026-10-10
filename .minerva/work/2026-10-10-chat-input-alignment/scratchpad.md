@@ -8,3 +8,8 @@
 - [rechecked — residual folded] whole-proposal: items 3/6/7 partially — residual non-load-bearing (native 44 tied to MIN_INPUT_HEIGHT not the Button token; font change to be noted in PR — folded into Approach)
 
 ## Work notes
+- Root cause confirmed on web in real Tamagui: pre-change textarea computed 14px/24px line, 13/16 padding → 52px vs 44px button, tops 8px apart (verify-chat-input-alignment.mjs --component pre-change).
+- ChatInput.tsx: named constants INPUT_FONT_SIZE 16 / INPUT_LINE_HEIGHT 20 / INPUT_PADDING_VERTICAL 11 / INPUT_PADDING_HORIZONTAL 14 passed as explicit TextArea props on all platforms; they override the size variant (proved on web by computed styles).
+- Verification run 2026-10-10: alignment props check PASS (FAIL on pre-change); alignment browser check PASS (FAIL on pre-change); #56 web harness 7/7 PASS with H1=44; #57 native props 3/3 PASS; prettier clean; tsc 0 errors in ChatInput.tsx (37 pre-existing elsewhere).
+- eslint could not run locally: main checkout node_modules has eslint-plugin-react-hooks 5.2.0, but eslint-config-expo 57 references `react-hooks/set-state-in-effect` (v7 rule) → config load TypeError before linting any file. Environment staleness from the SDK 57 upgrade, unrelated to this diff; CI has no lint job.
+- Worktree uses a gitignored symlink to the main checkout's node_modules; playwright-core installed in the session scratchpad, not the repo.
