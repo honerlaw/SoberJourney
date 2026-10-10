@@ -1,12 +1,29 @@
 import React from "react"
+import { Platform } from "react-native"
 import { Stack } from "expo-router"
 import { User } from "@tamagui/lucide-icons"
+import { View } from "tamagui"
 import { HeaderButton } from "@/src/components/HeaderButton"
 
 type TabStackLayoutProps = {
   title: string
   headerRight?: () => React.ReactNode
 }
+
+/**
+ * Web's JS header puts the title only 4px after the left button's own 7px
+ * margin, so tab headers pad their buttons 6px more on web (title gap 11 ->
+ * 17px, edge insets 7 -> 13px). Native headers lay out their own bar button
+ * items and get the buttons unwrapped.
+ */
+const webHeaderSide = (render?: () => React.ReactNode) =>
+  render && Platform.OS === "web"
+    ? () => <View paddingHorizontal={6}>{render()}</View>
+    : render
+
+const ProfileButton = () => (
+  <HeaderButton icon={User} label="Profile" href="/profile" />
+)
 
 /**
  * The Stack inside each tab. Native tabs render no header of their own, so
@@ -28,10 +45,8 @@ export const TabStackLayout: React.FC<TabStackLayoutProps> = ({
       name="index"
       options={{
         headerTitle: title,
-        headerLeft: () => (
-          <HeaderButton icon={User} label="Profile" href="/profile" />
-        ),
-        headerRight,
+        headerLeft: webHeaderSide(() => <ProfileButton />),
+        headerRight: webHeaderSide(headerRight),
       }}
     />
   </Stack>

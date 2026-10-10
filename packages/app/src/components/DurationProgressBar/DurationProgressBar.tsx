@@ -39,7 +39,11 @@ export const DurationProgressBar: React.FC<DurationProgressBarProps> = ({
           backgroundColor="$color8"
           borderRadius="$2"
         />
+        {/* On web the absolute fill paints over in-flow content regardless of
+            DOM order, so the label is positioned and stacked above it. */}
         <Text
+          position="relative"
+          zIndex={1}
           fontSize="$3"
           fontWeight="600"
           color="$color12"
