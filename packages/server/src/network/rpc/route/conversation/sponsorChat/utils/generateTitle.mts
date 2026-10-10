@@ -58,7 +58,8 @@ export async function generateTitle(
     ],
     {
       systemInstruction: TITLE_SYSTEM_PROMPT,
-      maxOutputTokens: 32,
+      // Headroom for any thinking tokens; sanitizeTitle enforces the length.
+      maxOutputTokens: 128,
     },
   );
 
