@@ -1,7 +1,7 @@
 import { YStack, Spinner } from "tamagui"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { FlatList, type ListRenderItem } from "react-native"
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs"
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { useNavigation } from "expo-router"
 
 import { LoadingView } from "@/src/components/LoadingView"

@@ -3,7 +3,7 @@ import {
   ThemeProvider,
   DarkTheme,
   DefaultTheme,
-} from "@react-navigation/native"
+} from "expo-router/react-navigation"
 
 export type NavigationThemeProviderProps = React.PropsWithChildren<{
   theme: "light" | "dark"

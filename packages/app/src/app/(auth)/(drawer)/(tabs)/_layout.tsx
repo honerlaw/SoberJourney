@@ -46,7 +46,7 @@ export default function TabsLayout() {
         options={{
           headerTitle: "Journeys",
           tabBarIcon: ({ color, size }) => (
-            <Home color={color} size={size} pointerEvents="none" />
+            <Home color={color as string} size={size} pointerEvents="none" />
           ),
           headerRight: () => {
             return (
@@ -60,7 +60,7 @@ export default function TabsLayout() {
         options={{
           headerTitle: "Sponsor",
           tabBarIcon: ({ color, size }) => (
-            <MessageCircle color={color} size={size} pointerEvents="none" />
+            <MessageCircle color={color as string} size={size} pointerEvents="none" />
           ),
           headerRight: () => {
             return <HeaderButton icon={Menu} href="openDrawer" forceGlass />
@@ -72,7 +72,7 @@ export default function TabsLayout() {
         options={{
           headerTitle: "Journal",
           tabBarIcon: ({ color, size }) => (
-            <BookOpen color={color} size={size} pointerEvents="none" />
+            <BookOpen color={color as string} size={size} pointerEvents="none" />
           ),
           headerRight: () => {
             return <HeaderButton icon={Pencil} href="/journal-new" forceGlass />
