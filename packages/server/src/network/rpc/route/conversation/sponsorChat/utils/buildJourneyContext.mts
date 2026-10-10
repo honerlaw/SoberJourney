@@ -4,6 +4,18 @@ import { formatCheckInAge } from "./formatCheckInAge.mjs";
 import { formatMood } from "./formatMood.mjs";
 import { formatUrge } from "./formatUrge.mjs";
 
+export const JOURNEY_TITLE_MAX_LENGTH = 100;
+
+/**
+ * Journey titles are user-written and go into the system instruction, so
+ * they are rendered as data: one line, capped, and JSON-quoted (escaped
+ * quotes and newlines), never as free text that could read as instructions.
+ */
+export function formatJourneyTitle(title: string): string {
+  const oneLine = title.replace(/\s+/g, " ").trim();
+  return JSON.stringify(oneLine.slice(0, JOURNEY_TITLE_MAX_LENGTH));
+}
+
 export function buildJourneyContext(
   journeysWithCheckIns: JourneyWithCheckIns[],
   now: Date = new Date(),
@@ -21,7 +33,7 @@ export function buildJourneyContext(
         ? formatDuration(latestEntry.createdAt, now)
         : "just started";
 
-      let description = `- ${journey.title}: ${duration}`;
+      let description = `- ${formatJourneyTitle(journey.title)}: ${duration}`;
 
       // Add recent check-in context if available
       if (recentCheckIns.length > 0) {

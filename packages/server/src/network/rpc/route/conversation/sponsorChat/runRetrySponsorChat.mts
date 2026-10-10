@@ -7,6 +7,7 @@ import type { Context } from "../../../../../context.mjs";
 import { MessageRole } from "../../../../../util/database.mjs";
 import { HISTORY_MAX_MESSAGES } from "./utils/buildHistory.mjs";
 import { withConversationLock } from "../utils/conversationLock.mjs";
+import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
 import {
   generateReply,
   loadCheckIns,
@@ -39,6 +40,7 @@ export async function runRetrySponsorChat(
     throw new UnauthorizedError();
   }
   const userId = user.id;
+  consumeChatRateLimit(userId);
 
   return withConversationLock(
     input.conversationId,

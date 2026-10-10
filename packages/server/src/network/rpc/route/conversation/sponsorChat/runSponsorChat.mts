@@ -21,8 +21,10 @@ import { buildJourneyContext } from "./utils/buildJourneyContext.mjs";
 import { buildHistory, HISTORY_MAX_MESSAGES } from "./utils/buildHistory.mjs";
 import { buildCurrentTimeContext, safeTimeZone } from "./utils/timeZone.mjs";
 import { fallbackReplyFor } from "./utils/fallback.mjs";
+import { containsCodeFence, guardReply } from "./utils/replyGuard.mjs";
 import { generateTitle } from "./utils/generateTitle.mjs";
 import { withConversationLock } from "../utils/conversationLock.mjs";
+import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
 import { persistMessage } from "../utils/persistMessage.mjs";
 import { decryptMessages } from "../utils/decryptMessages.mjs";
 
@@ -55,6 +57,7 @@ export async function runSponsorChat(
   if (!user) {
     throw new UnauthorizedError();
   }
+  consumeChatRateLimit(user.id);
 
   return withConversationLock(
     input.conversationId,
@@ -267,10 +270,11 @@ export async function buildGeneration(
 }
 
 /**
- * Turns a generation result into the stored reply: ok text as-is, a blocked
- * response as its fallback reply, a truncated one as an error (never stored).
- * Persists the MODEL message once and starts title generation for an
- * untitled conversation.
+ * Turns a generation result into the stored reply: ok text through the reply
+ * guard (fenced code is never delivered), a blocked response as its fallback
+ * reply, a truncated one as an error (never stored) unless it contains fenced
+ * code, which gets the guarded reply instead. Persists the MODEL message once
+ * and starts title generation for an untitled conversation.
  */
 export async function finishReply(
   ctx: Context,
@@ -282,16 +286,32 @@ export async function finishReply(
   let reply: string;
   switch (result.status) {
     case "ok":
-      reply = result.text;
+      reply = guardReply(result.text);
       break;
     case "blocked":
       reply = fallbackReplyFor(result.reason);
       break;
     case "truncated":
+      // A code dump that ran out of tokens gets the guarded reply, not an
+      // error the user would retry.
+      if (containsCodeFence(result.text)) {
+        reply = guardReply(result.text);
+        break;
+      }
       // Never store a cut-off reply as if it were complete.
       throw new InternalServerError(
         "The response was cut off. Please try again.",
       );
+  }
+
+  if (result.status !== "blocked" && reply !== result.text) {
+    ctx.logger.warn(
+      {
+        attributes: { conversationId, status: result.status },
+        tags: ["rpc", "conversation", "sponsorChat", "replyGuard"],
+      },
+      "Replaced a reply containing fenced code",
+    );
   }
 
   const modelMessage = await persistMessage(

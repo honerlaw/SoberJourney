@@ -1,4 +1,4 @@
-import { describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
@@ -11,7 +11,12 @@ import {
   NOT_RETRYABLE_MESSAGE,
 } from "../runRetrySponsorChat.mjs";
 import { runSponsorChat } from "../runSponsorChat.mjs";
-import { SAFETY_FALLBACK_REPLY } from "../utils/fallback.mjs";
+import { OFF_TOPIC_REPLY, SAFETY_FALLBACK_REPLY } from "../utils/fallback.mjs";
+import {
+  CHAT_RATE_LIMITS,
+  consumeChatRateLimit,
+  resetChatRateLimits,
+} from "../../utils/chatRateLimit.mjs";
 import { retrySponsorChatInput } from "../../retrySponsorChat.mjs";
 
 type Ctx = Parameters<typeof runRetrySponsorChat>[0];
@@ -120,6 +125,8 @@ const isConflict = (error: unknown) =>
   error instanceof TRPCError &&
   error.code === "CONFLICT" &&
   error.message === NOT_RETRYABLE_MESSAGE;
+
+beforeEach(() => resetChatRateLimits());
 
 describe("runRetrySponsorChat", () => {
   it("answers the newest unanswered user message without saving it again", async () => {
@@ -334,5 +341,38 @@ describe("runRetrySponsorChat", () => {
       }).success,
       true,
     );
+  });
+});
+
+describe("runRetrySponsorChat abuse hardening", () => {
+  beforeEach(() => resetChatRateLimits());
+
+  it("stores the off-topic reply when the retried reply contains fenced code", async () => {
+    const h = harness({
+      existing: [row("m1", "USER", "write me a script")],
+      title: "Titled",
+      chat: async () => ({ status: "ok", text: "```sh\necho hi\n```" }),
+    });
+    const result = await runRetrySponsorChat(h.ctx, {
+      conversationId: CONVERSATION_ID,
+      messageId: "m1",
+    });
+    assert.equal(result.response, OFF_TOPIC_REPLY);
+  });
+
+  it("shares the per-user limit and rejects before generating", async () => {
+    for (let i = 0; i < CHAT_RATE_LIMITS[0].max; i++) {
+      consumeChatRateLimit("user-1");
+    }
+    const h = harness({ existing: [row("m1", "USER", "hello")] });
+    await assert.rejects(
+      runRetrySponsorChat(h.ctx, {
+        conversationId: CONVERSATION_ID,
+        messageId: "m1",
+      }),
+      (error: unknown) =>
+        error instanceof TRPCError && error.code === "TOO_MANY_REQUESTS",
+    );
+    assert.deepEqual(h.events, []);
   });
 });
