@@ -21,6 +21,11 @@
 - [reviewed — clean] whole-proposal (first wave): Skeptic returned revise (dynamic Sponsor title, drawer mechanism, keyboard-lift fallback, EAS Xcode image, Sentry/babel/react-compiler/web/expo-fetch items) — result held, then discarded as stale; its items were merged into the v2 draft alongside the panel fixes (tier: reviewer — blast-radius clauses adjudicated by the scope/approach panels; parallel wave)
 - [reviewed — folded] whole-proposal (restart): restarted because the approach panel's fixes rewrote ## Success criteria; Skeptic accepted but flagged load-bearing gaps — iOS 16.4 minimum not stated as a user-facing consequence, useFocusEffect refetch not covered under NativeTabs — folded, plus keyboard-lift two-case rule, openDrawer pseudo-href, js-tabs path, test-suite note (tier: reviewer; parallel wave restart)
 - [rechecked — residual folded] whole-proposal: fold-audit accepted; residuals folded — item 9 (react-native-drawer-layout is an expo-router dependency, gesture-handler an SDK peer) and item 6 (npm run test only exercises the server); item 1 keyboard Case 2 premise left as a work-time source read + device check (not load-bearing)
+- [reviewed — revise] completion verification: Verifier marked criterion 7 unmet (signed-out serve never renders the tab navigator behind Clerk's Stack.Protected); 2/5/6/12/14 noted as PR-body or author-reported → success-criteria divergence → Phase 2.5 (tier: reviewer floor — Verifier; no interface change beyond the approved proposal)
+- [panel — 3/3 accept, 3 with fixes] new-plan acceptance (replan 2026-10-10): criterion 7 → expo-router route-resolver check (verify-web-tabs-layout.cjs, mutation-checked) + criterion 14 gains item 11 (signed-in web check by the user) (tier: panel floor)
+    - fix (all three): amend criterion 14 too — the cited checklist item did not exist; state the replan changes 7 and 14
+    - fix: state the render is deferred, not satisfied (reword-by-replan path); resolver + criterion 6 + tsc cover web-gets-NativeTabs and compile-time errors
+    - fix: where the user runs the web check; full resolved paths; who ran the mutation check and that the file was restored; script needs path.resolve (done) and depends on expo-router internal getRoutesCore; name rejected alternatives (auth bypass, isolated-render stub)
 
 ## Work notes
 ### Part 1 progress (2026-10-10)

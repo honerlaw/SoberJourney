@@ -164,7 +164,7 @@ The change is **app-only**. There are no server changes, and the new binary talk
 6. The bundling and prebuild checks succeed:
    - `npx expo export -p ios`, `-p android` and `-p web` all bundle successfully with `NODE_ENV=production`, so Tamagui extraction runs.
    - `npx expo prebuild -p ios --no-install` succeeds in a scratch copy; the generated directories are not committed.
-7. The web export contains the routes `dashboard`, `sponsor` and `journal`. Served locally, `/dashboard` renders the JS tab bar and a header.
+7. The web export contains the tab routes (`dashboard/`, `sponsor/` and `journal/` route directories). expo-router's route resolver (`node .minerva/work/2026-10-10-expo-57-liquid-glass/verify-web-tabs-layout.cjs packages/app`) selects `./(auth)/(drawer)/(tabs)/_layout.web.tsx` for `web` and `./(auth)/(drawer)/(tabs)/_layout.tsx` for `ios` and `android`, and a mutation check shows it discriminates. The signed-in web render is checked by the user in criterion 14's item 11 (see replan.md 2026-10-10).
 8. The tab layouts are in place:
    - `(tabs)/_layout.tsx` uses `NativeTabs` with three triggers, each with an `sf` and an `md` icon.
    - `(tabs)/_layout.web.tsx` uses JS `Tabs`.
@@ -186,6 +186,7 @@ The change is **app-only**. There are no server changes, and the new binary talk
     8. Creating a journey and a journal entry, then returning, shows each in its refreshed list (focus refetch).
     9. Light/dark mode.
     10. The Android tab bar, if an Android device is available, and iOS < 26, if available.
+    11. Web, signed in (locally via `npm run web` with a real account, or on the deployed web build): `/dashboard`, `/sponsor` and `/journal` show the bottom JS tab bar and headers with their buttons, and the Sponsor menu button opens the drawer.
 
 ## Open Questions
 
