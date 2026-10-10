@@ -7,6 +7,7 @@ import {
   GeminiError,
   getDefaultModel,
   GEMINI_TIMEOUT_MS,
+  isGemini3OrLater,
   withModelDefaults,
 } from "../chat.mjs";
 
@@ -141,7 +142,7 @@ describe("gemini chat", () => {
     });
   });
 
-  it("defaults Gemini 3+ models to minimal thinking", async () => {
+  it("defaults Gemini 3+ models to low thinking", async () => {
     const { logger } = mockLogger();
     const { client, generateContent } = clientReturning(async () =>
       response({}),
@@ -150,7 +151,7 @@ describe("gemini chat", () => {
     const req = (generateContent.mock.calls[0]!.arguments as unknown[])[0] as {
       config: { thinkingConfig?: { thinkingLevel?: string } };
     };
-    assert.deepEqual(req.config.thinkingConfig, { thinkingLevel: "MINIMAL" });
+    assert.deepEqual(req.config.thinkingConfig, { thinkingLevel: "LOW" });
   });
 });
 
@@ -169,7 +170,20 @@ describe("withModelDefaults", () => {
 
   it("applies to later major versions", () => {
     assert.deepEqual(withModelDefaults("gemini-4-pro", {}), {
-      thinkingConfig: { thinkingLevel: "MINIMAL" },
+      thinkingConfig: { thinkingLevel: "LOW" },
     });
+  });
+});
+
+describe("isGemini3OrLater", () => {
+  it("recognizes versioned, prefixed and alias names", () => {
+    assert.equal(isGemini3OrLater("gemini-3.8-flash"), true);
+    assert.equal(isGemini3OrLater("models/gemini-3.8-flash"), true);
+    assert.equal(isGemini3OrLater(" Gemini-3-pro-preview "), true);
+    assert.equal(isGemini3OrLater("gemini-flash-latest"), true);
+    assert.equal(isGemini3OrLater("gemini-pro-latest"), true);
+    assert.equal(isGemini3OrLater("gemini-2.5-flash"), false);
+    assert.equal(isGemini3OrLater("models/gemini-2.0-flash"), false);
+    assert.equal(isGemini3OrLater("custom-model"), false);
   });
 });

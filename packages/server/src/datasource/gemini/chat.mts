@@ -18,20 +18,31 @@ import { type Logger } from "../../util/logger/index.mjs";
 const DEFAULT_MODEL = "gemini-3.8-flash";
 
 // Gemini 3+ models "think" before answering, and thinking tokens count against
-// maxOutputTokens: left at the model default they can eat a caller's whole
-// budget (a 32-token title, or a reply that ends MAX_TOKENS and is never
-// stored). Callers here want short conversational text, so default those
-// models to minimal thinking unless the caller set a thinkingConfig itself.
-// Older models are left untouched: they reject thinkingLevel.
+// maxOutputTokens: left at the model default (medium) they can eat a caller's
+// budget (a short title, or a reply that ends MAX_TOKENS and is never stored).
+// Callers here want short conversational text, so default those models to LOW
+// unless the caller set a thinkingConfig itself. LOW, not MINIMAL: MINIMAL is
+// only accepted by some Gemini 3 models (gemini-3.8-flash rejects it with a
+// 400), while every Gemini 3 text model accepts LOW. Older models are left
+// untouched: they reject thinkingLevel.
+export function isGemini3OrLater(model: string): boolean {
+  const name = model.trim().toLowerCase().replace(/^models\//, "");
+  // Rolling aliases (gemini-flash-latest, gemini-pro-latest) point at Gemini 3+.
+  if (/^gemini-[a-z-]*latest$/.test(name)) {
+    return true;
+  }
+  const major = Number(/^gemini-(\d+)/.exec(name)?.[1]);
+  return major >= 3;
+}
+
 export function withModelDefaults(
   model: string,
   config: GenerateContentConfig,
 ): GenerateContentConfig {
-  const major = Number(/^gemini-(\d+)/.exec(model)?.[1]);
-  if (config.thinkingConfig || !(major >= 3)) {
+  if (config.thinkingConfig || !isGemini3OrLater(model)) {
     return config;
   }
-  return { ...config, thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } };
+  return { ...config, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
 }
 
 // Upper bound for a single generateContent call. The SDK performs no automatic
