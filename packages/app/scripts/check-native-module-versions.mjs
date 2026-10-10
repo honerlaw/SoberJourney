@@ -10,7 +10,8 @@
  * build. That is how SDK 57's iOS build broke on react-native-svg 15.15.1.
  *
  * Limits: only packages listed in expo's bundledNativeModules.json are checked
- * (some of which are JS-only); other transitive native modules are not.
+ * (some of which are JS-only); other transitive native modules are not. The
+ * expected ranges come from the installed `expo`, so run it after `npm ci`.
  *
  * Usage: node scripts/check-native-module-versions.mjs [path/to/package-lock.json]
  */
@@ -74,7 +75,7 @@ function compare(a, b) {
  * `x.y.z`, `~x.y.z` and `^x.y.z`. Returns null when either side can't be
  * parsed (including prereleases), which the caller reports as an error.
  */
-export function satisfies(version, range) {
+function satisfies(version, range) {
   const locked = parseVersion(version)
   const operator = range[0] === "~" || range[0] === "^" ? range[0] : ""
   const base = parseVersion(range.slice(operator.length))
@@ -99,7 +100,8 @@ function main() {
   for (const [key, entry] of Object.entries(lockfile.packages)) {
     const index = key.lastIndexOf("node_modules/")
     if (index === -1 || entry.link || !entry.version) continue
-    const name = key.slice(index + "node_modules/".length)
+    // An npm alias records the real package name in `name`.
+    const name = entry.name ?? key.slice(index + "node_modules/".length)
     const range = expected[name]
     if (range === undefined) continue
 
@@ -127,6 +129,4 @@ function main() {
   )
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main()
-}
+main()
