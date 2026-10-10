@@ -1,13 +1,13 @@
 # Proposal: fix-ios-build-react-native-svg
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed:** Fix the iOS EAS build that the Expo SDK 57 upgrade (PR #58) broke, and guard against transitive SDK-managed native modules drifting again. The user wants the PR auto-merged on green CI.
 
 ## Goal
 
-Make the iOS EAS builds (development and production) compile again on Expo SDK 57. Declare `react-native-svg` at SDK 57's version in `packages/app`, and add a CI check that fails when any package listed in expo's `bundledNativeModules.json` appears anywhere in the lockfile outside its expected range. That covers root, workspace-local and nested copies, transitive included. The check does not cover native modules that expo doesn't list; that is a stated limit. App-only plus CI; no server or runtime behaviour change.
+Make the iOS EAS builds (development and production) compile again on Expo SDK 57, and fail CI when a package expo pins for the installed SDK drifts anywhere in the lockfile (transitive included). App-only plus CI; no server or runtime behaviour change. The work turned up a second broken native module mid-run, `expo-speech-recognition`; see replan.md.
 
 ## Why
 
@@ -20,33 +20,31 @@ Make the iOS EAS builds (development and production) compile again on Expo SDK 5
 
 ## Approach
 
-1. **Fix.** Add `"react-native-svg": "15.15.4"` (SDK 57's bundled value, exact) to `packages/app/package.json` dependencies, and update the lockfile with `npm install` so every copy is 15.15.4 (see step 4 for where this runs).
-2. **Guard.** Add `packages/app/scripts/check-native-module-versions.mjs`, a dependency-free Node ESM script.
-   - **Inputs.** Expo's `bundledNativeModules.json` is resolved from the installed `expo` package root via `createRequire(import.meta.url)`; if the `exports` map blocks the subpath, it falls back to the package root path. The root `package-lock.json` is located relative to the script, not the cwd. Either input missing means exit 1 with a clear message.
-   - **Which entries are checked.** Every key of the lockfile's `packages` map whose name is listed in `bundledNativeModules`, matched on the segment after the key's last `node_modules/`. Root, `packages/app/node_modules/…` and nested `…/node_modules/<name>` entries all count. Entries with `link: true` or without a `version` are skipped.
-   - **Range semantics.** Only the forms SDK 57 uses: exact (`x.y.z`), `~x.y.z` (≥x.y.z <x.(y+1).0) and `^x.y.z` (≥x.y.z <(x+1).0.0, or <0.(y+1).0 when x=0). Any other range form, and any prerelease or unparseable locked version, is an error, never skipped.
-   - **Allowlist.** It is keyed on `name@exactVersion` and applies across all paths, with a comment giving the reason. The single entry is `@react-native-async-storage/async-storage@1.24.0`: transitive via Clerk → `@solana-mobile/*`, not compiled into the iOS build, unused by the app. The comment says to remove the entry once the lockfile reaches 2.x. A different version of an allowlisted package fails.
-   - **Output and exposure.** Exit 1 lists each mismatch: name, locked version, expected range and lockfile key. The header states the limits: only packages expo lists are checked, and expo's list includes some JS-only entries that could someday need an allowlist entry. It is exposed as `npm run check:native-modules` in `packages/app`.
-3. **CI.** Add a step to `.github/workflows/ci.yml` right after `npm ci`: `npm run check:native-modules --workspace=@onerlaw/soberjourney-app`. A drift then fails the PR check before the build and EAS steps run.
-4. **Verify on a clean install.** Fresh clone, then `npm ci`. Then:
-   - the check passes;
-   - mutations (react-native-svg forced to 15.15.1, allowlist entry removed, allowlisted package at another version) each fail it;
-   - `expo config --json`, `npx expo install --check`, root build and test, app lint, knip (add an ignore if it flags `react-native-svg` as unused; the svg transformer and lucide icons need it at runtime), `expo prebuild -p ios --no-install`, and the three production exports all pass.
+What shipped:
 
-   The lockfile diff must be limited to the react-native-svg entry and the new direct dependency. The `react-native-svg` spec is written as the bundled value `15.15.4`, by editing package.json plus `npm install` in the fresh clone, not `expo install` against the stale main checkout.
-5. **Prove the native compile before the PR.** Run `eas build --platform ios --profile production --non-interactive --wait` from the unit's worktree, without `--auto-submit` and on a clean committed tree. This is the profile the merge fires. The PR is opened only once that build finishes; the `production` profile's `autoIncrement` will bump the remote build number, which is harmless.
-   - If the build fails on another native compile error, that is a new divergence: replan, with no PR and no merge.
-   - The wait is bounded at 60 minutes. Past that, or on an `eas` error, report to the user rather than shipping.
-   - Assumption, stated: a compiling production build implies the PR's development build compiles too. They share the same native sources.
-6. **Record.** A new knowledge entry covers the transitive-drift failure, the guard and its limit, and why `react-native-svg` is declared directly. It links to `2026-10-10-reference-expo-sdk-57-upgrade-notes` (add-only).
-7. **Ship.** With the compile proven, the PR goes up with auto-merge on green CI, as the user wants.
+1. **`react-native-svg` declared at `15.15.4`**, SDK 57's bundled version, in `packages/app`.
+   - It had been transitive-only: `@tamagui/lucide-icons`, `@tamagui/helpers-icon` and `react-native-svg-transformer` all accept `>=12`. So `expo install --fix` never moved it off 15.15.1, which doesn't compile against RN 0.86 (`RNSVGImage.mm` and the `ImageResponseObserver` `shared_ptr`).
+   - The lockfile diff is the svg entry plus `peer` flags dropped on its own dependencies.
+2. **`expo-speech-recognition` bumped from `^3.0.1` to `~57.1.1`** (replan 2026-10-10).
+   - 3.0.1 used the legacy permissions API, which no longer compiles against expo-modules-core 57. The pre-PR EAS build found this once svg compiled.
+   - Its only consumer, `useSpeechToText`, is unused, and its JS API is unchanged.
+3. **`packages/app/scripts/check-native-module-versions.mjs`**, a dependency-free Node ESM script exposed as `npm run check:native-modules`.
+   - **What it checks:** every key of the lockfile's `packages` map, matched by the name after the key's last `node_modules/` (or `entry.name` for npm aliases), against the installed expo's `bundledNativeModules.json`. Range forms are exact, `~` and `^`, including the `^0.y`/`^0.0.z` rules. Unparseable or prerelease versions fail.
+   - **Allowlist:** keyed on `name@version` across all paths. A stale entry fails. The single entry is `@react-native-async-storage/async-storage@1.24.0`, transitive via Clerk's Solana adapters and not autolinked on iOS.
+   - **Self-check:** the range logic runs a self-check on every invocation.
+   - **Known limit:** only packages expo lists are checked; SDK-versioned third-party native modules are not.
+4. **CI.** `.github/workflows/ci.yml` runs the check right after `npm ci`. `knip.json` lists `scripts/*.mjs` as entries.
+5. **Native compile proven before the PR** by non-submitting EAS iOS production builds:
+   - `9187da96` errored on expo-speech-recognition, which led to the replan;
+   - `959332ea` on 0f3fad0 finished.
 
-### Candidate approaches for the guard
+   No `package.json`, lockfile or `app.json` change came after it.
+6. **Knowledge.** `.minerva/knowledge/2026-10-10-bug-transitive-native-modules-broke-sdk-57-ios-build.md`.
 
-- **A (recommended):** the lockfile vs `bundledNativeModules.json` script plus a CI step. It catches transitive and nested drift deterministically and fails fast in CI. Cost: one small script with an allowlist.
-- **B:** rely on `expo-doctor` / `expo install --check` in CI. Rejected: both validate direct dependencies only, and neither flagged 15.15.1 (shown during PR #58).
-- **C:** declare every SDK-managed native module that the app uses transitively, with no check. It fixes today's cases but gives no protection against the next transitive drift. Dominated by A, which also covers this.
-- **D:** make every PR's CI wait for the EAS build (drop `--no-wait`) so compile errors turn the PR red. Rejected as the guard: it adds about 20+ minutes and EAS build minutes to every PR, and it changes the CI/billing contract. It may be worth doing separately; out of scope.
+Not done, and deliberately out of scope:
+- making every PR's CI wait on its EAS build (option D);
+- extending the guard to SDK-versioned third-party modules;
+- removing the unused voice-input package (Open Question).
 
 ## Success criteria
 
