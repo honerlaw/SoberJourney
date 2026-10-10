@@ -12,9 +12,6 @@ import {
 const MAX_MESSAGE_LENGTH = 16000
 const MIN_INPUT_HEIGHT = 44
 const MAX_INPUT_HEIGHT = 140
-/** Vertical padding added on top of the text content height (native). */
-const INPUT_VERTICAL_PADDING = 20
-
 const clampInputHeight = (height: number) =>
   Math.min(MAX_INPUT_HEIGHT, Math.max(MIN_INPUT_HEIGHT, Math.ceil(height)))
 
@@ -85,6 +82,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFailedDraftConsumed,
 }) => {
   const [text, setText] = useState("")
+  // Web only: native sizes itself (see the TextArea below).
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT)
   const sendingRef = useRef(false)
   const inputRef = useRef<TextInput>(null)
@@ -162,23 +160,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           // instead, between one line and a capped maximum.
           rows={undefined}
           numberOfLines={undefined}
-          height={inputHeight}
-          // Native reports the text's own height. Web is measured instead
-          // (see measureWebInputHeight); passing this on web makes
-          // react-native-web re-report the box's scrollHeight on every render.
-          onContentSizeChange={
-            isWeb
-              ? undefined
-              : (event) => {
-                  const contentHeight = event.nativeEvent.contentSize.height
-                  setInputHeight(
-                    clampInputHeight(contentHeight + INPUT_VERTICAL_PADDING),
-                  )
-                }
-          }
-          // Re-wrapping after a width change alters the web content height.
-          onLayout={isWeb ? measureWebHeight : undefined}
-          scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
+          // Never size from onContentSizeChange: both platforms report a
+          // size that depends on the box's own layout, so setting the height
+          // from it loops (web ratchets to the cap; iOS re-reports on every
+          // layout pass and flickers). Native sizes the multiline input to
+          // its text during layout; web measures it (see
+          // measureWebInputHeight) and re-measures when re-wrapping after a
+          // width change.
+          {...(isWeb
+            ? { height: inputHeight, onLayout: measureWebHeight }
+            : {
+                minHeight: MIN_INPUT_HEIGHT,
+                maxHeight: MAX_INPUT_HEIGHT,
+                // Android centers text vertically by default; keep it at the
+                // top, as on iOS, when the floor is taller than one line.
+                textAlignVertical: "top" as const,
+              })}
           placeholder="Chat with your AI sponsor"
           value={text}
           onChangeText={setText}
