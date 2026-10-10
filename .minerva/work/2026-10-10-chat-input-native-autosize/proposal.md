@@ -1,7 +1,7 @@
 # Proposal: chat-input-native-autosize
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 ## Goal
 
@@ -37,6 +37,19 @@ The facts below come from react-native 0.81.5 with the new architecture (Fabric)
 Whatever the exact UIKit semantics, this loop exists only because JavaScript sets the height from a size the native view reports back after layout. Removing the JavaScript content-size feedback path removes that loop.
 
 ## Approach
+
+Shipped as Approach A. In `ChatInput.tsx` the TextArea gets a platform spread:
+- **Web:** `{height: inputHeight, onLayout: measureWebHeight}`, unchanged from #56.
+- **Native:** `{minHeight: 44, maxHeight: 140, textAlignVertical: "top"}`. The `textAlignVertical` part was added at review, for Android's default vertical centering.
+
+`onContentSizeChange`, `scrollEnabled` and `INPUT_VERTICAL_PADDING` are removed. `inputHeight` and its layout effect are web-only.
+
+Verification:
+- `verify-chat-input-native-props.mjs` checks the prop sets for iOS, Android and web, and fails on the pre-fix component.
+- The #56 web harness passes all seven checks against the new component.
+- Device behavior is checked by the user after merge (criterion 5).
+
+Knowledge: [[2026-10-10-constraint-native-textinput-autosize-not-contentsize]].
 
 ### Candidate approaches
 
