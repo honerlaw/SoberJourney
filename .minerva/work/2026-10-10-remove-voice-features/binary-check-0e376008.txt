@@ -1,0 +1,90 @@
+== Payload/SoberJourney.app/SoberJourney
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoFileSystem.framework/ExpoFileSystem
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoFont.framework/ExpoFont
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoImage.framework/ExpoImage
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoModulesCore.framework/ExpoModulesCore
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoModulesJSI.framework/ExpoModulesJSI
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ExpoModulesWorklets.framework/ExpoModulesWorklets
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/hermesvm.framework/hermesvm
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/libavif.framework/libavif
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/React.framework/React
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/ReactNativeDependencies.framework/ReactNativeDependencies
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/SDWebImage.framework/SDWebImage
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/SDWebImageAVIFCoder.framework/SDWebImageAVIFCoder
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/SDWebImageSVGCoder.framework/SDWebImageSVGCoder
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
+== Payload/SoberJourney.app/Frameworks/SDWebImageWebPCoder.framework/SDWebImageWebPCoder
+otool -L Speech: 0
+weak Speech: 0
+nm -u SFSpeech: 0
+strings SFSpeech: 0
+mic strings: 0
