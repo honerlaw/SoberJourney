@@ -21,9 +21,9 @@ const KEYBOARD_GAP = 14
  * screen root's distance to the bottom of the safe-area frame is measured, and
  * only while the keyboard is hidden. On Android that frame and
  * `measureInWindow` share window coordinates; on iOS the frame is relative to
- * the tab's view controller, which covers the window from its origin. And: the keyboard never moves the root, and the padding this
- * returns never changes the root's size, so the measurement can't feed back on
- * itself.
+ * the tab's view controller, which covers the window from its origin. The
+ * keyboard never moves the root, and the padding this returns never changes
+ * the root's size, so the measurement can't feed back on itself.
  */
 export function useInputBottomPadding(keyboardHeight: number) {
   const insets = useSafeAreaInsets()
