@@ -50,7 +50,7 @@ Make the iOS EAS builds (development and production) compile again on Expo SDK 5
 
 ## Success criteria
 
-1. `packages/app/package.json` declares `"react-native-svg": "15.15.4"`, SDK 57's bundled value. On a clean `npm ci`, every lockfile copy is 15.15.4 (`npm ls react-native-svg`). The lockfile diff is limited to that change.
+1. `packages/app/package.json` declares `"react-native-svg": "15.15.4"`, SDK 57's bundled value. On a clean `npm ci`, every lockfile copy is 15.15.4 (`npm ls react-native-svg`). The lockfile diff is limited to that change and the `expo-speech-recognition` bump (criterion 7; replan.md 2026-10-10).
 2. `npm run check:native-modules` (packages/app) exits 0 on the fixed lockfile and scans every lockfile key, including `packages/app/node_modules/*` and nested entries. In scratch copies it exits 1, naming package, version, range and key, for each of these:
    - (a) react-native-svg at 15.15.1;
    - (b) the async-storage allowlist entry removed;
@@ -58,8 +58,11 @@ Make the iOS EAS builds (development and production) compile again on Expo SDK 5
 3. `.github/workflows/ci.yml` runs the check right after `npm ci`, and the PR's CI check is green.
 4. On a fresh clone with `npm ci`, all of these succeed: `expo config --json`, `npx expo install --check`, root `npm run build` and `npm run test`, app lint with 0 errors, knip with no new findings, `NODE_ENV=production expo export -p ios|android|web`, and `expo prebuild -p ios --no-install`. No untracked file (e.g. the main checkout's `app.json`) enters the PR.
 5. A non-submitting EAS iOS **production** build finishes successfully before the PR is opened, covering the final native-affecting state. If `packages/app/package.json`, `package-lock.json` or `packages/app/app.json` change after that build, it is re-run. Its build ID and status are recorded in the scratchpad and the PR body.
-6. A new knowledge entry records the failure, the guard and its limit, linking `2026-10-10-reference-expo-sdk-57-upgrade-notes`.
+7. `packages/app/package.json` declares `expo-speech-recognition` `~57.1.1`, and the lockfile resolves it to at least 57.1.1 and below 57.2.0 (replan.md 2026-10-10).
+6. A new knowledge entry records the failure, the guard and its limit (including that SDK-versioned third-party native modules sit outside it), linking `2026-10-10-reference-expo-sdk-57-upgrade-notes`.
 
 ## Open Questions
+
+- Voice input: `expo-speech-recognition` and `useSpeechToText` are unused. Should they and the speech and microphone permission strings be removed? That is the user's call and a follow-up (replan.md 2026-10-10).
 
 - None blocking. Whether to make CI wait on EAS builds (D) is noted as a follow-up idea, not this unit.
