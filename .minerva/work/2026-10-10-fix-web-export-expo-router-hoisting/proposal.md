@@ -28,7 +28,7 @@ Make the DigitalOcean App Platform production build succeed again from a clean `
    - Regenerate the lockfile with `npm install --package-lock-only` (npm 11, the same major as CI's Node 24).
    - This forces expo-router into root `node_modules`, where `@expo/cli` resolves it.
    - Measured in a scratch worktree: 0 name@version changes in the lockfile and 55 path moves, as expo-router and its nested deps relocate. With the pin, `expo export -p web` exits 0.
-   - The 55 is a path-move count only. Copy counts also change, by −2 `@expo/schema-utils`, −1 `expo-server` and +11 across 7 web-only `@radix-ui` packages. That is expected; see replan.md 2026-10-10.
+   - The 55 is a path-move count only. Copy counts also change, by −2 `@expo/schema-utils`, −1 `expo-server` and +10 across 7 web-only `@radix-ui` packages. That is expected; see replan.md 2026-10-10.
 2. **Add a CI step.** In `.github/workflows/ci.yml`, after Test and before the EAS build/submit step, run `npm run build:web --workspace=@onerlaw/soberjourney-server`.
    - This is the exact `build:pre` half of the `build:prod` command DigitalOcean runs.
    - A broken production web export then fails the PR before an EAS build is queued.

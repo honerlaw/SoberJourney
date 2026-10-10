@@ -9,7 +9,7 @@
 - **Versions:** the set stayed identical, 1,943 name@version pairs on each side with an empty symmetric difference.
 - **Copy counts:** npm re-dedupes and re-nests, so these changed:
   - −2 `@expo/schema-utils@57.0.2` and −1 `expo-server@57.0.3`, which are now deduplicated;
-  - +11 copies across 7 web-only `@radix-ui` packages: `react-compose-refs@1.1.5` ×2, `react-context@1.2.2` ×2, `react-use-layout-effect@1.1.4` ×2, `primitive@1.1.7`, `react-id@1.1.4`, `react-use-controllable-state@1.2.6`, `react-use-effect-event@0.0.5`.
+  - +10 copies across 7 web-only `@radix-ui` packages: `react-compose-refs@1.1.5` ×2, `react-context@1.2.2` ×2, `react-use-layout-effect@1.1.4` ×2, `primitive@1.1.7`, `react-id@1.1.4`, `react-use-controllable-state@1.2.6`, `react-use-effect-event@0.0.5`.
 - **Why the radix copies grew:** they are expo-router's own transitive deps (react-tabs, roving-focus, collection, presence). They used to sit in `packages/app/node_modules`. Root `node_modules` already holds other radix versions, so they now nest under their root-level parents.
 
 Criterion 2 is therefore unsatisfiable as worded. Matching the multiset literally would need manual pins or overrides for the radix packages. That adds permanent surface for no runtime benefit, so it was rejected.
@@ -28,7 +28,7 @@ Criterion 2 is therefore unsatisfiable as worded. Matching the multiset literall
 
 No runtime dependency resolves to a different version.
 
-None of the moved or duplicated packages is native. The 7 radix packages are pure JS with no `hasInstallScript`. Criterion 4's autolinking `resolve` and `react-native-config` name+version sets for iOS and Android are identical to origin/main's.
+The 7 duplicated radix packages are pure JS with no `hasInstallScript`. Three native packages changed install path only, from under `packages/app` to root: `expo-router`, `@expo/ui@57.0.22` and `@react-native-masked-view/masked-view@0.3.2`. Their versions are unchanged. Criterion 4's autolinking `resolve` and `react-native-config` name+version sets for iOS and Android are identical to origin/main's.
 
 `npm ci` installs exactly what this lockfile records. CI's green `npm ci` plus build on the PR confirms the same tree there.
 
