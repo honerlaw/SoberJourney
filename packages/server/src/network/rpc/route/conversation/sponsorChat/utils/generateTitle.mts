@@ -59,23 +59,12 @@ export async function generateTitle(
   userId: string,
   messageText: string,
 ): Promise<void> {
-  const result = await ctx.datasource.gemini.chat(
-    [
-      {
-        role: "user",
-        parts: [
-          {
-            text: titlePrompt(messageText),
-          },
-        ],
-      },
-    ],
-    {
-      systemInstruction: TITLE_SYSTEM_PROMPT,
-      // Headroom for any thinking tokens; sanitizeTitle enforces the length.
-      maxOutputTokens: 128,
-    },
-  );
+  const result = await ctx.datasource.openrouter.chat({
+    system: TITLE_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: titlePrompt(messageText) }],
+    // Headroom for any thinking tokens; sanitizeTitle enforces the length.
+    maxTokens: 128,
+  });
 
   if (result.status !== "ok") {
     return;

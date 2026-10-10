@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
 import {
-  GeminiError,
+  LlmError,
   type ChatResult,
-} from "../../../../../../datasource/gemini/chat.mjs";
+} from "../../../../../../datasource/openrouter/chat.mjs";
 import {
   runRetrySponsorChat,
   NOT_RETRYABLE_MESSAGE,
@@ -50,13 +50,13 @@ function harness(options: {
   const histories: unknown[] = [];
 
   const chat = mock.fn(
-    async (contents: unknown, config: { systemInstruction?: string }) => {
-      if (config.systemInstruction?.startsWith("You are a title generator")) {
-        events.push("gemini:title");
+    async (request: { system?: string; messages?: unknown }) => {
+      if (request.system?.startsWith("You are a title generator")) {
+        events.push("llm:title");
         return { status: "ok", text: "Hope" } as ChatResult;
       }
-      events.push("gemini:chat");
-      histories.push(contents);
+      events.push("llm:chat");
+      histories.push(request.messages);
       return (
         options.chat ??
         (async () => ({ status: "ok", text: "Here for you." }) as ChatResult)
@@ -67,7 +67,7 @@ function harness(options: {
   const ctx = {
     logger,
     auth: { user: { id: "user-1", timezone: "America/New_York" } },
-    datasource: { gemini: { chat } },
+    datasource: { openrouter: { chat } },
     database: {
       journey: { list: mock.fn(async () => []) },
       conversation: {
@@ -149,13 +149,13 @@ describe("runRetrySponsorChat", () => {
       userMessageId: "m3",
       modelMessageId: "m100",
     });
-    assert.deepEqual(h.events, ["load", "gemini:chat", "persist:MODEL"]);
+    assert.deepEqual(h.events, ["load", "llm:chat", "persist:MODEL"]);
     assert.equal(h.stored.filter((r) => r.role === "USER").length, 2);
     // the retried text goes last, exactly once
     assert.deepEqual(h.histories[0], [
-      { role: "user", parts: [{ text: "hello" }] },
-      { role: "model", parts: [{ text: "hi there" }] },
-      { role: "user", parts: [{ text: "I want a drink" }] },
+      { role: "user", content: "hello" },
+      { role: "assistant", content: "hi there" },
+      { role: "user", content: "I want a drink" },
     ]);
   });
 
@@ -236,7 +236,7 @@ describe("runRetrySponsorChat", () => {
     const h = harness({
       existing: [row("m1", "USER", "hello")],
       chat: async () => {
-        throw new GeminiError("unavailable", "down");
+        throw new LlmError("unavailable", "down");
       },
     });
     await assert.rejects(
@@ -265,7 +265,7 @@ describe("runRetrySponsorChat", () => {
       ["USER", "MODEL"],
     );
     await flush();
-    assert.ok(!h.events.includes("gemini:title"));
+    assert.ok(!h.events.includes("llm:title"));
   });
 
   it("stores nothing for a truncated reply, so the message stays retryable", async () => {

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
 import {
-  GeminiError,
+  LlmError,
   type ChatResult,
-} from "../../../../../../datasource/gemini/chat.mjs";
+} from "../../../../../../datasource/openrouter/chat.mjs";
 import {
   runStreamSponsorChat,
   type SponsorChatStreamEvent,
@@ -37,12 +37,13 @@ type Row = {
 };
 
 type StreamConfig = {
-  systemInstruction?: string;
-  maxOutputTokens?: number;
-  abortSignal?: AbortSignal;
+  system?: string;
+  messages?: Array<{ role: string; content: string }>;
+  maxTokens?: number;
+  signal?: AbortSignal;
 };
 
-/** A fake Gemini stream: yields `deltas`, then runs `end` for the result. */
+/** A fake model stream: yields `deltas`, then runs `end` for the result. */
 type FakeStream = (
   config: StreamConfig,
 ) => AsyncGenerator<string, ChatResult, undefined>;
@@ -63,7 +64,7 @@ function streamOf(
 /** Rejects with an AbortError when the signal aborts (like the SDK). */
 function untilAborted(config: StreamConfig): Promise<never> {
   return new Promise((_, reject) => {
-    const signal = config.abortSignal!;
+    const signal = config.signal!;
     const fail = () => reject(new DOMException("aborted", "AbortError"));
     if (signal.aborted) fail();
     signal.addEventListener("abort", fail, { once: true });
@@ -112,8 +113,8 @@ function harness(options: {
       nextCursor: null,
     };
   });
-  const chatStream = mock.fn((_contents: unknown, config: StreamConfig) => {
-    events.push("gemini:stream");
+  const chatStream = mock.fn((config: StreamConfig) => {
+    events.push("llm:stream");
     streamConfigs.push(config);
     return options.stream(config);
   });
@@ -126,7 +127,7 @@ function harness(options: {
         : { id: "user-1", timezone: "America/New_York" },
     },
     datasource: {
-      gemini: {
+      openrouter: {
         chatStream,
         chat: mock.fn(async () => ({ status: "ok", text: "Title" })),
       },
@@ -199,29 +200,29 @@ describe("runStreamSponsorChat", () => {
       "load",
       "persist:USER",
       "load",
-      "gemini:stream",
+      "llm:stream",
       "persist:MODEL",
     ]);
     assert.deepEqual(
       h.stored.map((r) => r.content),
       ["enc:I feel an urge", "enc:You've got this."],
     );
-    const [contents] = h.chatStream.mock.calls[0]!.arguments as unknown as [
-      Array<{ role: string; parts: Array<{ text: string }> }>,
+    const [request] = h.chatStream.mock.calls[0]!.arguments as unknown as [
+      StreamConfig,
     ];
-    assert.deepEqual(contents.at(-1), {
+    assert.deepEqual(request.messages!.at(-1), {
       role: "user",
-      parts: [{ text: "I feel an urge" }],
+      content: "I feel an urge",
     });
-    assert.equal(h.streamConfigs[0]!.maxOutputTokens, MAX_OUTPUT_TOKENS);
-    assert.match(h.streamConfigs[0]!.systemInstruction!, /Crisis resources:/);
+    assert.equal(h.streamConfigs[0]!.maxTokens, MAX_OUTPUT_TOKENS);
+    assert.match(h.streamConfigs[0]!.system!, /Crisis resources:/);
     await waitForLockRelease();
   });
 
-  it("keeps the user message when Gemini fails mid-stream and surfaces the mapped error", async () => {
+  it("keeps the user message when the model fails mid-stream and surfaces the mapped error", async () => {
     const h = harness({
       stream: streamOf(["par"], () => {
-        throw new GeminiError("unknown", "boom");
+        throw new LlmError("unknown", "boom");
       }),
     });
     const { events, error } = await collect(runStreamSponsorChat(h.ctx, input));
@@ -242,7 +243,7 @@ describe("runStreamSponsorChat", () => {
   it("maps rate limits to TOO_MANY_REQUESTS (never UNAUTHORIZED)", async () => {
     const h = harness({
       stream: streamOf([], () => {
-        throw new GeminiError("rate_limited", "quota");
+        throw new LlmError("rate_limited", "quota");
       }),
     });
     const { error } = await collect(runStreamSponsorChat(h.ctx, input));
@@ -312,7 +313,7 @@ describe("runStreamSponsorChat", () => {
     assert.equal(error.code, "UNAUTHORIZED");
   });
 
-  it("on abort mid-stream cancels Gemini, stores no reply, ends the stream and releases the lock", async () => {
+  it("on abort mid-stream cancels the model call, stores no reply, ends the stream and releases the lock", async () => {
     const h = harness({ stream: streamOf(["first "], untilAborted) });
     const abort = new AbortController();
     const generator = runStreamSponsorChat(h.ctx, input, abort.signal);
@@ -327,7 +328,7 @@ describe("runStreamSponsorChat", () => {
     abort.abort();
     assert.deepEqual(await waiting, { done: true, value: undefined });
 
-    assert.equal(h.streamConfigs[0]!.abortSignal!.aborted, true);
+    assert.equal(h.streamConfigs[0]!.signal!.aborted, true);
     await waitForLockRelease();
     assert.deepEqual(
       h.stored.map((r) => r.role),
@@ -346,7 +347,7 @@ describe("runStreamSponsorChat", () => {
     await generator.next(); // saved
     await generator.next(); // delta
     await generator.return(undefined);
-    assert.equal(h.streamConfigs[0]!.abortSignal!.aborted, true);
+    assert.equal(h.streamConfigs[0]!.signal!.aborted, true);
     await waitForLockRelease();
     assert.deepEqual(
       h.stored.map((r) => r.role),

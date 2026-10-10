@@ -14,7 +14,7 @@ function ctxWith(result: unknown) {
   const setTitleIfNull = mock.fn(async () => true);
   const chat = mock.fn(async () => result);
   const ctx = {
-    datasource: { gemini: { chat } },
+    datasource: { openrouter: { chat } },
     database: { conversation: { setTitleIfNull } },
   } as unknown as Ctx;
   return { ctx, setTitleIfNull, chat };
@@ -109,9 +109,13 @@ describe("titlePrompt", () => {
   it("is what generateTitle sends", async () => {
     const { ctx, chat } = ctxWith({ status: "ok", text: "Hope" });
     await generateTitle(ctx, "c1", "u1", "I made it a week");
-    const contents = (chat.mock.calls[0]!.arguments as unknown[])[0] as {
-      parts: { text: string }[];
-    }[];
-    assert.equal(contents[0]!.parts[0]!.text, titlePrompt("I made it a week"));
+    const request = (chat.mock.calls[0]!.arguments as unknown[])[0] as {
+      system: string;
+      messages: { role: string; content: string }[];
+    };
+    assert.equal(request.system, TITLE_SYSTEM_PROMPT);
+    assert.deepEqual(request.messages, [
+      { role: "user", content: titlePrompt("I made it a week") },
+    ]);
   });
 });

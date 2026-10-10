@@ -19,8 +19,13 @@ const envSchema = z.object({
   // Database (assuming DATABASE_URL is used by Prisma, even if not directly referenced)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  // Gemini AI
-  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  // OpenRouter (LLM). Optional so a deploy without it still boots: only
+  // Sponsor chat replies fail (see datasource/openrouter/client.mts).
+  // An empty value counts as unset, so it cannot fail the whole config.
+  OPENROUTER_API_KEY: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(1).optional(),
+  ),
 
   // comma-separated apex hosts that are redirected to their www. subdomain
   REDIRECT_APEX_HOSTS: z.string().default("soberjourney.app"),

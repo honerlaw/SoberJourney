@@ -7,7 +7,8 @@ import { TRPCError } from "@trpc/server";
  *
  * Like conversationLock, this only counts within one server process: with
  * more than one instance each counts separately, and a restart resets the
- * counts. The hard cost ceiling remains the Gemini project quota.
+ * counts. The hard cost ceiling is the OpenRouter key's credit balance /
+ * spend limit.
  *
  * The limits sit far above human typing speed (one message every 3 seconds
  * for a minute, or every 12 seconds for an hour), so a person in distress

@@ -3,7 +3,6 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "@onerlaw/framework/backend/rpc";
-import { type Content } from "@google/genai";
 import { TRPCError } from "@trpc/server";
 import type { Context } from "../../../../../context.mjs";
 import {
@@ -12,9 +11,10 @@ import {
   type UserJourneyModelWithEntries,
 } from "../../../../../util/database.mjs";
 import {
-  GeminiError,
+  LlmError,
+  type ChatMessage,
   type ChatResult,
-} from "../../../../../datasource/gemini/chat.mjs";
+} from "../../../../../datasource/openrouter/chat.mjs";
 import { type JourneyWithCheckIns } from "./utils/types.mjs";
 import { BASE_SYSTEM_PROMPT } from "./utils/systemPrompt.mjs";
 import { buildJourneyContext } from "./utils/buildJourneyContext.mjs";
@@ -216,9 +216,10 @@ export async function generateReply(
 
   let result: ChatResult;
   try {
-    result = await ctx.datasource.gemini.chat(generation.history, {
-      systemInstruction: generation.systemInstruction,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    result = await ctx.datasource.openrouter.chat({
+      system: generation.system,
+      messages: generation.messages,
+      maxTokens: MAX_OUTPUT_TOKENS,
     });
   } catch (error) {
     throw toRpcError(error);
@@ -228,12 +229,12 @@ export async function generateReply(
 }
 
 export type Generation = {
-  history: Content[];
-  systemInstruction: string;
+  messages: ChatMessage[];
+  system: string;
 };
 
 /**
- * Builds the Gemini request for a reply: the decrypted history (current
+ * Builds the model request for a reply: the decrypted history (current
  * message last) and the system prompt with time and journey context.
  */
 export async function buildGeneration(
@@ -250,23 +251,23 @@ export async function buildGeneration(
   );
 
   const timeZone = safeTimeZone(params.storedTimeZone);
-  const systemInstruction =
+  const system =
     BASE_SYSTEM_PROMPT +
     buildCurrentTimeContext(params.now, timeZone) +
     buildJourneyContext(params.journeysWithCheckIns, params.now, timeZone);
 
-  const history = buildHistory([
+  const messages = buildHistory([
     ...previousMessages.map((message) => ({
       role:
         message.role === MessageRole.USER
           ? ("user" as const)
-          : ("model" as const),
+          : ("assistant" as const),
       text: message.content,
     })),
     { role: "user" as const, text: current.text },
   ]);
 
-  return { history, systemInstruction };
+  return { messages, system };
 }
 
 /**
@@ -347,7 +348,7 @@ export async function finishReply(
  * released apps log the user out on 401.
  */
 export function toRpcError(error: unknown): TRPCError {
-  if (error instanceof GeminiError && error.kind === "rate_limited") {
+  if (error instanceof LlmError && error.kind === "rate_limited") {
     return new TRPCError({
       code: "TOO_MANY_REQUESTS",
       message:

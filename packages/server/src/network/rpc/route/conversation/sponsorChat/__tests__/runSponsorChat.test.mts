@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
 import {
-  GeminiError,
+  LlmError,
   type ChatResult,
-} from "../../../../../../datasource/gemini/chat.mjs";
+} from "../../../../../../datasource/openrouter/chat.mjs";
 import { runSponsorChat, MAX_OUTPUT_TOKENS } from "../runSponsorChat.mjs";
 import {
   BLOCKED_FALLBACK_REPLY,
@@ -52,25 +52,23 @@ function harness(options: {
     events.push("title:set");
     return true;
   });
-  const chat = mock.fn(
-    async (contents: unknown, config: { systemInstruction?: string }) => {
-      // the title generator uses its own system prompt
-      if (config.systemInstruction?.startsWith("You are a title generator")) {
-        events.push("gemini:title");
-        return (
-          options.titleChat ??
-          (async () => ({ status: "ok", text: "Hope" }) as ChatResult)
-        )();
-      }
-      events.push("gemini:chat");
-      return options.chat();
-    },
-  );
+  const chat = mock.fn(async (request: { system?: string }) => {
+    // the title generator uses its own system prompt
+    if (request.system?.startsWith("You are a title generator")) {
+      events.push("llm:title");
+      return (
+        options.titleChat ??
+        (async () => ({ status: "ok", text: "Hope" }) as ChatResult)
+      )();
+    }
+    events.push("llm:chat");
+    return options.chat();
+  });
 
   const ctx = {
     logger,
     auth: { user: { id: "user-1", timezone: "America/New_York" } },
-    datasource: { gemini: { chat } },
+    datasource: { openrouter: { chat } },
     database: {
       journey: {
         list: mock.fn(async () => [
@@ -141,33 +139,36 @@ describe("runSponsorChat", () => {
       "load",
       "persist:USER",
       "load",
-      "gemini:chat",
+      "llm:chat",
       "persist:MODEL",
     ]);
     assert.equal(h.stored[0]!.content, "enc:I feel an urge");
     assert.equal(h.stored[1]!.content, "enc:You've got this.");
 
-    const [contents, config] = h.chat.mock.calls[0]!.arguments as [
-      Array<{ role: string; parts: Array<{ text: string }> }>,
-      { systemInstruction: string; maxOutputTokens: number },
+    const [request] = h.chat.mock.calls[0]!.arguments as [
+      {
+        system: string;
+        messages: Array<{ role: string; content: string }>;
+        maxTokens: number;
+      },
     ];
-    assert.deepEqual(contents.at(-1), {
+    assert.deepEqual(request.messages.at(-1), {
       role: "user",
-      parts: [{ text: "I feel an urge" }],
+      content: "I feel an urge",
     });
-    assert.equal(config.maxOutputTokens, MAX_OUTPUT_TOKENS);
+    assert.equal(request.maxTokens, MAX_OUTPUT_TOKENS);
     assert.match(
-      config.systemInstruction,
+      request.system,
       /Current date and time for the user: .*\(America\/New_York\)/,
     );
-    assert.match(config.systemInstruction, /urge level is strong \(7\/10\)/);
-    assert.match(config.systemInstruction, /Crisis resources:/);
+    assert.match(request.system, /urge level is strong \(7\/10\)/);
+    assert.match(request.system, /Crisis resources:/);
   });
 
-  it("keeps the user message when Gemini fails, and maps the error", async () => {
+  it("keeps the user message when the model call fails, and maps the error", async () => {
     const h = harness({
       chat: async () => {
-        throw new GeminiError("unknown", "boom", {
+        throw new LlmError("unknown", "boom", {
           cause: new Error("network"),
         });
       },
@@ -191,7 +192,7 @@ describe("runSponsorChat", () => {
   it("maps rate limits to TOO_MANY_REQUESTS (never UNAUTHORIZED)", async () => {
     const h = harness({
       chat: async () => {
-        throw new GeminiError("rate_limited", "quota");
+        throw new LlmError("rate_limited", "quota");
       },
     });
     await assert.rejects(
@@ -224,7 +225,7 @@ describe("runSponsorChat", () => {
     );
     await flush();
     // no title from a blocked turn
-    assert.ok(!h.events.includes("gemini:title"));
+    assert.ok(!h.events.includes("llm:title"));
   });
 
   it("uses the neutral fallback (no crisis line) for non-safety blocks", async () => {
@@ -290,9 +291,9 @@ describe("runSponsorChat", () => {
       "load",
       "persist:USER",
       "load",
-      "gemini:chat",
+      "llm:chat",
       "persist:MODEL",
-      "gemini:title",
+      "llm:title",
       "title:set",
     ]);
 
@@ -305,7 +306,7 @@ describe("runSponsorChat", () => {
       text: "again",
     });
     await flush();
-    assert.ok(!titled.events.includes("gemini:title"));
+    assert.ok(!titled.events.includes("llm:title"));
   });
 
   it("does not let a title-generation failure become an unhandled rejection", async () => {
@@ -316,7 +317,7 @@ describe("runSponsorChat", () => {
       const h = harness({
         chat: async () => ({ status: "ok", text: "reply" }),
         titleChat: async () => {
-          throw new GeminiError("unknown", "title failed");
+          throw new LlmError("unknown", "title failed");
         },
       });
       const result = await runSponsorChat(h.ctx, {
@@ -356,13 +357,12 @@ describe("runSponsorChat", () => {
       conversationId: CONVERSATION_ID,
       text: "retry",
     });
-    const contents = h.chat.mock.calls[0]!.arguments[0] as Array<{
-      role: string;
-      parts: Array<{ text: string }>;
-    }>;
+    const { messages } = h.chat.mock.calls[0]!.arguments[0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
     assert.deepEqual(
-      contents.map((c) => `${c.role}:${c.parts[0]!.text}`),
-      ["user:hi", "model:hello", "user:lost one\n\nretry"],
+      messages.map((c) => `${c.role}:${c.content}`),
+      ["user:hi", "assistant:hello", "user:lost one\n\nretry"],
     );
   });
 
@@ -393,12 +393,12 @@ describe("runSponsorChat", () => {
       "load",
       "persist:USER",
       "load",
-      "gemini:chat",
+      "llm:chat",
       "persist:MODEL",
       "load",
       "persist:USER",
       "load",
-      "gemini:chat",
+      "llm:chat",
       "persist:MODEL",
     ]);
   });
