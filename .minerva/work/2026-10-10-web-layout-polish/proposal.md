@@ -1,7 +1,7 @@
 # Proposal: web-layout-polish
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 ## Goal
 Three client-only web-layout fixes on the tab screens, for mobile and desktop web:
@@ -78,3 +78,6 @@ One unit, one PR: `TabStackLayout.tsx`, `(tabs)/_layout.web.tsx`, `DurationProgr
 
 ## Open Questions
 - None blocking. The screenshot's shadowed circles were the pre-#58 header. The PR will say so, so the user can confirm their deployed web build is current.
+
+## Deferred work
+- The long-title overlap on multi-button web headers (e.g. JourneyInfoHeader) is recorded as a standing fact in `.minerva/knowledge/2026-10-10-reference-web-header-title-assumes-one-button-per-side.md`. It is below the deferral bar: cosmetic and not absorbable. No issue was filed.
