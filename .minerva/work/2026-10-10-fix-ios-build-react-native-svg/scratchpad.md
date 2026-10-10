@@ -18,6 +18,8 @@
     - fix: cite unused-hook evidence (grep: only the hook's own files; knip baseline); define the scan precisely (command, dirs, three patterns; heuristic)
     - fix: 60-minute bound + report-to-user carry over to the re-run; criterion 7 = declared ~57.1.1, locked ≥57.1.1 <57.2.0; criterion 1 covers both packages
     - fix: removal of the unused hook/package recorded as an Open Question; knowledge entry notes peer deps `*` → manual bump per SDK; app.json has no plugin for the package
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1, 2, 5, 7 (and 3's CI step, 4 partially); 3-green and 6 pending by design → accept (tier: reviewer floor — Verifier; no interface change beyond the approved proposal)
+- [solo] review triage (final diff): 4 FIX (#1 stale allowlist entry now fails; #2 ^0.0.z semver branch; #3 built-in self-check of the range logic on every run — in-script so package.json isn't touched (EAS re-run rule); #4 criteria renumbered) / 0 SUGGEST / 0 IGNORE (tier: default-solo row — every finding had one defensible disposition)
 
 ## Work notes
 - Disk filled mid-run (ENOSPC on npm ci); user freed space. Then the shell's `NPM_TOKEN` was rejected (401 — the private `@onerlaw/framework` tarball had only ever come from the npm cache). User ran `npm login`; at the user's direction installs here read the login token from `~/.npmrc` into `NPM_TOKEN` per command (never printed). The user still needs to update their profile's `NPM_TOKEN`.
@@ -37,3 +39,11 @@ After fixes: real lockfile exit 0 (50 entries); mutations a/b/c exit 1; prettier
 - Pre-PR EAS production build 9187da96 (2e99ffd): ERRORED — RNSVG compiled (247 compile lines, no svg error); failed at expo-speech-recognition 3.0.1 `ExpoSpeechRecognitionModule.swift:118` (legacy permissions API with `promise.resolver`). The merge's own production build ae9fda74 (b88180d) ERRORED on the RNSVGImage.mm error as predicted.
 - expo-speech-recognition bumped `^3.0.1` → `~57.1.1` (lockfile 57.1.1; diff 4 lines). tsc ✓, check:native-modules ✓, lint 0 errors ✓, exports ios/android/web ✓, prebuild -p ios ✓. app.json has no plugin entry for it.
 - Pre-PR EAS production build **959332ea-7576-4066-91f9-c3413fc8046c** on 0f3fad0: **FINISHED** (remote build number 99; not submitted). Criterion 5 satisfied. Later commits must not touch package.json / lockfile / app.json (re-run rule).
+
+## Review triage 2026-10-10 (final diff)
+Fresh code review over the final diff: lockfile confirmed (svg + speech-recognition only, plus svg's peer-flag fallout); speech-recognition 57.1.1 JS API matches every call in useSpeechToText (types checked); autolinking confirms async-storage is not linked on iOS.
+1. [low] stale allowlist entry stays silently → FIX: unmatched allowlist entries fail the check (verified with async-storage at 2.2.0 → exit 1).
+2. [low] `^0.0.z` treated like `^0.y.z` → FIX: exact-patch branch.
+3. [low] no committed tests → FIX: `selfCheck()` runs 13 range cases on every invocation (a sabotaged case makes the script fail).
+4. [low] criteria 6/7 out of order → FIX: renumbered.
+After fixes: real lockfile exit 0 (50); a/c/alias exit 1; knip unchanged; only the script changed (no package.json/lockfile/app.json → EAS 959332ea still covers the native state).

@@ -27,8 +27,8 @@ const lockfilePath = path.resolve(
 
 /**
  * Tolerated mismatches, keyed by exact `name@version` (any lockfile path). A
- * different version of a listed package still fails, so a change forces a
- * fresh look.
+ * different version of a listed package still fails, and so does an entry
+ * that no longer matches anything, so a change forces a fresh look.
  */
 const ALLOWLIST = {
   // Transitive via @clerk/clerk-expo → @solana-mobile/wallet-*-mobile (^1.17.7).
@@ -83,18 +83,48 @@ function satisfies(version, range) {
   if (operator === "") return compare(locked, base) === 0
   if (compare(locked, base) < 0) return false
   if (operator === "~") return locked[0] === base[0] && locked[1] === base[1]
-  // Caret: same major, or same minor when the major is 0.
+  // Caret: same major; same minor when the major is 0; same patch for 0.0.z.
   if (base[0] !== 0) return locked[0] === base[0]
-  return locked[0] === 0 && locked[1] === base[1]
+  if (base[1] !== 0) return locked[0] === 0 && locked[1] === base[1]
+  return compare(locked, base) === 0
+}
+
+/** Guards the range logic itself: a broken `satisfies` would pass everything. */
+function selfCheck() {
+  const cases = [
+    ["15.15.4", "15.15.4", true],
+    ["15.15.5", "15.15.4", false],
+    ["57.0.30", "~57.0.26", true],
+    ["57.0.25", "~57.0.26", false],
+    ["57.1.0", "~57.0.26", false],
+    ["2.9.0", "^2.2.0", true],
+    ["3.0.0", "^2.2.0", false],
+    ["0.10.3", "^0.10.1", true],
+    ["0.11.0", "^0.10.1", false],
+    ["0.0.3", "^0.0.3", true],
+    ["0.0.4", "^0.0.3", false],
+    ["1.0.0-beta.1", "1.0.0", null],
+    ["1.0.0", ">=1.0.0", null],
+  ]
+  for (const [version, range, want] of cases) {
+    const got = satisfies(version, range)
+    if (got !== want) {
+      fail(
+        `self-check: satisfies("${version}", "${range}") is ${got}, expected ${want}`,
+      )
+    }
+  }
 }
 
 function main() {
+  selfCheck()
   if (!existsSync(lockfilePath)) fail(`lockfile not found at ${lockfilePath}`)
   const lockfile = JSON.parse(readFileSync(lockfilePath, "utf8"))
   if (!lockfile.packages) fail(`${lockfilePath} has no "packages" map`)
 
   const expected = loadBundledNativeModules()
   const problems = []
+  const usedAllowlist = new Set()
   let checked = 0
 
   for (const [key, entry] of Object.entries(lockfile.packages)) {
@@ -108,12 +138,24 @@ function main() {
     checked++
     const ok = satisfies(entry.version, range)
     if (ok === true) continue
-    if (ok === false && ALLOWLIST[`${name}@${entry.version}`]) continue
+    const allowKey = `${name}@${entry.version}`
+    if (ok === false && ALLOWLIST[allowKey]) {
+      usedAllowlist.add(allowKey)
+      continue
+    }
     problems.push(
       ok === null
         ? `${name}@${entry.version} (${key}): can't compare with expected "${range}"`
         : `${name}@${entry.version} (${key}): expected "${range}"`,
     )
+  }
+
+  for (const allowKey of Object.keys(ALLOWLIST)) {
+    if (!usedAllowlist.has(allowKey)) {
+      problems.push(
+        `${allowKey}: allowlisted but no longer mismatched in the lockfile; remove the entry`,
+      )
+    }
   }
 
   if (problems.length > 0) {

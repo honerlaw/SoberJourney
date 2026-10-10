@@ -58,8 +58,8 @@ Make the iOS EAS builds (development and production) compile again on Expo SDK 5
 3. `.github/workflows/ci.yml` runs the check right after `npm ci`, and the PR's CI check is green.
 4. On a fresh clone with `npm ci`, all of these succeed: `expo config --json`, `npx expo install --check`, root `npm run build` and `npm run test`, app lint with 0 errors, knip with no new findings, `NODE_ENV=production expo export -p ios|android|web`, and `expo prebuild -p ios --no-install`. No untracked file (e.g. the main checkout's `app.json`) enters the PR.
 5. A non-submitting EAS iOS **production** build finishes successfully before the PR is opened, covering the final native-affecting state. If `packages/app/package.json`, `package-lock.json` or `packages/app/app.json` change after that build, it is re-run. Its build ID and status are recorded in the scratchpad and the PR body.
-7. `packages/app/package.json` declares `expo-speech-recognition` `~57.1.1`, and the lockfile resolves it to at least 57.1.1 and below 57.2.0 (replan.md 2026-10-10).
 6. A new knowledge entry records the failure, the guard and its limit (including that SDK-versioned third-party native modules sit outside it), linking `2026-10-10-reference-expo-sdk-57-upgrade-notes`.
+7. `packages/app/package.json` declares `expo-speech-recognition` `~57.1.1`, and the lockfile resolves it to at least 57.1.1 and below 57.2.0 (replan.md 2026-10-10).
 
 ## Open Questions
 
