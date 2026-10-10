@@ -28,6 +28,7 @@
     - fix: no-headerRight → undefined, no wrapper (criterion 5, read from code); criterion 5 split diff-check vs code-read
 - [reviewed — clean] completion verification: Verifier reproduced criteria 1–6 (ran the harness normal + --ref origin/main --expect-fail, eslint, tsc); knip identity with main verified by the author, not the Verifier (tier: reviewer floor — panel predicate does not hold: no interface changed beyond the replan-approved TabStackLayout wrappers)
 - [solo] review triage: 4 FIX / 0 SUGGEST / 0 IGNORE (tier: default-solo row — each finding had a writable failure scenario and was small enough to absorb; none had two defensible dispositions)
+- [solo] promote partition: 4 PROMOTE (tab-bar constraint, web stacking constraint, header-title reference, navigation harness reference) / 1 MERGE (replan → proposal) / rest DISCARD; 1 TODO (multi-button long-title overlap) → reference entry, below the bar (cosmetic, not absorbable) (tier: default-solo row — no entry had two defensible buckets)
 
 ## Work notes
 - Root `node_modules` in the main checkout was stale (expo-router 6.0.21 / SDK 54) while package.json pins 57.0.25; expo-router 57 installs nested under `packages/app/node_modules`, and its forked react-navigation lives in `expo-router/build/react-navigation`. A harness resolving from the repo root silently tests SDK 54.
