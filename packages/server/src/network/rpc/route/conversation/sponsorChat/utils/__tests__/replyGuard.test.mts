@@ -62,7 +62,30 @@ describe("guardReply", () => {
     assert.equal(guardReply("```python\nwhile True:"), OFF_TOPIC_REPLY);
   });
 
-  it("falls back to the off-topic reply when only code carried the marker", () => {
+  it("only counts crisis markers in the prose, not in the code", () => {
     assert.equal(guardReply("```\nx = 988\n```"), OFF_TOPIC_REPLY);
+    assert.equal(
+      guardReply(
+        "Sure! Here's a script:\n```py\nprint(999)\n```\nThis prints a number.",
+      ),
+      OFF_TOPIC_REPLY,
+    );
+  });
+
+  it("closes a block only on a bare fence of the same kind, at least as long", () => {
+    assert.equal(
+      guardReply(
+        "Please call 988.\n````md\n```py\nx\n```\nmore code\n````\nYou can call or text 988 anytime, I'm here.",
+      ),
+      "Please call 988.\nYou can call or text 988 anytime, I'm here.",
+    );
+    assert.equal(
+      guardReply("Call 988.\n```\na\n```js\nb\n```\nI'm here."),
+      "Call 988.\nI'm here.",
+    );
+    assert.equal(
+      guardReply("Call 988.\n~~~\na\n```\nb\n~~~\nI'm here."),
+      "Call 988.\nI'm here.",
+    );
   });
 });

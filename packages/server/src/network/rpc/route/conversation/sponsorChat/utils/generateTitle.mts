@@ -8,7 +8,12 @@ export const TITLE_SYSTEM_PROMPT =
  * any message tags inside it so it cannot close the wrapper early.
  */
 export function titlePrompt(messageText: string): string {
-  const content = messageText.replace(/<\/?message\s*>/gi, "");
+  // Repeated until stable, so nested input cannot rebuild a tag.
+  let content = messageText;
+  for (let previous = ""; previous !== content; ) {
+    previous = content;
+    content = content.replace(/<\/?message\s*>/gi, "");
+  }
   return `Generate a title for this message:\n\n<message>\n${content}\n</message>`;
 }
 

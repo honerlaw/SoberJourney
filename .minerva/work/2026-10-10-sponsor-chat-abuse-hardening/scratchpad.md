@@ -20,6 +20,8 @@
     - fix (arbiter): in-scope list widened (app, programs/meetings/prayers, amends, health/withdrawal/medication); substances rule carves out safety questions
 - [reviewed — revise, discarded stale] whole-proposal (first wave): held; folds from approach rewrote Goal/Success criteria → stale. Its points (recovery-content carve-outs, stream result/truncated handling, crisis-in-fence limitation, limiter limits) were folded into the merged draft anyway
 - [reviewed — clean] whole-proposal (restart): re-reviewed after approach folds rewrote ## Goal and ## Success criteria (tier: reviewer — knowledge-tension clause already approved at the approach panel, does not re-fire; parallel wave restart). Non-blocking wording applied: goals 1–3 labelled best-effort, broader crisis markers, title calls not counted noted, 100-char title cap called out in API contract
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–6 and 8 (deferred to PR body) as met; 7 met for tsc/lint/build/300 tests, knip unsure (not run by Verifier; CI does not run knip; author's main-checkout comparison shows no new findings) (tier: reviewer floor — no interface change beyond what the proposal approved)
+- [solo] review triage: 7 FIX / 0 SUGGEST / 0 IGNORE (tier: default-solo row — every finding had a writable failure scenario and was small to absorb; none had two defensible dispositions; no load-bearing divergence → no replan-vs-FIX panel)
 
 ## Work notes 2026-10-10
 - Local toolchain in a fresh worktree: `npm ci` at root, then `DATABASE_URL=postgresql://x:x@localhost:5432/x npm run codegen` in packages/server before tests (prisma client is generated into src/generated, gitignored).
@@ -30,3 +32,14 @@
 - Stream guard: deltas stop once the accumulated text contains a fence; the stream is consumed to the end (no `return()`/abort), so classification, persistence and lock release are unchanged. A partial "``" from an earlier chunk can leak before `done` replaces it (tested).
 - Crisis section hash (sha256 of BASE_SYSTEM_PROMPT from "Crisis resources:") b823fc64…f6cf4 — identical on origin/main and here; asserted in systemPrompt.test.mts.
 - Verification: server build OK, tsc OK, lint 0 errors, tests 300/300.
+
+## Review triage 2026-10-10
+Code review: local-diff mode (fresh-context subagent). Minerva audit: spec fidelity OK; knowledge compliance OK (crisis section byte-identical, FALLBACK_REPLIES unchanged, no schema tightening); doc gap — sponsor-chat backend reference entry needs the guard + rate-limit surface (FIX at promote).
+1. [medium] FIX — OFF_TOPIC_REPLY said "that's not something I can help with"; dismissive if the guard misfires on a supportive fenced reply → reworded to a warm redirect that invites them to talk.
+2. [low] FIX — crisis marker was tested on the whole text incl. code (print(999) kept prose) → now tested on the prose after stripping.
+3. [low] FIX — FENCED_BLOCK regex closed on any same-prefix line (info string / shorter fence) → replaced with a line scanner using CommonMark close rules (bare fence, same char, ≥ length); tests for nested/longer/mixed fences.
+4. [low] FIX — single-pass `<message>` tag removal could rebuild a tag from nested input → loop until stable; test.
+5. [low] FIX — sweep ran on every request once >10k users were active in an hour; comment overstated the bound → sweep at most once a minute, comment corrected; sweep test.
+6. [low] FIX — limiter counts accepted requests (incl. ones that later CONFLICT/abort), comments said "generations" → wording now "requests", documented.
+7. [low] FIX — tests added: truncated fenced stream, guard warn log carries no reply text, sweep path.
+Result: tests 305/305, tsc OK, lint 0 errors, prettier clean on changed files.

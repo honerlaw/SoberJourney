@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 
 /**
- * Best-effort, in-process limit on sponsor-chat generations per user, shared
- * by sponsorChat, streamSponsorChat and retrySponsorChat.
+ * Best-effort, in-process limit on sponsor-chat requests per user, shared by
+ * sponsorChat, streamSponsorChat and retrySponsorChat. Every accepted request
+ * counts, including one that later fails (a retry CONFLICT, a client abort).
  *
  * Like conversationLock, this only counts within one server process: with
  * more than one instance each counts separately, and a restart resets the
@@ -24,12 +25,15 @@ export const CHAT_RATE_LIMIT_MESSAGE =
 
 const LONGEST_WINDOW_MS = Math.max(...CHAT_RATE_LIMITS.map((l) => l.windowMs));
 
-// Above this many tracked users, a full sweep drops users with no recent
-// generations, so the map cannot grow without bound.
+// Above this many tracked users, a full sweep (at most once per minute)
+// drops users with no request in the last hour, so the map holds only
+// recently active users.
 const SWEEP_THRESHOLD = 10_000;
+const SWEEP_INTERVAL_MS = 60_000;
 
-// Generation timestamps per user id, oldest first.
-const generations = new Map<string, number[]>();
+// Accepted request timestamps per user id, oldest first.
+const requests = new Map<string, number[]>();
+let lastSweep = -Infinity;
 
 function prune(timestamps: number[], now: number): number[] {
   const cutoff = now - LONGEST_WINDOW_MS;
@@ -39,18 +43,19 @@ function prune(timestamps: number[], now: number): number[] {
 }
 
 function sweep(now: number): void {
-  for (const [userId, timestamps] of generations) {
+  lastSweep = now;
+  for (const [userId, timestamps] of requests) {
     const kept = prune(timestamps, now);
     if (kept.length === 0) {
-      generations.delete(userId);
+      requests.delete(userId);
     } else if (kept !== timestamps) {
-      generations.set(userId, kept);
+      requests.set(userId, kept);
     }
   }
 }
 
 /**
- * Records a generation for `userId`, or throws TOO_MANY_REQUESTS (never
+ * Records a request for `userId`, or throws TOO_MANY_REQUESTS (never
  * UNAUTHORIZED) when a limit is reached. Rejected attempts are not recorded,
  * so they neither count nor extend the window. Call after the auth check and
  * before anything is persisted.
@@ -59,12 +64,12 @@ export function consumeChatRateLimit(
   userId: string,
   now: number = Date.now(),
 ): void {
-  const timestamps = prune(generations.get(userId) ?? [], now);
+  const timestamps = prune(requests.get(userId) ?? [], now);
 
   for (const { windowMs, max } of CHAT_RATE_LIMITS) {
     const inWindow = timestamps.filter((t) => t > now - windowMs).length;
     if (inWindow >= max) {
-      generations.set(userId, timestamps);
+      requests.set(userId, timestamps);
       throw new TRPCError({
         code: "TOO_MANY_REQUESTS",
         message: CHAT_RATE_LIMIT_MESSAGE,
@@ -73,14 +78,20 @@ export function consumeChatRateLimit(
   }
 
   timestamps.push(now);
-  generations.set(userId, timestamps);
+  requests.set(userId, timestamps);
 
-  if (generations.size > SWEEP_THRESHOLD) {
+  if (requests.size > SWEEP_THRESHOLD && now - lastSweep >= SWEEP_INTERVAL_MS) {
     sweep(now);
   }
 }
 
+/** Number of users currently tracked. For tests. */
+export function trackedChatRateLimitUsers(): number {
+  return requests.size;
+}
+
 /** Clears all counts. For tests. */
 export function resetChatRateLimits(): void {
-  generations.clear();
+  requests.clear();
+  lastSweep = -Infinity;
 }

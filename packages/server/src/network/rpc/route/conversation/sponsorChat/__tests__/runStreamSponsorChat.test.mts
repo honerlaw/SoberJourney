@@ -495,6 +495,22 @@ describe("runStreamSponsorChat abuse hardening", () => {
     assert.equal(h.stored.filter((r) => r.role === "MODEL").length, 1);
   });
 
+  it("answers a truncated, fenced stream with the guarded reply", async () => {
+    const h = harness({
+      stream: streamOf(["```python\n", "while True:"], () => ({
+        status: "truncated",
+        text: "```python\nwhile True:",
+      })),
+    });
+    const { events, error } = await collect(runStreamSponsorChat(h.ctx, input));
+
+    assert.equal(error, undefined);
+    assert.deepEqual(deltasOf(events), []);
+    const done = events.at(-1);
+    assert.ok(done?.type === "done");
+    assert.equal(done.response, OFF_TOPIC_REPLY);
+  });
+
   it("rejects over-limit turns with TOO_MANY_REQUESTS before any event", async () => {
     const perMinute = CHAT_RATE_LIMITS[0].max;
     for (let i = 0; i < perMinute; i++) {

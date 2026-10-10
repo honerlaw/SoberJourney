@@ -424,6 +424,18 @@ describe("runSponsorChat abuse hardening", () => {
     );
   });
 
+  it("logs a guard hit without the reply text", async () => {
+    const h = harness({ chat: async () => ({ status: "ok", text: script }) });
+    await runSponsorChat(h.ctx, input);
+
+    const warnings = h.loggerMock.warn.mock.calls.map((c) =>
+      JSON.stringify(c.arguments),
+    );
+    const hit = warnings.find((w) => w.includes("replyGuard"));
+    assert.ok(hit);
+    assert.ok(!hit.includes("print("));
+  });
+
   it("keeps crisis prose when a fenced reply also carries crisis resources", async () => {
     const h = harness({
       chat: async () => ({

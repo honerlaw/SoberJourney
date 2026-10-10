@@ -6,6 +6,7 @@ import {
   CHAT_RATE_LIMITS,
   consumeChatRateLimit,
   resetChatRateLimits,
+  trackedChatRateLimitUsers,
 } from "../chatRateLimit.mjs";
 
 const [PER_MINUTE, PER_HOUR] = CHAT_RATE_LIMITS;
@@ -59,6 +60,14 @@ describe("consumeChatRateLimit", () => {
     assert.throws(() => consumeChatRateLimit("u1", now), isTooManyRequests);
     // The oldest generation leaves the hour window.
     consumeChatRateLimit("u1", T0 + PER_HOUR.windowMs + 1);
+  });
+
+  it("sweeps idle users once many are tracked", () => {
+    for (let i = 0; i < 10_000; i++) consumeChatRateLimit(`idle-${i}`, T0);
+    assert.equal(trackedChatRateLimitUsers(), 10_000);
+    // Past the threshold, an hour later: the idle users are dropped.
+    consumeChatRateLimit("active", T0 + PER_HOUR.windowMs + 1);
+    assert.equal(trackedChatRateLimitUsers(), 1);
   });
 
   it("counts each user separately", () => {
