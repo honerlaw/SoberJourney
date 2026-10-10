@@ -234,8 +234,20 @@ describe("openrouter chat", () => {
       status: "blocked",
       reason: "OTHER",
     });
+    // an unknown native reason errs toward SAFETY
+    const unknown = clientReturning(async () =>
+      completion({
+        finish_reason: "content_filter",
+        native_finish_reason: "refusal",
+        message: { role: "assistant", content: null },
+      }),
+    );
+    assert.deepEqual(await chat(logger, unknown.client, request), {
+      status: "blocked",
+      reason: "SAFETY",
+    });
     // logged without any text
-    assert.equal(mocked.warn.mock.callCount(), 7);
+    assert.equal(mocked.warn.mock.callCount(), 8);
   });
 
   it("treats a missing finish reason as truncated and an error finish as unavailable", async () => {
@@ -303,6 +315,26 @@ describe("openrouter chat", () => {
       [
         async () => {
           throw httpError(400, { error_type: "content_policy_violation" });
+        },
+        "SAFETY",
+      ],
+      // another provider's filter code errs toward SAFETY
+      [
+        async () => {
+          throw httpError(403, {
+            error_type: "content_policy_violation",
+            provider_code: "content_filter",
+          });
+        },
+        "SAFETY",
+      ],
+      // moderation wins over a provider code
+      [
+        async () => {
+          throw httpError(403, {
+            reasons: ["self-harm"],
+            provider_code: "OTHER",
+          });
         },
         "SAFETY",
       ],

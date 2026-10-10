@@ -130,6 +130,27 @@ const BLOCKING_NATIVE_REASONS: ReadonlySet<string> = new Set([
 
 const BLOCKED_DEFAULT_REASON = "SAFETY";
 
+// Gemini block reasons that are not about harmful content; they keep their
+// name, so they get the neutral fallback reply (see fallbackReplyFor).
+const NON_HARMFUL_REASONS: ReadonlySet<string> = new Set([
+  "BLOCKLIST",
+  "SPII",
+  "RECITATION",
+  "OTHER",
+]);
+
+/**
+ * The reason recorded for a block. Known Gemini codes keep their name; any
+ * other code (e.g. another provider's filter) or none counts as SAFETY, so
+ * an unrecognized block errs toward the reply with the crisis line.
+ */
+function blockReason(code: string | undefined): string {
+  if (code === "PROHIBITED_CONTENT" || code === "SAFETY") {
+    return code;
+  }
+  return code && NON_HARMFUL_REASONS.has(code) ? code : BLOCKED_DEFAULT_REASON;
+}
+
 /**
  * The parts of a (possibly streamed) response that decide its outcome.
  * `text` is the full reply text: a single response's text, or the
@@ -152,11 +173,9 @@ export function classifyOutcome(outcome: ResponseOutcome): ChatResult {
   if (native && BLOCKING_NATIVE_REASONS.has(native)) {
     return { status: "blocked", reason: native };
   }
-  // A model's own refusal. A non-safety native reason (e.g. Gemini's OTHER)
-  // is kept, so it gets the neutral fallback reply rather than the one with
-  // the crisis line (see fallbackReplyFor).
+  // A model's own refusal (see blockReason for the reason it records).
   if (finishReason === "content_filter") {
-    return { status: "blocked", reason: native ?? BLOCKED_DEFAULT_REASON };
+    return { status: "blocked", reason: blockReason(native) };
   }
   if (finishReason === "error") {
     throw new LlmError(
@@ -234,12 +253,11 @@ export function bodyError(value: unknown): OpenRouterBodyError {
 /**
  * A content block reported as an error, or undefined when the error is not
  * one:
- * - `error_type: "content_policy_violation"` (any status): a content filter
- *   outside the model, such as Gemini's SAFETY block. The reason is the
- *   provider's code when there is one (a non-safety code such as OTHER gets
- *   the neutral fallback reply), else SAFETY.
  * - a 403 with `reasons`: OpenRouter's own moderation (harmful-content
  *   categories), so SAFETY.
+ * - `error_type: "content_policy_violation"` (any status): a content filter
+ *   outside the model, such as Gemini's SAFETY block, with the reason from
+ *   the provider's code (see blockReason).
  * - a 403 whose `provider_code` is a Gemini block reason.
  * Any other 403 — including a provider error that only names the provider,
  * or a key budget limit — is an outage, not a block.
@@ -254,14 +272,14 @@ export function blockedReasonForError(
       ? metadata.provider_code
       : undefined;
 
-  if (metadata?.error_type === "content_policy_violation") {
-    return providerCode ?? BLOCKED_DEFAULT_REASON;
-  }
-  if (status !== 403 || !metadata) {
-    return undefined;
-  }
-  if (Array.isArray(metadata.reasons)) {
+  if (status === 403 && Array.isArray(metadata?.reasons)) {
     return BLOCKED_DEFAULT_REASON;
+  }
+  if (metadata?.error_type === "content_policy_violation") {
+    return blockReason(providerCode);
+  }
+  if (status !== 403) {
+    return undefined;
   }
   if (providerCode && BLOCKING_NATIVE_REASONS.has(providerCode)) {
     return providerCode;
