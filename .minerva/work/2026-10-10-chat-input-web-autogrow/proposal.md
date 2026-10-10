@@ -53,16 +53,16 @@ One unit, one PR. Files: `ChatInput.tsx`; a real-browser verification script com
 
 ## Success criteria
 
-1. On web, `ChatInput` passes no `onContentSizeChange` to the TextArea. On native it still passes it, with the same formula. Verified by reading the code, and by the harness in criterion 2 showing no mount growth, which can only hold if the RNW path is inert.
+1. On web, `ChatInput` passes `onContentSizeChange={undefined}` to the TextArea. On native it still passes it, with the same formula. This is a direct code check. Native has no test runner, so "native unchanged" is verified by reviewing the diff, an accepted limit. If the web ref is not an `HTMLTextAreaElement`, a `__DEV__` warning fires, so the input can't get silently stuck at 44px in development.
 2. Real-browser check: a script committed as `.minerva/work/2026-10-10-chat-input-web-autogrow/verify-chat-input-autogrow.*` bundles the real `ChatInput` through react-native-web and Tamagui with the app's `tamagui.config.ts` (esbuild), and drives headless Chrome. It records the textarea height on every animation frame and asserts each of the following:
    - (a) After mount, the height stays at 44px for ~1s, with zero changes.
-   - (b) After typing 3 lines, the height grows to a value in (44, 140) and holds across frames, with no `onLayout` loop.
+   - (b) After typing 3 lines, the height grows to a value in (44, 140) and is unchanged over the next 30 frames, with no `onLayout` loop.
    - (c) After typing past the cap, the height is 140, overflow scrolls, and after scrolling the textarea to the bottom and typing another character, `scrollTop` is within 2px of `scrollHeight − clientHeight`.
    - (d) After clearing the text, the height returns to 44.
-   - (e) After the container width is narrowed with multi-line text, the height re-measures larger and then stays stable.
+   - (e) After the container width is halved with multi-line text, the height re-measures larger and is unchanged over the next 30 frames.
    - (f) Run against the pre-fix `ChatInput`, assertion (a) fails, showing the ratchet, which proves the harness detects the bug.
 
-   Output is recorded in the scratchpad / PR body.
+   Output is recorded in the scratchpad / PR body. The harness renders the real `ChatInput` with Tamagui and copies no logic. If that bundle can't be built, stop and replan rather than weaken the evidence. Pre-flight at propose: the esbuild bundle builds, and against current main the textarea is already 140px on the first painted frame.
 3. App `npm run build` (tsc), `npm run lint` green.
 4. Knowledge entry amended at promote: on web, don't drive height from RNW `onContentSizeChange` (the scrollHeight ratchet); note the ref-callback re-invocation fact. The amendment is a dated note with a link to this unit.
 
