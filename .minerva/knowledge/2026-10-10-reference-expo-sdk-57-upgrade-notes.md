@@ -15,6 +15,10 @@
   - The `sdk-56-expo-router-react-navigation-replace` codemod refuses `@react-navigation/drawer`.
   - The `@react-navigation/*` packages were removed.
 - **Web static export needs `@expo/metro-runtime` as a direct app dependency.** npm left expo-router un-hoisted, so its peer was nested where `@expo/cli`'s static renderer could not resolve it.
+- **`@expo/config-plugins` is a direct app dependency.** `@react-native-community/datetimepicker` 9.1's config plugin requires `@expo/config-plugins`, not `expo/config-plugins`.
+  - On a clean `npm ci`, the package is nested under `expo/` and `expo config` fails. That broke eas-cli in CI (PR #58).
+  - Declaring `~57.0.10` (expo's own version) hoists it. expo-doctor's "should not be installed directly" warning is expected for this case.
+  - A stale hoisted copy left from the SDK 54 install hid the failure locally. Verify dependency changes on a fresh clone with `npm ci`.
 - **Clerk.** `@clerk/clerk-expo` < 2.20 depends on SDK 54's `expo-auth-session`/`expo-web-browser`, which expo-doctor flags as duplicate native modules. 2.20 makes them peers, so `expo-auth-session` must be installed at the SDK version (`useSSO` needs it). Clerk 2.20 also logs that `@clerk/clerk-expo` is deprecated in favour of `@clerk/expo`; that migration was not done.
 - **Babel.** `babel-preset-expo` 57 adds `react-native-worklets/plugin` itself, so the explicit entry was removed.
 - **Lint.** `eslint-config-expo` 57 enables the React Compiler rules `react-hooks/set-state-in-effect` and `react-hooks/refs` as errors.

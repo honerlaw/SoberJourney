@@ -27,6 +27,7 @@
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@clerk/clerk-expo": "^2.20.1",
+    "@expo/config-plugins": "~57.0.10",
     "@expo/metro-runtime": "~57.0.16",
     "@lottiefiles/dotlottie-react": "^0.13.5",
     "@react-native-community/datetimepicker": "9.1.0",
