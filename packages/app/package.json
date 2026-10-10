@@ -23,7 +23,8 @@
     "doctor": "npx -y expo-doctor",
     "doctor:fix": "npx expo install --check",
     "knip": "knip",
-    "check:native-modules": "node scripts/check-native-module-versions.mjs"
+    "check:native-modules": "node scripts/check-native-module-versions.mjs",
+    "check:eas-node": "node scripts/check-eas-node-version.mjs"
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",

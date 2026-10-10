@@ -12,3 +12,9 @@
 - [rechecked — clean] approach: fold-audit found items 1–7 addressed; new concerns low (.nvmrc consumers, path resolution)
 - [reviewed — folded] whole-proposal: Skeptic flagged criterion 4 build-location mechanics and the .nvmrc mismatch — folded both, plus engines.npm/lockfileVersion alternatives recorded (tier: reviewer; parallel wave)
 - [rechecked — residual folded] whole-proposal: items 3 and 6 partial — folded a Node-provisioning fallback into criterion 4 and a PR-head fallback for locating the build; .nvmrc consumer note added to Open Questions
+
+## Work notes 2026-10-10
+- Implemented: .nvmrc v24.20.0; eas.json `node: "24.20.0"` in development/preview/production; packages/app/scripts/check-eas-node-version.mjs + `check:eas-node`; ci.yml step after check:native-modules (PR CI only).
+- Guard verified: exit 0 on branch; exit 1 on origin/main eas.json (no node), all-22.23.1 pin, one profile at 24.11.1, and .nvmrc at v22.23.1 (major mismatch vs running 24.20.0).
+- `npx eas-cli config --platform ios --profile <p> --non-interactive` shows node 24.20.0 for all three profiles (schema accepts it).
+- Criteria 3–4 can only be checked on the PR: CI green, then the CI-queued EAS dev build must reach `finished` with Node 24.20.0 in its log BEFORE auto-merge (main is unprotected).

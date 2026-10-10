@@ -37,6 +37,9 @@ jobs:
       - name: 🧩 Check native module versions against the Expo SDK
         run: npm run check:native-modules --workspace=@onerlaw/soberjourney-app
 
+      - name: 🟢 Check EAS build profiles pin the repo's Node (.nvmrc)
+        run: npm run check:eas-node --workspace=@onerlaw/soberjourney-app
+
       - name: 📝 Create mock .env file
         run: echo "DATABASE_URL=postgresql://user:password@localhost:5432/testdb" > packages/server/.env
 
