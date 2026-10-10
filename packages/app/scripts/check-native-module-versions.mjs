@@ -13,6 +13,8 @@
  * (some of which are JS-only); other transitive native modules are not. The
  * expected ranges come from the installed `expo`, so run it after `npm ci`.
  *
+ * It also fails when a package in MUST_BE_HOISTED is not a single root copy.
+ *
  * Usage: node scripts/check-native-module-versions.mjs [path/to/package-lock.json]
  */
 import { readFileSync, existsSync } from "node:fs"
@@ -36,6 +38,19 @@ const ALLOWLIST = {
   // the lockfile reaches the 2.x expo expects.
   "@react-native-async-storage/async-storage@1.24.0":
     "unused transitive dependency of Clerk's Solana wallet adapters",
+}
+
+/**
+ * Packages that must have exactly one lockfile copy, hoisted to the root
+ * `node_modules`. `@expo/cli` is nested under `node_modules/expo`, so it can
+ * only resolve these from the root; a copy under `packages/app/node_modules`
+ * is invisible to it. The root package.json pins each one to the same version
+ * as packages/app, so bump both together.
+ */
+const MUST_BE_HOISTED = {
+  // `expo export -p web` (DigitalOcean's build) requires expo-router from
+  // @expo/cli and @expo/router-server; un-hoisted, every deploy failed.
+  "expo-router": "required by @expo/cli's static web export",
 }
 
 function fail(message) {
@@ -127,11 +142,16 @@ function main() {
   const usedAllowlist = new Set()
   let checked = 0
 
+  const hoistedCopies = Object.fromEntries(
+    Object.keys(MUST_BE_HOISTED).map((name) => [name, []]),
+  )
+
   for (const [key, entry] of Object.entries(lockfile.packages)) {
     const index = key.lastIndexOf("node_modules/")
     if (index === -1 || entry.link || !entry.version) continue
     // An npm alias records the real package name in `name`.
     const name = entry.name ?? key.slice(index + "node_modules/".length)
+    hoistedCopies[name]?.push(key)
     const range = expected[name]
     if (range === undefined) continue
 
@@ -150,6 +170,17 @@ function main() {
     )
   }
 
+  for (const [name, keys] of Object.entries(hoistedCopies)) {
+    const rootKey = `node_modules/${name}`
+    if (keys.length !== 1 || keys[0] !== rootKey) {
+      problems.push(
+        `${name} must have exactly one lockfile copy at ${rootKey} (${MUST_BE_HOISTED[name]}); ` +
+          `found ${keys.length === 0 ? "none" : keys.join(", ")}. ` +
+          "Pin it in the root package.json to the same version as packages/app.",
+      )
+    }
+  }
+
   for (const allowKey of Object.keys(ALLOWLIST)) {
     if (!usedAllowlist.has(allowKey)) {
       problems.push(
@@ -160,9 +191,10 @@ function main() {
 
   if (problems.length > 0) {
     fail(
-      `${problems.length} package(s) don't match the installed Expo SDK:\n` +
+      `${problems.length} lockfile problem(s):\n` +
         problems.map((problem) => `  - ${problem}`).join("\n") +
-        "\nDeclare the package in packages/app at the expected version " +
+        "\nFor a version that doesn't match the installed Expo SDK, declare the " +
+        "package in packages/app at the expected version " +
         "(see expo/bundledNativeModules.json), or allowlist it with a reason.",
     )
   }
