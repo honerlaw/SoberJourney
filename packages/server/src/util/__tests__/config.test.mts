@@ -35,4 +35,20 @@ describe("config", () => {
     assert.ok(!logged.includes(SECRET));
     assert.ok(logged.includes("CLERK_JWSK"));
   });
+
+  // Last: a successful load is cached for the rest of this file.
+  it("loads without OPENROUTER_API_KEY and no longer reads GEMINI_API_KEY", async () => {
+    process.env = {
+      NODE_ENV: "test",
+      CLERK_JWSK: "jwsk",
+      CLERK_SECRET_KEY: "secret",
+      CLERK_PUBLISHABLE_KEY: "publishable",
+      KEY_ENCRYPTION_KEY: "kek",
+      DATABASE_URL: "postgresql://x:x@localhost:5432/x",
+      GEMINI_API_KEY: "old-key",
+    };
+
+    assert.equal(await getConfig("OPENROUTER_API_KEY"), undefined);
+    assert.equal(await getConfig("GEMINI_API_KEY" as never), undefined);
+  });
 });

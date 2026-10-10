@@ -1,5 +1,6 @@
 /**
- * Reply used when Gemini blocks a prompt or response for safety reasons.
+ * Reply used when the model (or its provider's filter) blocks a prompt or
+ * response for safety reasons.
  * Returned through the normal success shape and persisted as the MODEL turn.
  *
  * buildHistory recognises a blocked turn by exact equality with this constant

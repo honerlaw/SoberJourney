@@ -15,7 +15,7 @@ import * as notificationScheduleDB from "./database/notification/schedule/index.
 import * as encryptionService from "./service/encryption/index.mjs";
 
 import * as clerkDS from "./datasource/clerk/index.mjs";
-import * as geminiDS from "./datasource/gemini/index.mjs";
+import * as openrouterDS from "./datasource/openrouter/index.mjs";
 import * as expoDS from "./datasource/expo/index.mjs";
 
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
@@ -36,7 +36,7 @@ const options = {
     additional?: { [key: string]: unknown },
   ) => {
     const { clerkClient, ...clerkDSRemaining } = clerkDS;
-    const { geminiClient, ...geminiDSRemaining } = geminiDS;
+    const { openrouterClient, ...openrouterDSRemaining } = openrouterDS;
     const { expoClient, ...expoDSRemaining } = expoDS;
 
     return {
@@ -49,9 +49,9 @@ const options = {
           client: clerkClient,
           ...wrap(clerkClient, wrap(childLogger, clerkDSRemaining)),
         },
-        gemini: {
-          client: geminiClient,
-          ...wrap(geminiClient, wrap(childLogger, geminiDSRemaining)),
+        openrouter: {
+          client: openrouterClient,
+          ...wrap(openrouterClient, wrap(childLogger, openrouterDSRemaining)),
         },
         expo: {
           client: expoClient,

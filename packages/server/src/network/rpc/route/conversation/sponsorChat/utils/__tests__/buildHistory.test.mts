@@ -4,16 +4,16 @@ import { buildHistory, type HistoryMessage } from "../buildHistory.mjs";
 import { BLOCKED_FALLBACK_REPLY, SAFETY_FALLBACK_REPLY } from "../fallback.mjs";
 
 const u = (text: string): HistoryMessage => ({ role: "user", text });
-const m = (text: string): HistoryMessage => ({ role: "model", text });
+const m = (text: string): HistoryMessage => ({ role: "assistant", text });
 
 const flat = (contents: ReturnType<typeof buildHistory>) =>
-  contents.map((c) => `${c.role}:${c.parts?.[0]?.text}`);
+  contents.map((c) => `${c.role}:${c.content}`);
 
 describe("buildHistory", () => {
   it("passes a normal alternating conversation through", () => {
     assert.deepEqual(flat(buildHistory([u("a"), m("b"), u("c")])), [
       "user:a",
-      "model:b",
+      "assistant:b",
       "user:c",
     ]);
   });
@@ -22,12 +22,12 @@ describe("buildHistory", () => {
     // u1 failed (orphan), user retried with u2
     assert.deepEqual(flat(buildHistory([u("a"), m("b"), u("u1"), u("u2")])), [
       "user:a",
-      "model:b",
+      "assistant:b",
       "user:u1\n\nu2",
     ]);
     assert.deepEqual(flat(buildHistory([u("a"), m("b"), m("c"), u("d")])), [
       "user:a",
-      "model:b\n\nc",
+      "assistant:b\n\nc",
       "user:d",
     ]);
   });
@@ -35,7 +35,7 @@ describe("buildHistory", () => {
   it("drops leading model turns so history starts with the user", () => {
     assert.deepEqual(flat(buildHistory([m("x"), u("a"), m("b"), u("c")])), [
       "user:a",
-      "model:b",
+      "assistant:b",
       "user:c",
     ]);
   });
@@ -44,7 +44,7 @@ describe("buildHistory", () => {
     const messages = [u("1"), m("2"), u("3"), m("4"), u("5")];
     assert.deepEqual(flat(buildHistory(messages, { maxMessages: 3 })), [
       "user:3",
-      "model:4",
+      "assistant:4",
       "user:5",
     ]);
     // a window boundary that lands on a model row drops it
@@ -60,7 +60,11 @@ describe("buildHistory", () => {
     });
     assert.deepEqual(flat(history), [`user:${"y".repeat(500)}`]);
     const history2 = buildHistory([u("aa"), m("bb"), u(big)], { maxChars: 4 });
-    assert.deepEqual(flat(history2), ["user:aa", "model:bb", `user:${big}`]);
+    assert.deepEqual(flat(history2), [
+      "user:aa",
+      "assistant:bb",
+      `user:${big}`,
+    ]);
   });
 
   it("handles a window that cuts through a run of user rows", () => {
@@ -81,7 +85,7 @@ describe("buildHistory", () => {
     ];
     assert.deepEqual(flat(buildHistory(messages)), [
       "user:hello",
-      "model:hi",
+      "assistant:hi",
       "user:next",
     ]);
   });
@@ -97,7 +101,7 @@ describe("buildHistory", () => {
           u("next"),
         ]),
       ),
-      ["user:hi", "model:hey", "user:next"],
+      ["user:hi", "assistant:hey", "user:next"],
     );
   });
 

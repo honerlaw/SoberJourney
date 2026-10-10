@@ -1,6 +1,6 @@
 import { UnauthorizedError } from "@onerlaw/framework/backend/rpc";
 import type { Context } from "../../../../../context.mjs";
-import { type ChatResult } from "../../../../../datasource/gemini/chat.mjs";
+import { type ChatResult } from "../../../../../datasource/openrouter/chat.mjs";
 import { withConversationLock } from "../utils/conversationLock.mjs";
 import { createEventChannel } from "../utils/eventChannel.mjs";
 import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
@@ -43,7 +43,7 @@ export type SponsorChatStreamEvent =
  *
  * Abort (`signal`, i.e. the client went away, or this generator being
  * returned early): if the user message is not persisted yet the turn does
- * nothing; during generation the Gemini call is cancelled and nothing more is
+ * nothing; during generation the model call is cancelled and nothing more is
  * persisted (the saved user message stays unanswered and can be retried); a
  * reply whose generation already finished is still persisted.
  */
@@ -95,10 +95,11 @@ export async function* runStreamSponsorChat(
 
       let result: ChatResult;
       try {
-        const stream = ctx.datasource.gemini.chatStream(generation.history, {
-          systemInstruction: generation.systemInstruction,
-          maxOutputTokens: MAX_OUTPUT_TOKENS,
-          abortSignal: abort.signal,
+        const stream = ctx.datasource.openrouter.chatStream({
+          system: generation.system,
+          messages: generation.messages,
+          maxTokens: MAX_OUTPUT_TOKENS,
+          signal: abort.signal,
         });
         // Once the reply contains fenced code, stop forwarding deltas but
         // keep consuming the stream, so the result is classified, guarded

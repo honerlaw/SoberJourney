@@ -1,4 +1,4 @@
-import { type Content } from "@google/genai";
+import { type ChatMessage } from "../../../../../../datasource/openrouter/chat.mjs";
 import { FALLBACK_REPLIES } from "./fallback.mjs";
 
 // The DB only loads this many recent messages for a turn.
@@ -8,7 +8,7 @@ export const HISTORY_MAX_MESSAGES = 40;
 export const HISTORY_MAX_CHARS = 48_000;
 
 export type HistoryMessage = {
-  role: "user" | "model";
+  role: "user" | "assistant";
   text: string;
 };
 
@@ -18,7 +18,7 @@ export type HistoryOptions = {
 };
 
 /**
- * Builds the Gemini `contents` for a turn from chronological messages whose
+ * Builds the model `messages` for a turn from chronological messages whose
  * last element is the user's current message.
  *
  * - Blocked turns (user message(s) answered by a fallback reply) are
@@ -31,14 +31,14 @@ export type HistoryOptions = {
 export function buildHistory(
   messages: HistoryMessage[],
   options: HistoryOptions = {},
-): Content[] {
+): ChatMessage[] {
   const maxMessages = options.maxMessages ?? HISTORY_MAX_MESSAGES;
   const maxChars = options.maxChars ?? HISTORY_MAX_CHARS;
 
   // 1. Drop blocked turns.
   const kept: HistoryMessage[] = [];
   for (const message of messages) {
-    if (message.role === "model" && FALLBACK_REPLIES.has(message.text)) {
+    if (message.role === "assistant" && FALLBACK_REPLIES.has(message.text)) {
       while (kept.length > 0 && kept[kept.length - 1]!.role === "user") {
         kept.pop();
       }
@@ -68,18 +68,15 @@ export function buildHistory(
   }
 
   // 4. Merge consecutive same-role turns.
-  const contents: Content[] = [];
-  let previousRole: HistoryMessage["role"] | null = null;
+  const merged: ChatMessage[] = [];
   for (const message of windowed) {
-    const last = contents[contents.length - 1];
-    if (last && previousRole === message.role) {
-      const part = last.parts![0]!;
-      part.text = `${part.text}\n\n${message.text}`;
+    const last = merged[merged.length - 1];
+    if (last && last.role === message.role) {
+      last.content = `${last.content}\n\n${message.text}`;
     } else {
-      contents.push({ role: message.role, parts: [{ text: message.text }] });
+      merged.push({ role: message.role, content: message.text });
     }
-    previousRole = message.role;
   }
 
-  return contents;
+  return merged;
 }
