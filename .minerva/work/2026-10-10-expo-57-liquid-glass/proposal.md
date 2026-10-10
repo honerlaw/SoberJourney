@@ -1,7 +1,7 @@
 # Proposal: expo-57-liquid-glass
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed (user):** "Can we update to the latest version of expo, and then convert everything to use the new iOS glass format that we need to do"
 
@@ -10,11 +10,11 @@
 Move the SoberJourney app (`packages/app`) from Expo SDK 54 (RN 0.81.5, React 19.1.0, expo-router 6) to the latest **stable** Expo SDK, **57** (RN 0.86.x, React 19.2.x, expo-router 57), and convert the app's navigation chrome to the system-native iOS 26 Liquid Glass design:
 - a native `UITabBar` tab bar;
 - native per-tab navigation headers whose bar buttons get the system glass treatment;
-- glass on the app's one custom floating surface, the Sponsor chat composer (optional, non-blocking — see Part 2 step 8).
+- glass on the app's one custom floating surface, the Sponsor chat composer. This was optional and was **not shipped**: see Approach, "What did not ship".
 
 The hand-rolled `forceGlass` / `GlassView` header-button workaround and the `height: 120` header hack are removed.
 
-**Accepted user-facing consequence:** SDK 56+ raises the minimum iOS version from 15.1 to 16.4, and SDK 57 sets its own Android minSdk. Devices on iOS 15.1–16.3 stop receiving app updates. The PR body states this explicitly, with the before and after minimums.
+**Accepted user-facing consequence:** SDK 56+ raises the minimum iOS version from 15.1 to 16.4. Android minSdk stays at 24. Devices on iOS 15.1–16.3 stop receiving app updates. The PR body states this explicitly, with the before and after minimums.
 
 The change is **app-only**. There are no server changes, and the new binary talks to the current server API unchanged (the additive-only compatibility rule is untouched). The user's "and then" is read as an ordering of the work, not as a request for two releases.
 
@@ -30,129 +30,57 @@ The change is **app-only**. There are no server changes, and the new binary talk
 
 ## Approach
 
-### Current state (facts)
+What shipped, in one PR to `main` with separate commits. The PR stays open as the device-test gate: the user merges by hand after running the checklist on the PR's EAS dev build. Decisions and reasoning: `.minerva/knowledge/2026-10-10-decision-liquid-glass-navigation-native-tabs.md`. Upgrade specifics: `2026-10-10-reference-expo-sdk-57-upgrade-notes.md`.
 
-- Root `package.json` has the workspaces `packages/server` and `packages/app`. Both the root and app `overrides` pin `react`/`react-dom` to `19.1.0`.
-- `@sentry/react-native` is resolved through the lockfile but is not declared in `packages/app/package.json`, even though `AppLayout`/`_layout.tsx` import it. `expo-updates` is **not** used: there are no OTA updates, so old binaries can never receive a new JS bundle.
-- `app.json` still contains `newArchEnabled: true` and `android.edgeToEdgeEnabled: true`, both config keys removed in SDK 55. It also has `experiments.reactCompiler: true` and `typedRoutes: true`.
-- `babel.config.js` lists `@tamagui/babel-plugin` and `react-native-worklets/plugin` explicitly.
-- Navigation:
-  - The root native `Stack` (`src/app/_layout.tsx`) contains `(auth)/(drawer)/_layout.tsx`, a JS `Drawer`. It sits on the right, holds the Sponsor conversation list, has `swipeEnabled: false` and hides its header.
-  - The drawer contains `(auth)/(drawer)/(tabs)/_layout.tsx`, a JS `Tabs` navigator with three tabs (`dashboard.tsx`, `sponsor/index.tsx`, `journal.tsx`). Labels are hidden and icons are lucide.
-  - Tab headers use `HeaderButton … forceGlass` on the left and right, plus `headerStyle: {height:120}` when glass is available.
-- `@react-navigation/*` imports in src:
-  - `NavigationThemeProvider` imports `ThemeProvider`, `DarkTheme` and `DefaultTheme`.
-  - `ConversationDrawerContent/*` imports `DrawerContentScrollView` and the type `DrawerContentComponentProps`.
-  - `SponsorPage` imports `useBottomTabBarHeight`, used for the chat input keyboard lift `keyboardHeight - tabBarHeight + 14`.
-- **Verified in the expo-router 57.0.25 tarball:**
-  - `expo-router` exports `ThemeProvider`, `DarkTheme` and `DefaultTheme`.
-  - `expo-router/drawer` exports `Drawer`, `DrawerContentScrollView` and the type `DrawerContentComponentProps` (its forked drawer is built on `react-native-drawer-layout`).
-  - `expo-router/react-navigation` exports `DrawerActions`.
-  - `expo-router/unstable-native-tabs` exists.
-- `SponsorPage` sets a **dynamic header title** (the conversation title) through `useNavigation().setOptions({ headerTitle })`. A comment ties its default to the tab layout's static title.
-- `HeaderButton` opens the drawer only if `useNavigation()` has its own `openDrawer` property (`hasOwnProperty` check). Otherwise it silently does nothing.
-- `usePushNotifications.native.ts` routes notification taps. It targets `DASHBOARD = "/(auth)/(drawer)/(tabs)/dashboard"` and branches on `router.canGoBack()` to decide whether to `replace(DASHBOARD)` first. `src/app/index.tsx` also redirects to the dashboard.
-- Pushed screens (journeys-new/modify/info, journal-new/info, checkin-new, profile, privacy, terms, support) are root native-stack screens. On iOS 26 their headers already render as native glass.
-- Sponsor streaming already passes `fetch` from `expo/fetch` explicitly (`utils/streamingFetch`). It depends on Expo's Metro-injected Web Streams polyfill being a single implementation (knowledge `2026-10-07-constraint-hermes-streams-for-trpc-jsonl`).
-- CI:
-  - `.github/workflows/ci.yml` runs on PRs to `main` only. It runs `npm ci`, `npm run build`, `npm run test`, then `eas build --profile development --auto-submit --no-wait`, which produces a dev-client TestFlight build.
-  - `eas.yml` runs on push to `main` and does a **production** build plus App Store submit.
-  - `eas.json` pins no image, so EAS uses `auto`. For SDK 57 that is `macos-tahoe-26.5-xcode-26.6` (docs.expo.dev/build-reference/infrastructure), which satisfies SDK 57's Xcode requirement.
-- The repo has `allow_auto_merge: false`, and the user merges PRs by hand.
-- Local toolchain: Xcode 26.2 and Node 24.20. **No local iOS native build is possible.** CI never runs a simulator, so the only native verification is the PR's EAS dev build plus the user's device checklist.
-- Web is built from the same codebase (`expo export -p web` produces the server's `static/`), so web must keep working.
+### Part 1 — Expo SDK 54 → 57 (commit `fdc5282`)
 
-### Scope and PR structure
+- **Versions.**
+  - `expo ~57.0.27` with every Expo module at SDK 57: RN 0.86.3, React/react-dom 19.2.3 in the root and app `overrides`, reanimated 4.5.1, worklets 0.10.1, gesture-handler ~2.32, safe-area-context ~5.7.
+  - `expo-router` `57.0.25` and `react-native-screens` `4.26.2` are pinned exactly, because the native-tabs API is unstable.
+  - Dev dependencies: `@types/react ~19.2.4`, `eslint-config-expo ~57.0.2`, `typescript ~6.0.3`.
+- **React Navigation removed.**
+  - Imports now come from expo-router's fork: `expo-router/drawer`, `expo-router/react-navigation`, and `expo-router/js-tabs` (Part 1 only).
+  - `@react-navigation/{native,drawer,bottom-tabs,elements}` and the unused `@expo/vector-icons` were removed.
+- **Config.**
+  - `app.json` drops `newArchEnabled` and `android.edgeToEdgeEnabled`.
+  - `babel.config.js` drops the explicit worklets plugin, because the preset adds it.
+  - `eslint.config.js` downgrades the new React Compiler rules `react-hooks/set-state-in-effect` and `react-hooks/refs` to warnings, for nine pre-existing sites.
+- **Dependencies beyond `expo install --fix`.**
+  - `@clerk/clerk-expo ^2.20.1` plus `expo-auth-session ~57.0.14`, which removes SDK 54's duplicate native modules.
+  - `@sentry/react-native ~7.11.0` declared explicitly; it was previously an undeclared hoisted dependency.
+  - `@expo/metro-runtime ~57.0.16` declared directly, because the web static export could not resolve it.
+- **Not added.** The Expo-suggested config plugins (`expo-font`, `expo-image`, `expo-status-bar`, `@sentry/react-native`) were left out. None were used before, and the Sentry plugin needs an upload token in EAS.
+- **Streaming unchanged.** `@expo/cli` 57 still injects the single Web Streams polyfill, and the app already streams through `expo/fetch`.
 
-- **One work unit, one PR to `main`, unphased.** The PR stays open as the device-test gate: it produces the dev TestFlight build, and the user holds the production submit simply by not merging. Part 1 (the upgrade) and Part 2 (the Liquid Glass conversion) land as **separate, individually building commits**, so the Part 2 commits can be reverted on their own if a device test fails.
-- **Rejected alternatives:**
-  - **Phase 1 merged to main first.** This adds a production App Store release of an untested intermediate app.
-  - **Epic base branch with phase PRs.** PRs into an epic get no CI and no EAS dev build, so there is no device gate until the final merge anyway.
-  - **Two separate units.** The work is one intent, and NativeTabs needs SDK 55 or later.
-- **Contingency.** If Part 1 hits a blocker that can't be fixed in this PR (a third-party incompatibility, or the stream polyfill breaking), the unit replans. That replan may move the work to an epic base branch.
-- **Size.** The hand-written diff is roughly 20–30 files: package and config files, codemod import rewrites, the tab folder restructure plus the web layout, HeaderButton, SponsorPage, ChatInput, the theme provider and the drawer content. Lockfile churn is not reviewed line by line.
+### Part 2 — Liquid Glass navigation (commit `769d5ea`, review fixes `1c9966d`, `9020ec2`, `2d24f15`)
 
+- **Tabs.** `(tabs)/_layout.tsx` uses `NativeTabs` from `expo-router/unstable-native-tabs`.
+  - Icons: `house`, `bubble.left` and `book` SF Symbols with `.fill` when selected; Material `home`, `chat` and `book`.
+  - Labels are hidden. Each trigger has an `accessibilityLabel`, because a hidden label drops the native title.
+  - `tintColor` follows the Tamagui `color`.
+- **Web.** `(tabs)/_layout.web.tsx` keeps the JS tab bar with `headerShown: false`. `verify-web-tabs-layout.cjs` (in this unit) shows expo-router resolves it for `web` and the native layout for `ios`/`android`.
+- **Headers.** `dashboard/`, `sponsor/` and `journal/` are folders, each with a `_layout.tsx` built on `components/TabStackLayout`. That component is a native Stack whose `index` screen carries the title, the profile `headerLeft` and an optional `headerRight`. URLs are unchanged.
+- **HeaderButton.** It is a plain transparent icon button with a required `label`, applied as `aria-label` plus `accessible` at all call sites. `forceGlass`, the `GlassView` branch, the `"openDrawer"` pseudo-href and the `height: 120` header hack are gone.
+- **Drawer.** The Sponsor header's `OpenDrawerButton` dispatches `DrawerActions.openDrawer()`, which bubbles from the tab's Stack to the JS drawer. `SPONSOR_HEADER_TITLE` is exported from `SponsorPage` and used by the Sponsor layout. The page still sets the conversation title with `navigation.setOptions`.
+- **Sponsor input lift.** `SponsorPage/hooks/useInputBottomPadding` replaces `useBottomTabBarHeight`. It measures the screen root against `useSafeAreaFrame()` while the keyboard is hidden, and re-measures each time the keyboard hides.
+  - Keyboard shown: padding = `keyboardHeight − offset + 14`.
+  - Keyboard hidden: padding = `max(0, insets.bottom − offset) + 13`.
+  - Why this works on each platform is in `.minerva/knowledge/2026-10-10-constraint-native-tabs-insets-and-unmeasurable-tab-bar.md`.
+  - `ChatInput.bottomPadding` is now `number`. Its autosize logic is untouched.
+- **Lists.** Dashboard and Journal use `contentInsetAdjustmentBehavior="automatic"`. Their manual `paddingBottom: insets.bottom` was removed, because it would double the gap under native tabs.
 
-### Part 1 — SDK upgrade (54 → 57), commit(s) 1
+### What did not ship
+- **Glass composer (optional step).** The composer's padded area sits behind the floating glass tab bar, and making it glass would be glass-on-glass. It stays solid.
 
-1. In `packages/app`, run `npx expo install expo@^57.0.0 --fix` (expo ≥ 57.0.17), then `npx expo install --check` until it is clean. Bump the root and app `overrides` for `react`/`react-dom` to SDK 57's React version. Bump `@types/react` and `typescript` per `--fix`.
-2. **Pin `expo-router` and `react-native-screens` to exact versions** (no `~`/`^`), because the `unstable-native-tabs` API may move within SDK 57 patch releases.
-3. Remove the dead app.json keys (`newArchEnabled`, `android.edgeToEdgeEnabled`) and anything else `expo-doctor` flags.
-4. Replace every `@react-navigation/*` import with its verified expo-router export:
-   - `NavigationThemeProvider` takes `ThemeProvider`, `DarkTheme` and `DefaultTheme` from `expo-router`.
-   - `ConversationDrawerContent/*` takes `DrawerContentScrollView` and `DrawerContentComponentProps` from `expo-router/drawer`.
-   - Run the codemod `npx expo-codemod sdk-56-expo-router-react-navigation-replace src` first if it exists, then finish by hand.
-   - Drop the `@react-navigation/*` dependencies from `package.json` once nothing imports them. This is safe because `react-native-drawer-layout` is a direct dependency of expo-router 57.0.25, and `react-native-gesture-handler` is an SDK-managed peer that the app already declares. The `expo export` check (#6) catches any gap.
-   - In Part 1, `SponsorPage` temporarily takes `useBottomTabBarHeight` from `expo-router/js-tabs` (which re-exports the forked bottom-tabs), so the Part 1 commit still builds with JS tabs. Part 2 removes it.
-5. Remove `@expo/vector-icons` if nothing imports it (the app uses `@tamagui/lucide-icons`). Otherwise run the vector-icons codemod.
-6. Declare `@sentry/react-native` explicitly in `packages/app/package.json` at an SDK 57-compatible version.
-7. Check the non-Expo-managed dependencies against RN 0.86 and React 19.2, and bump only where peer deps or the build require it:
-   - Tamagui stays on 1.x (latest 1.144.x); no Tamagui 3.
-   - `@clerk/clerk-expo`, `@sentry/react-native`, `lottie-react-native`, `expo-speech-recognition`, `burnt`, `react-native-draggable-flatlist`, `react-native-render-html`, `react-native-markdown-display`.
-   - Record what was checked in the scratchpad.
-8. Babel: check whether SDK 57's `babel-preset-expo` already adds the worklets plugin, and remove the explicit `react-native-worklets/plugin` if so. Keep React Compiler enabled, and align `babel-plugin-react-compiler` and the ESLint config with SDK 57 if `expo-doctor` or lint asks.
-9. Keep `react-native-webview` because the app uses it directly.
-10. Streaming: keep the SDK 56+ default (`expo/fetch` as the global fetch) — no `EXPO_PUBLIC_USE_RN_FETCH` opt-out, since the app already streams through `expo/fetch`. Verify in `@expo/cli` 57 that Metro still injects the single-implementation Web Streams polyfill on native (`expo/virtual/streams`). If it does not, `TRPCProvider`'s fallback installs all three stream classes from the app's own `web-streams-polyfill`, as that knowledge entry requires. Record the finding.
-
-### Part 2 — Liquid Glass conversion, commit(s) 2
-
-1. **Native tab bar.** On iOS and Android, replace the JS `Tabs` in `(tabs)/_layout.tsx` with `NativeTabs` from `expo-router/unstable-native-tabs`. It has three `NativeTabs.Trigger`s:
-
-   | Tab | SF Symbol (iOS) | Material icon (Android) |
-   |---|---|---|
-   | dashboard | `house` / `house.fill` | `home` |
-   | sponsor | `bubble.left` / `bubble.left.fill` | `chat` |
-   | journal | `book` / `book.fill` | `book` |
-
-   Labels stay hidden, as today, and the tint follows the theme. On iOS 26 this is the system Liquid Glass tab bar; on iOS < 26 it is the classic system bar; on Android it is a Material 3 bar.
-
-2. **Per-tab Stacks for headers.** Each tab becomes a folder with its own `_layout.tsx` `Stack`:
-   - `dashboard/_layout.tsx` + `dashboard/index.tsx`
-   - `sponsor/_layout.tsx` (+ the existing `sponsor/index.tsx`)
-   - `journal/_layout.tsx` + `journal/index.tsx`
-
-   The URLs (`/dashboard`, `/sponsor`, `/journal`) are unchanged. Header titles and the left/right buttons move into each Stack's `index` screen options. Each Stack keeps `headerShadowVisible: false` and `headerBackButtonDisplayMode: "minimal"`.
-
-   `SponsorPage`'s dynamic `navigation.setOptions({ headerTitle })` now targets the Sponsor Stack's index screen, through `useNavigation()` inside that Stack. The "must match" comment is updated to point at `sponsor/_layout.tsx`.
-
-3. **Web keeps JS tabs.** expo-router's NativeTabs has a basic web view, but it does not match today's web look. Add `(tabs)/_layout.web.tsx`, which uses expo-router's JS `Tabs` with `headerShown: false` because headers now come from the per-tab Stacks. Web keeps today's look: the bottom tab bar plus a header with title and buttons.
-
-4. **Header buttons via custom views.** On iOS 26, native-stack `headerLeft`/`headerRight` custom views are hosted in `UIBarButtonItem`s, which the system draws on the shared Liquid Glass background. So `HeaderButton` drops the `forceGlass` prop and the `GlassView` branch and renders a plain, transparent, 44pt icon button.
-
-   - **Why custom views and not `Stack.Toolbar` SF-symbol bar items:** one component works on iOS, Android and web, and it keeps the lucide icons. `Stack.Toolbar` is iOS-only and would need a second code path.
-   - **Fallback:** if the device build shows no glass capsule, a double capsule or clipping, switch the iOS header items to expo-router's native bar items (`Stack.Toolbar` / header items with SF Symbols) and keep `HeaderButton` for Android and web. This is a replan if it changes more than the header-items code.
-   - Remove the `headerStyle: {height:120}` hack.
-
-5. **Drawer stays — the main unknown.** The right-side JS Drawer (`react-native-drawer-layout`) keeps wrapping the native tab navigator. Whether a JS drawer overlays a native `UITabBarController` correctly cannot be verified locally. It is **the first item on the device checklist**.
-   - **Fallback (replan trigger):** move the conversation list from the drawer to a modal route, presented as a sheet from the Sponsor header button.
-   - **Opening the drawer from the Sponsor tab's nested Stack** uses `navigation.dispatch(DrawerActions.openDrawer())` (from `expo-router/react-navigation`). The action bubbles up to the nearest drawer navigator. It is passed to `HeaderButton` as `onPress`, which replaces both the `"openDrawer"` pseudo-href and the `hasOwnProperty(navigation, "openDrawer")` check that would silently fail one level down.
-   - The conversation list's selection/close behaviour inside `ConversationDrawerContent` keeps using the drawer props it receives.
-
-6. **Push-notification routing.** The URLs are unchanged, so `DASHBOARD` and the redirect in `src/app/index.tsx` keep resolving. Typed routes are regenerated and tsc must pass with them.
-   - `canGoBack()` semantics shift with the nested Stacks. On a cold start the tab Stack has no history, and `canGoBack()` is false, as today. The cold-start and warm-start notification taps are device-checklist items.
-
-7. **Sponsor keyboard lift.** NativeTabs cannot report the tab-bar height. Which layout case applies is decided at work time **from source, not assumed**. Read expo-router 57's native-tabs screen container and react-native-screens' tab screen. Determine whether a non-scroll screen's root view ends above the tab bar (automatic content insets / `disableAutomaticContentInsets`) or extends under it. Record the finding in the scratchpad.
-   - **Case 1 — the root ends above the tab bar.**
-     - Keyboard hidden: the input keeps `$3` bottom padding.
-     - Keyboard shown: `paddingBottom = keyboardHeight - bottomInset + 14`, where `bottomInset` = window height − (root pageY + root height). It is re-measured on every root `onLayout` that happens while the keyboard is hidden, and never taken from a layout made with the keyboard up.
-   - **Case 2 — the root extends under the tab bar.**
-     - Keyboard hidden: the input's padding is the native tab screen's bottom safe-area inset (`useSafeAreaInsets().bottom`, which includes the tab bar under a native tab controller) plus `$3`.
-     - Keyboard shown: the input is lifted to `keyboardHeight + 14` from the window bottom, because the keyboard covers the tab bar.
-   - **Fallback** if neither case is reliable on device: a per-OS tab-bar height constant documented in code.
-   - Device checklist item 4 checks both keyboard states.
-   - The ChatInput autosize logic is not touched (knowledge `2026-10-10-constraint-native-textinput-autosize-not-contentsize`, `2026-10-10-constraint-rn-web-textarea-autogrow-ratchet`). Web keeps its current path.
-
-8. **Glass composer (optional, non-blocking).** On iOS 26 (`isLiquidGlassAvailable()`), the Sponsor `ChatInput`'s outer container renders on a `GlassView` (`glassEffectStyle: "regular"`). It wraps the existing container without changing its sizing. Elsewhere nothing changes. If it causes any layout issue it is dropped, and the PR does not block on it.
-
-9. **Lists.** The Dashboard and Journal scroll views and FlatLists get `contentInsetAdjustmentBehavior="automatic"` on iOS, so content scrolls under the glass bars with correct insets. Scroll-to-top and minimize-on-scroll are **not** promised: FlatList support for them is limited in NativeTabs.
-
-10. **Focus and refetch semantics.** Dashboard, Journal, JourneyInfo and JournalEntryInfo refetch via `useFocusEffect`. Under NativeTabs with per-tab Stacks, confirm by reading the source, and on the device checklist, that focus events still fire on a tab switch and on returning from a pushed screen. If NativeTabs does not emit focus for its tab screens, refetch on focus of the tab Stack's index screen instead.
-
-### Candidate approaches considered for Part 2
-
-- **A (chosen):** NativeTabs + per-tab native Stacks + system header glass; web keeps JS Tabs. This is real system Liquid Glass, with the iOS < 26 fallback for free, and it deletes the custom glass workaround. The costs: the per-tab folder restructure, an `unstable-` import path (pinned), and the loss of `useBottomTabBarHeight`.
-- **B:** keep the JS Tabs and render a custom `tabBar` on a `GlassView`. This imitates glass rather than using `UITabBar` and keeps the JS headers and the `forceGlass` workaround. It fails "convert to the new iOS glass format" and the goal of removing the workarounds.
-- **C:** adopt the SDK 58 beta for the stable `expo-router/native-tabs`. It fails the latest-**stable**-SDK criterion: SDK 58 is only on npm `next`. The later move to `native-tabs` is an import-path change.
+### Verification
+- Local checks:
+  - `npx expo install --check` is clean; expo-doctor passes 20/21, the remaining check being React Native Directory metadata.
+  - tsc passes; lint has 0 errors.
+  - `NODE_ENV=production expo export` succeeds for ios, android and web.
+  - `expo prebuild -p ios --no-install` succeeds, with deployment target 16.4.
+  - Root build passes, and server tests pass 262/262 (the app has no tests).
+  - The route-resolver check passes.
+- Native behaviour is verified on the PR's EAS dev build through criterion 14's checklist. See also `replan.md` for criterion 7.
 
 ## Success criteria
 
