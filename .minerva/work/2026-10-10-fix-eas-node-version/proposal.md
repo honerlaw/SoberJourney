@@ -1,7 +1,7 @@
 # Proposal: fix-eas-node-version
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed:** "expo build is failing". Fix the EAS build failures diagnosed in-session.
 
@@ -14,11 +14,24 @@ Make EAS iOS builds (development and production profiles) get past INSTALL_DEPEN
 - packages/app/eas.json pins no `node`, so EAS uses its image default (22). The repo-root `.nvmrc` (v24.11.1) is evidently not honored by EAS (build 111 ran 22.23.1). CI (ci.yml, eas.yml) uses node 24.x. CI only queues EAS with `--no-wait`, so GitHub stayed green — the same blind spot as [[2026-10-10-bug-transitive-native-modules-broke-sdk-57-ios-build]].
 
 ## Approach
-1. `.nvmrc` → `v24.20.0` (the lockfile's producer; nodejs.org/dist/index.json lists v24.20.0 with npm 11.19.0). One exact version is the single source of truth.
-2. packages/app/eas.json: add `"node": "24.20.0"` to the development, preview and production build profiles (eas-cli's schema semver-validates `node`).
-3. Guard: packages/app/scripts/check-eas-node-version.mjs (+ npm script `check:eas-node`), run in ci.yml right after `npm ci` (PR CI only; eas.yml on main would be too late). It fails if any build profile in eas.json lacks a string `node`, if any profile's `node` differs from `.nvmrc` (leading `v` stripped), or if `.nvmrc`'s major differs from the running Node's major (CI's setup-node 24.x). Profiles are flat today; `extends` is not resolved (a profile using `extends` without its own `node` fails, which is the safe direction). A future Node major bump fails CI until eas.json and .nvmrc move together — intended.
-4. Knowledge bug entry recording cause, fix, guard, and the residual gap (the guard proves config parity, not that EAS's install succeeds; only a real EAS build does).
-Alternatives rejected: regenerate the lockfile with npm 10 (re-breaks on next npm 11 install, keeps EAS violating engines); eas-build-pre-install hook upgrading npm (hacky, Node still 22); switching EAS `image` (implicit); `engines.npm`/`engine-strict` (doesn't change which npm EAS runs, only fails louder); a `lockfileVersion` check (both npm 10 and 11 write v3, so it can't detect this).
+
+What shipped:
+1. **`.nvmrc` → `v24.20.0`.** This is the lockfile producer; nodejs.org/dist/index.json lists v24.20.0 with npm 11.19.0. It is the single exact source of truth. Nothing else in the repo reads `.nvmrc`. The workflows use `24.x` and the server Dockerfile uses `node:24-alpine`.
+2. **`packages/app/eas.json`.** The development, preview and production build profiles each set `"node": "24.20.0"`. eas-cli's schema semver-validates `node`, and `eas config` resolves it for all three.
+3. **Guard.** `packages/app/scripts/check-eas-node-version.mjs` (`npm run check:eas-node`) runs in `ci.yml` right after `check:native-modules`. It is PR CI only; running it in eas.yml on main would be too late. It uses only Node built-ins and resolves paths from its own location. It fails if:
+   - any build profile is not an object, or lacks a string `node`;
+   - a profile's `node`, or an `ios`/`android` override of it, differs from `.nvmrc` (a leading `v` is stripped);
+   - `.nvmrc`'s major differs from the running Node's major.
+
+   `extends` is not resolved, so a profile must set its own `node`. From review, the guard also checks the per-platform overrides and reports non-object profiles.
+4. **Knowledge.** [[2026-10-10-bug-eas-default-node-rejected-npm-11-lockfile]] records the cause, the fix, the guard and the residual `--no-wait` gap.
+
+Alternatives rejected:
+- **Regenerate the lockfile with npm 10.** The next npm 11 install re-breaks it, and EAS keeps violating `engines`.
+- **An `eas-build-pre-install` hook that upgrades npm.** It's hacky, and Node is still 22.
+- **Switching the EAS `image`.** It's implicit.
+- **`engines.npm` / `engine-strict`.** These don't change which npm EAS runs.
+- **A `lockfileVersion` check.** npm 10 and npm 11 both write v3, so it can't catch this.
 
 ## Success criteria
 1. `.nvmrc` is `v24.20.0`; each of development/preview/production in packages/app/eas.json sets `"node": "24.20.0"`; `npx eas-cli config --platform ios --profile <p> --non-interactive` succeeds for each and shows node 24.20.0.
