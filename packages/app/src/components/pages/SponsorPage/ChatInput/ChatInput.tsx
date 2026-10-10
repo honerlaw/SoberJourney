@@ -38,12 +38,17 @@ function measureWebInputHeight(node: unknown): number | undefined {
   }
   const border = node.offsetHeight - node.clientHeight
   const previousHeight = node.style.height
+  const previousOverflow = node.style.overflow
   const previousScrollTop = node.scrollTop
   try {
+    // Hidden overflow keeps a scrollbar from narrowing the text (and so
+    // changing its wrapping) while the collapsed box is read.
+    node.style.overflow = "hidden"
     node.style.height = "0px"
     return clampInputHeight(node.scrollHeight + border)
   } finally {
     node.style.height = previousHeight
+    node.style.overflow = previousOverflow
     node.scrollTop = previousScrollTop
   }
 }

@@ -41,3 +41,25 @@ Fixed ChatInput:
 Pre-fix ChatInput (origin/main, --expect-ratchet):
     FAIL (a) mount holds one-line height H1=140, frames=63 heights=[140]: one-line need {"scrollHeight":138,"clientHeight":138,"need":52}
     OK (f): pre-fix ChatInput ratchets on mount
+
+## Review triage 2026-10-10
+Completion: Verifier accept (all 4 criteria; reran the harness; criterion 3 tsc attribution to be confirmed by CI). Code review (local-diff mode, fresh-context subagent): 0 high/medium, 4 low. Minerva audit (inline): spec fidelity OK (diff matches Approach + replanned criteria; native formula equal since 20 is an integer); knowledge compliance: the only tension is the planned amendment of 2026-10-06-reference-rn-web-textarea-keyboard at promote; prettier clean.
+1. FIX — measurement read with overflow:auto can show a scrollbar on the collapsed box (always-on-scrollbar platforms), narrowing wrap width → over-measure by a line. Now overflow:hidden during the read, restored in finally.
+2. FIX — harness (c) caret-at-end typing was satisfied by the browser's own caret scroll; now scrolls to the middle, places the caret in visible middle text, types, asserts scrollTop unchanged. Mutation check: with ChatInput's scrollTop restore removed, (c) still passes in Chrome (Chrome does not clamp scrollTop across the synchronous collapse) — restore kept as a guard for engines that clamp; noted in the harness comment.
+3. FIX — harness covered only fill(); (d) now sends via Enter (onSend → setText("")) and asserts shrink to H1; new (d2) restores a failedDraft through the prop and asserts it re-measures.
+4. IGNORE — Status: Draft / knowledge amendment pending: handled at promote by design.
+- [solo] review triage: 3 FIX / 0 SUGGEST / 1 IGNORE (tier: default-solo row — each finding had a writable failure scenario and a small fix; none had two defensible dispositions)
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–4 (tier: reviewer floor — no panel clause; interface unchanged)
+
+## Verification output 2026-10-10 (after review fixes)
+Fixed ChatInput:
+    PASS (a) mount holds one-line height H1=52, frames=63 heights=[52]
+    PASS (b) 3 lines grow and hold, heights=[100]
+    PASS (c) capped at 140px and mid-text scroll kept, heights=[140] before={"scrollTop":124,"max":248} after={"scrollTop":124,"max":248}
+    PASS (d) sent and shrinks to H1=52, sent=1 heights=[52]
+    PASS (d2) failed draft restore re-measures, heights=[100]
+    PASS (e) width halved re-measures and holds, wide=76 narrow=[140]
+    PASS no page errors []
+Pre-fix ChatInput (origin/main, --expect-ratchet):
+    FAIL (a) mount holds one-line height H1=140, frames=63 heights=[140]: one-line need {"scrollHeight":138,"clientHeight":138,"need":52}
+    OK (f): pre-fix ChatInput ratchets on mount

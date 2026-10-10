@@ -72,11 +72,27 @@ const sample = () => {
 }
 requestAnimationFrame(sample)
 
+function Harness() {
+  const [failedDraft, setFailedDraft] = React.useState<string | undefined>()
+  ;(window as any).__setFailedDraft = setFailedDraft
+  return (
+    <div id="box" style={{ width: 400 }}>
+      <ChatInput
+        onSend={async () => {
+          ;(window as any).__sent = ((window as any).__sent ?? 0) + 1
+          return true
+        }}
+        bottomPadding="$3"
+        failedDraft={failedDraft}
+        onFailedDraftConsumed={() => setFailedDraft(undefined)}
+      />
+    </div>
+  )
+}
+
 createRoot(document.getElementById("root")!).render(
   <TamaguiProvider config={config} defaultTheme="light">
-    <div id="box" style={{ width: 400 }}>
-      <ChatInput onSend={async () => true} bottomPadding="$3" />
-    </div>
+    <Harness />
   </TamaguiProvider>,
 )
 `,
@@ -193,35 +209,60 @@ check(`(b) 3 lines grow and hold, heights=${JSON.stringify(unique(threeLines))}`
 await textarea.fill(Array.from({ length: 15 }, (_, i) => `line ${i + 1}`).join("\n"))
 await nextFrames(2)
 const capped = await nextFrames(30)
+// Scroll to the middle, put the caret in visible middle text, type: the
+// measurement's collapse must not move the view (the browser would keep a
+// caret at the very end in view on its own, so that case proves nothing).
+// Chrome does not clamp scrollTop across the synchronous collapse, so this
+// passes there even without ChatInput's scrollTop restore; the restore guards
+// engines that do clamp. What this asserts is the user-visible "no jump".
 const scroll = await page.evaluate(async () => {
   const ta = document.querySelector("textarea")
-  ta.scrollTop = ta.scrollHeight
+  const max = ta.scrollHeight - ta.clientHeight
+  ta.scrollTop = Math.round(max / 2)
   await new Promise((r) => requestAnimationFrame(() => r()))
-  return { scrollTop: ta.scrollTop, max: ta.scrollHeight - ta.clientHeight }
+  const lineHeight = parseFloat(getComputedStyle(ta).lineHeight)
+  const visibleLine = Math.ceil(ta.scrollTop / lineHeight) + 1
+  const lines = ta.value.split("\n")
+  const caret = lines.slice(0, visibleLine).join("\n").length
+  ta.focus()
+  ta.setSelectionRange(caret, caret)
+  return { scrollTop: ta.scrollTop, max }
 })
-await textarea.press("End")
-await textarea.pressSequentially("x")
+await page.keyboard.type("x")
 await nextFrames(2)
 const afterKey = await page.evaluate(() => {
   const ta = document.querySelector("textarea")
   return { scrollTop: ta.scrollTop, max: ta.scrollHeight - ta.clientHeight }
 })
 check(
-  `(c) capped at ${MAX}px and scroll kept, heights=${JSON.stringify(unique(capped))} before=${JSON.stringify(scroll)} after=${JSON.stringify(afterKey)}`,
+  `(c) capped at ${MAX}px and mid-text scroll kept, heights=${JSON.stringify(unique(capped))} before=${JSON.stringify(scroll)} after=${JSON.stringify(afterKey)}`,
   () => {
     assert.deepEqual(unique(capped), [MAX])
-    assert.ok(scroll.max > 0, "content overflows")
-    assert.ok(Math.abs(afterKey.max - afterKey.scrollTop) <= 2, "scrollTop stays at the bottom")
+    assert.ok(scroll.max > 0 && scroll.scrollTop > 0 && scroll.scrollTop < scroll.max, "scrolled to the middle")
+    assert.ok(Math.abs(afterKey.scrollTop - scroll.scrollTop) <= 2, "scrollTop unchanged by typing mid-text")
   },
 )
 
-// (d) Clear: back to H1.
-await textarea.fill("")
+// (d) Send (Enter → onSend → setText("")): back to H1.
+await textarea.press("Enter")
+await page.waitForFunction(() => document.querySelector("textarea").value === "")
 await nextFrames(2)
 const cleared = await nextFrames(30)
-check(`(d) cleared shrinks to H1=${oneLine}, heights=${JSON.stringify(unique(cleared))}`, () =>
-  assert.deepEqual(unique(cleared), [oneLine]),
-)
+const sent = await page.evaluate(() => window.__sent)
+check(`(d) sent and shrinks to H1=${oneLine}, sent=${sent} heights=${JSON.stringify(unique(cleared))}`, () => {
+  assert.equal(sent, 1)
+  assert.deepEqual(unique(cleared), [oneLine])
+})
+
+// (d2) A restored failed draft (failedDraft prop → setText) is measured too.
+await page.evaluate(() => window.__setFailedDraft("restored\ndraft\nthree"))
+await page.waitForFunction(() => document.querySelector("textarea").value.startsWith("restored"))
+await nextFrames(2)
+const restored = await nextFrames(30)
+check(`(d2) failed draft restore re-measures, heights=${JSON.stringify(unique(restored))}`, () => {
+  assert.deepEqual(unique(restored), [threeLines[0]])
+})
+await textarea.fill("")
 
 // (e) Width halved with wrapping text: re-measures larger, then holds.
 await textarea.fill("a fairly long sentence that wraps more once the box gets narrower than before")

@@ -59,7 +59,7 @@ One unit, one PR. Files: `ChatInput.tsx`; a real-browser verification script com
    - (a) After mount, every sampled frame for ~1s has the same height, H1. H1 is the measured one-line height: 52px was observed under the default Tamagui size, and the harness does not assert that number. H1 must equal max(44, what one line needs), computed in the page from the textarea's style as vertical padding + line height + borders. One line must also show without clipping (`scrollHeight <= clientHeight`).
    - (b) After typing 3 short lines, the height is greater than H1 and less than 140, and is unchanged over the next 30 frames, with no `onLayout` loop.
    - (c) After typing past the cap, the height is 140, overflow scrolls, and after scrolling the textarea to the bottom and typing another character, `scrollTop` is within 2px of `scrollHeight − clientHeight`.
-   - (d) After clearing the text, the height returns to exactly H1 and holds there for 30 frames.
+   - (d) After the text is sent with Enter (`onSend` → `setText("")`), the height returns to exactly H1 and holds there for 30 frames. (d2) A restored `failedDraft` is re-measured. (Both were added at review.)
    - (e) After the container width is halved with multi-line text, the height re-measures larger and is unchanged over the next 30 frames.
    - (f) Run against the pre-fix `ChatInput`, assertion (a) fails, showing the ratchet, which proves the harness detects the bug.
 
