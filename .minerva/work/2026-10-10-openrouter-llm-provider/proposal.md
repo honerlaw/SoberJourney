@@ -1,7 +1,7 @@
 # Proposal: openrouter-llm-provider
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 ## Goal
 Route every LLM call the server makes — the Sponsor reply (`conversation.sponsorChat` / `retrySponsorChat`),
@@ -23,96 +23,68 @@ specifies a post-deploy check that the owner runs after merging.
   a config change, and trying another model needs no datasource code (its behaviour still needs checking).
 - The owner asked to "move to using openrouter for everything".
 
-## Approach (A — approach panel 3/3 accept with fixes)
-Server-only change. Released App Store apps talk to unchanged tRPC procedures, so no client or contract work.
+## Approach
+Shipped as approach A (approach panel 3/3). The change is server-only: released App Store apps call unchanged tRPC procedures.
 
-**A. New `datasource/openrouter/` on the official `openai` npm SDK (v7) pointed at `https://openrouter.ai/api/v1`;
-Gemini removed in the same PR.**
-- `client.mts`: `new OpenAI({ apiKey: OPENROUTER_API_KEY, baseURL, timeout: 60_000, maxRetries: 0, defaultHeaders: { "HTTP-Referer": "https://soberjourney.app", "X-OpenRouter-Title": "SoberJourney" } })`.
-  `maxRetries: 0` keeps today's "no automatic retry" bound (the turn lock is held for the call). The SDK timeout
-  may only cover the wait for response headers, so `chatStream` adds a whole-stream bound: its own 60s timeout signal
-  combined with the caller's. This is **new behaviour, not parity** (today only Gemini's `httpOptions.timeout` is
-  set). It stops a hung stream from holding the turn lock, and a normal 2048-token reply ends well inside it. The
-  timeout ends as `LlmError("unavailable")`; a caller abort is rethrown as-is.
-  `models` and `reasoning` are not in `openai@7`'s request types, so they are passed through a narrow, typed
-  extension of the request params, with no `any`.
-  The client is created only when `OPENROUTER_API_KEY` is set (see Config). Without a key, `chat`/`chatStream`
-  throw `LlmError("unavailable")` and log an error naming the missing variable; `client.mts` also logs one
-  warning at startup when the key is absent, so a merge without the key is visible in the boot logs.
-- Provider-neutral surface: `chat(logger, client, { system, messages, maxTokens, signal? })` and
-  `chatStream(...)` with the same `ChatResult` (`ok | blocked | truncated`) and an `LlmError` (`kind`:
-  `rate_limited | unavailable | unknown`, SDK error kept as `cause`) replacing `GeminiError`. Messages are
-  OpenAI-shape `{ role: "user" | "assistant", content }`; the system prompt goes first as a `system` message.
-- Every request sends: `model` = `OPENROUTER_MODEL` env or `google/gemini-3.8-flash`; `models` =
-  `OPENROUTER_FALLBACK_MODELS` (comma-separated) or `["~google/gemini-flash-latest"]`; `max_tokens`;
-  `reasoning: { effort: "low", exclude: true }` (OpenRouter maps effort→Gemini `thinkingLevel` 1:1, so LOW = today;
-  `require_parameters` stays unset, so an endpoint that lacks `reasoning` still serves the request).
-  - Fallback rationale: a rolling Gemini Flash alias survives the primary's retirement (the #53 failure) and stays
-    in the same model family, so the same system prompt (crisis section included) is sent and behaviour stays close,
-    but it is a different, moving model, possibly at a different price. Whenever the response's `model` differs
-    from the requested primary, the datasource logs a warning naming both, so fallback service is visible.
-    OpenRouter also tries the fallback when the primary's content filter fires. So `blocked` now means "every model
-    in the chain blocked or refused". A message the primary blocks may instead get a normal reply from the fallback,
-    which is written under the same crisis-section prompt. That is a deliberate, documented loosening of
-    "blocked" semantics versus today.
-  - No request-level data filter (`provider.data_collection` / `zdr`): OpenRouter's public endpoint metadata does
-    not expose provider data policies, so a filter could leave no eligible endpoint (chat down at cutover) and can't
-    be verified here. Privacy posture at cutover = today's (Google's paid API) plus OpenRouter as intermediary; the
-    owner can turn on training opt-out / ZDR account-wide in the OpenRouter dashboard (for gemini-3.8-flash only
-    the `google-vertex` endpoints are ZDR — checked live).
-- Outcome mapping (keeps `fallbackReplyFor` / crisis-guidance semantics):
-  - `finish_reason: "stop"` + text → `ok`; `"length"` → `truncated` (incl. empty content when reasoning ate the
-    budget); empty `ok` → `LlmError("unknown")` as today.
-  - `finish_reason: "content_filter"`, or `native_finish_reason` in Gemini's blocking set
-    (SAFETY / PROHIBITED_CONTENT / BLOCKLIST / SPII / RECITATION) → `blocked`, reason = the native reason when it is
-    in that set, else `"SAFETY"`.
-  - Content blocks reported as errors (Gemini's SAFETY filter on OpenRouter is an error: `error_type`
-    `content_policy_violation`, HTTP 403 — or a 200 body / mid-stream chunk `error` with `code: 403`). Conservative
-    rule, independent of where the error arrives (thrown `APIError`, 200 body, mid-stream chunk): an error whose
-    `metadata.error_type` is `content_policy_violation` (any status), or a 403 carrying `metadata.reasons`
-    (OpenRouter moderation), `metadata.provider_name` or `metadata.provider_code` (a provider-side block) →
-    `blocked`, reason = `metadata.provider_code` when it is a Gemini blocking reason, else `"SAFETY"` (so the user
-    gets `SAFETY_FALLBACK_REPLY` with its conditional crisis line, as today). A 403 with none of those markers
-    (e.g. a key budget limit) → `unavailable`.
-  - Other errors → `LlmError`: 429 → `rate_limited`; 402 (credits) → `unavailable`, logged with its own message so
-    an empty balance is visible; 408, 5xx, 502, 503, connection/timeout errors → `unavailable`; 400/401/404/other →
-    `unknown`. A streamed error arrives as an `APIError` with `status === undefined`, so the code is read from
-    `err.error.code`; the non-streaming path also checks `body.error` on HTTP 200.
-- Callers: `ctx.datasource.gemini` → `ctx.datasource.openrouter` (context.mts wiring unchanged in shape);
-  `buildHistory` emits `{ role: "user" | "assistant", content }` (the DB→history mapping stays USER/MODEL);
-  `buildGeneration` returns `{ messages, system }`; `toRpcError` keys on `LlmError`; generateTitle passes its system
-  prompt the same way. tRPC procedures, inputs, outputs and error codes are untouched.
-- Config: `OPENROUTER_API_KEY` is **optional** in `util/config.mts` (`z.string().min(1).optional()`), and
-  `GEMINI_API_KEY` is removed. Trade-off: today's LLM key is fail-fast (required), but `getConfig` validates the
-  whole env and every released app depends on this server. A required key that was forgotten would stop the entire
-  API (and cron) from booting. An optional key limits the damage to "Sponsor chat replies fail with the existing
-  'Failed to generate response.' error, and the user's message is kept", plus an error log line per call. The PR is
-  still held (see Rollout), so the tolerant config is a backstop, not the plan. `OPENROUTER_MODEL` / `OPENROUTER_FALLBACK_MODELS` optional, read in the datasource (as `GEMINI_MODEL` is
-  today). README "AI" line names OpenRouter and documents the three env vars.
-- Gemini-named comments elsewhere follow: `chatRateLimit.mts` ("hard cost ceiling remains the Gemini project
-  quota" → the OpenRouter credit balance / key limit), `trpcOptions.mts`, `fallback.mts`, `buildHistory.mts`,
-  `utils/types.mts`, `runStreamSponsorChat.mts`.
-- Tests: datasource unit tests rewritten for an OpenAI-shape client mock (chat + stream, every mapping above,
-  request shape, fallback-model warning, stream timeout); route tests' mocks renamed; buildHistory tests updated
-  for `assistant`/`content`; a config test that the env parses without `OPENROUTER_API_KEY` or `GEMINI_API_KEY`; a
-  datasource test that a missing key gives `LlmError("unavailable")`.
-- **Rollout (deliberate exception to the owner's auto-merge default).** Merging switches production chat to
-  OpenRouter, which needs a key that only the owner can create, and adds a new data processor. The PR is opened
-  **without auto-merge**, and the PR body and final report say so up front and why. Owner steps before merge:
-  (1) **privacy review**: OpenRouter becomes an intermediary for recovery-support text. Check the app's privacy
-  policy and App Store privacy labels, and choose account-level training opt-out / ZDR in the OpenRouter dashboard
-  (ZDR pins Gemini to Vertex). (2) Create an OpenRouter key with a credit/spend limit. It replaces the Gemini project
-  quota as the hard cost ceiling; the in-process rate limit is per instance, and a fallback model may cost more.
-  (3) Set `OPENROUTER_API_KEY` on both DO App Platform components (web + cron) in the DO dashboard (no app spec in
-  the repo), and set `OPENROUTER_MODEL` if production set `GEMINI_MODEL`. (4) Merge. After merge: (5) run the
-  post-deploy check; (6) only then delete `GEMINI_API_KEY` from DO. Until then, rollback = revert the PR.
-
-**B. `@openrouter/sdk`** — rejected: 416 releases in ~13 months, README retry/error sections are empty placeholders;
-`openai@7` is OpenRouter's documented drop-in with mature typed errors and `timeout`/`maxRetries`/`signal`.
-**C. Raw `fetch` + hand-rolled SSE** — rejected: re-implements SSE framing, keep-alive comments, `[DONE]`,
-mid-stream errors and timeouts; more code to own for no gain.
-**D. Provider switch keeping Gemini as a fallback backend** — rejected: contradicts "openrouter for everything",
-keeps two code paths and two keys; OpenRouter's `models` fallback covers the resilience D would buy.
+- **Datasource.** The new `datasource/openrouter/` uses the official `openai` npm SDK (v7) at
+  `https://openrouter.ai/api/v1`. `@google/genai` and `datasource/gemini/` are removed.
+  - `createClient.mts` builds the client: `timeout` 60_000, `maxRetries` 0, and the `HTTP-Referer` /
+    `X-OpenRouter-Title` headers. It returns null without a key.
+  - `client.mts` reads `OPENROUTER_API_KEY` and logs a startup warning when the key is absent.
+  - `chat` / `chatStream` take `{ system, messages, maxTokens, signal? }` and return
+    `ChatResult` (`ok | blocked | truncated`) or throw `LlmError` (`rate_limited | unavailable | unknown`).
+- **Request.** The system prompt goes first as a `system` message, followed by `{role: "user"|"assistant", content}`
+  history and `max_tokens`. Every request also sends:
+  - `reasoning: {effort: "low", exclude: true}`;
+  - `model` = `OPENROUTER_MODEL` or `google/gemini-3.8-flash`;
+  - `models` = `OPENROUTER_FALLBACK_MODELS` or `["~google/gemini-flash-latest"]` (an empty value means no fallbacks);
+  - no `provider` field. OpenRouter's public endpoint metadata has no data-policy fields, so a filter could not be
+    verified; privacy settings are account-level.
+- **Fallback warning.** A warning is logged when the served `model` is neither the primary nor
+  `<primary>-YYYYMMDD`. An alias primary never warns.
+- **Outcome mapping.**
+  - `stop` with text → ok.
+  - `length` → truncated.
+  - No finish reason → truncated (never stored).
+  - `finish_reason: "error"` → `LlmError("unavailable")`.
+  - `content_filter`, or a Gemini blocking `native_finish_reason` → blocked.
+  - Content blocks reported as errors are handled wherever they arrive: a thrown error, a 200 body, or a mid-stream
+    chunk.
+    - 403 + `reasons` (moderation) → SAFETY.
+    - `content_policy_violation` (any status) → the provider code.
+    - 403 + a Gemini block `provider_code` → that code.
+  - Reasons keep their name only for known Gemini codes (SAFETY, PROHIBITED_CONTENT, BLOCKLIST, SPII, RECITATION,
+    OTHER). Any other or missing code → SAFETY, which errs toward the crisis-line fallback.
+  - A 403 that only names the provider, or a budget limit, → unavailable.
+  - Other errors: 429 → rate_limited; 402 (logged as credits exhausted), 403, 408, 5xx, connection/timeout →
+    unavailable; anything else → unknown.
+- **Streaming.** `chatStream` bounds the whole stream with its own 60s timeout signal, combined with the caller's.
+  `openai@7` ends an aborted stream quietly instead of throwing. So after the loop, an aborted signal with no finish
+  reason is rethrown: a caller abort as-is, unlogged; the timeout as `LlmError("unavailable")`. A cut-off reply is
+  never persisted.
+- **Callers.** Everything now goes through `ctx.datasource.openrouter`. `buildHistory` emits OpenAI-shape messages,
+  and `buildGeneration` returns `{ messages, system }`. `toRpcError` keys on `LlmError` (rate_limited →
+  TOO_MANY_REQUESTS, else "Failed to generate response."). Title generation uses the same request shape.
+- **Config.** `OPENROUTER_API_KEY` is optional; an empty value counts as unset. With it missing, the server and cron
+  still boot and only Sponsor replies fail. `GEMINI_API_KEY` is removed. The README documents the three env vars.
+  Gemini-named comments were updated, including the cost-ceiling comment in `chatRateLimit.mts`.
+- **Tests.**
+  - Datasource unit tests cover the request shape, every mapping (thrown, 200-body and mid-stream), the fallback
+    warning, a missing key, aborts and the timeout. Two tests drive a real `OpenAI` client through a stalling fetch.
+  - Route tests changed only in mock and shape renames.
+  - A config test covers an empty key and `GEMINI_API_KEY` no longer being read.
+- **Rollout (deliberate exception to auto-merge).** The PR is opened without auto-merge. The owner then:
+  1. does the privacy review;
+  2. creates a key with a spend limit;
+  3. sets the key on both DO components (web + cron);
+  4. merges;
+  5. runs the post-deploy check;
+  6. deletes `GEMINI_API_KEY`.
+- **Rejected:**
+  - `@openrouter/sdk`: high churn, and its retry/error docs are empty.
+  - Raw fetch + SSE: more code to own.
+  - A provider switch keeping Gemini: contradicts "everything", and OpenRouter's fallbacks cover the resilience it
+    would add.
 
 ## Success criteria
 1. `@google/genai` is gone from `packages/server/package.json` and `package-lock.json`; `packages/server/src` has no
@@ -124,8 +96,9 @@ keeps two code paths and two keys; OpenRouter's `models` fallback covers the res
    `reasoning: { effort: "low", exclude: true }`, with no `provider` field.
 3. Unit tests cover each outcome mapping for both `chat` and `chatStream`: stop→ok; length→truncated (incl. empty
    content); content_filter and each native Gemini blocking reason→blocked; `content_policy_violation` and
-   provider/moderation-marked 403 — thrown, 200-body error, and mid-stream error chunk — →blocked (SAFETY, or the
-   Gemini provider_code); unmarked 403→unavailable; 429→rate_limited; 402/408/502/503/connection→unavailable;
+   moderation (`reasons`) / Gemini-block-code 403 — thrown, 200-body error, and mid-stream error chunk — →blocked
+   (SAFETY, or the known Gemini code; unknown codes → SAFETY); provider-name-only or unmarked 403→unavailable;
+   no finish reason→truncated; finish_reason "error"→unavailable; 429→rate_limited; 402/408/502/503/connection→unavailable;
    400/401→unknown; empty text→LlmError unknown; caller abort rethrown unlogged; stream exceeding 60s→unavailable;
    a response served by a different model logs a fallback warning.
 4. `sponsorChat`, `retrySponsorChat`, `streamSponsorChat` and title generation call `ctx.datasource.openrouter`
