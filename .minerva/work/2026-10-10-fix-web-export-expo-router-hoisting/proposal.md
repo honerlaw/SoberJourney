@@ -1,7 +1,7 @@
 # Proposal: fix-web-export-expo-router-hoisting
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed:** "fix it". Fix the DigitalOcean production deploy failures diagnosed in-session.
 
@@ -23,21 +23,25 @@ Make the DigitalOcean App Platform production build succeed again from a clean `
 
 ## Approach
 
-1. **Pin `expo-router` at the root.**
-   - Declare `"expo-router": "57.0.25"` in the root `package.json` `dependencies`. This is exactly the pin `packages/app` already has.
-   - Regenerate the lockfile with `npm install --package-lock-only` (npm 11, the same major as CI's Node 24).
-   - This forces expo-router into root `node_modules`, where `@expo/cli` resolves it.
-   - Measured in a scratch worktree: 0 name@version changes in the lockfile and 55 path moves, as expo-router and its nested deps relocate. With the pin, `expo export -p web` exits 0.
-   - The 55 is a path-move count only. Copy counts also change, by −2 `@expo/schema-utils`, −1 `expo-server` and +10 across 7 web-only `@radix-ui` packages. That is expected; see replan.md 2026-10-10.
-2. **Add a CI step.** In `.github/workflows/ci.yml`, after Test and before the EAS build/submit step, run `npm run build:web --workspace=@onerlaw/soberjourney-server`.
-   - This is the exact `build:pre` half of the `build:prod` command DigitalOcean runs.
-   - A broken production web export then fails the PR before an EAS build is queued.
-3. **Knowledge.** Add a bug entry recording:
-   - the failure and its hoisting cause;
-   - the root-pin fix, and that root and app pins must move together on SDK bumps or npm re-nests it;
-   - the CI guard.
+What shipped:
 
-   Link it to the SDK 57 notes.
+1. **`expo-router` pinned at the root.**
+   - The root `package.json` declares `"dependencies": {"expo-router": "57.0.25"}`, the same pin as `packages/app`.
+   - The lockfile was regenerated with `npm install --package-lock-only` on node 24.20.0 / npm 11.19.0.
+   - npm now installs a single expo-router at root `node_modules`, where `@expo/cli` and `@expo/router-server` resolve it.
+   - The lockfile keeps the same set of name@version pairs (1,943). The only changes are npm's re-dedupe and re-nest: −2 `@expo/schema-utils`, −1 `expo-server`, and +10 copies across 7 web-only `@radix-ui` packages.
+   - The only resolution changes are expo-router becoming resolvable and the optional type-only `@types/react` peer of the moved radix packages, which moves from 19.2.18 to 19.3.0.
+   - `expo-router`, `@expo/ui` and `@react-native-masked-view/masked-view` changed install path only. The autolinked module sets are identical. See replan.md 2026-10-10 and `resolution_map.py`.
+2. **CI exports the production web bundle.** `.github/workflows/ci.yml` runs `npm run build:web --workspace=@onerlaw/soberjourney-server` after Test and before the EAS step. This is the `build:pre` half of DigitalOcean's `build:prod`, so a broken export fails the PR.
+3. **CI fails on an un-hoisted or drifted expo-router** (from review). `packages/app/scripts/check-native-module-versions.mjs` gains `MUST_BE_HOISTED`: `expo-router` must have exactly one lockfile copy, at `node_modules/expo-router`.
+   - The export step alone would miss same-major pin drift. A second copy under packages/app could still export, with mixed router versions.
+   - The check fails on origin/main's lockfile and on a simulated 57.0.26 app-pin drift.
+4. **Knowledge.** `.minerva/knowledge/2026-10-10-bug-un-hoisted-expo-router-broke-production-web-export.md` records:
+   - the cause and the fix;
+   - both guards;
+   - the pin coupling;
+   - the `@types/react` split;
+   - fresh-`npm ci` verification.
 
 Alternatives considered:
 - **B: set `NODE_PATH=<root>/node_modules` for `expo export`.** Tested; it still exits 1. Rejected.
