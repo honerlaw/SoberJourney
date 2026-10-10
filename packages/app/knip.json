@@ -4,6 +4,7 @@
     "interface": true,
     "type": true
   },
+  "entry": ["scripts/*.mjs"],
   "ignoreDependencies": [".*"],
   "tags": [
     "-lintignore"
