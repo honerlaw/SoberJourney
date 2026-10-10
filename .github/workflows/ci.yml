@@ -45,7 +45,10 @@ jobs:
 
       - name: 🧪 Test
         run: npm run test
-      
+
+      - name: 🌐 Export production web bundle (mirrors the DigitalOcean build)
+        run: npm run build:web --workspace=@onerlaw/soberjourney-server
+
       - name: EAS Build and Submit
         run: npm run eas:submit:dev
 
