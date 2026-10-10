@@ -21,6 +21,15 @@ export const SAFETY_FALLBACK_REPLY =
 export const BLOCKED_FALLBACK_REPLY =
   "I'm sorry, I couldn't respond to that last message. Could you try saying it a different way? I'm here to keep talking with you.";
 
+/**
+ * Reply that replaces a model reply containing fenced code (see replyGuard):
+ * the sponsor declines off-topic tasks such as writing scripts. Deliberately
+ * not in FALLBACK_REPLIES, so the turn stays in history: the user's message
+ * keeps its context and the model sees its own decline.
+ */
+export const OFF_TOPIC_REPLY =
+  "I'm here to support you with your recovery, so that's not something I can help with. How are you doing today?";
+
 const HARMFUL_CONTENT_REASONS: ReadonlySet<string> = new Set([
   "SAFETY",
   "PROHIBITED_CONTENT",

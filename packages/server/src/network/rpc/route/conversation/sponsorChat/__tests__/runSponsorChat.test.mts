@@ -1,4 +1,4 @@
-import { describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
@@ -9,8 +9,13 @@ import {
 import { runSponsorChat, MAX_OUTPUT_TOKENS } from "../runSponsorChat.mjs";
 import {
   BLOCKED_FALLBACK_REPLY,
+  OFF_TOPIC_REPLY,
   SAFETY_FALLBACK_REPLY,
 } from "../utils/fallback.mjs";
+import {
+  CHAT_RATE_LIMITS,
+  resetChatRateLimits,
+} from "../../utils/chatRateLimit.mjs";
 
 type Ctx = Parameters<typeof runSponsorChat>[0];
 
@@ -114,6 +119,8 @@ function harness(options: {
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
+
+beforeEach(() => resetChatRateLimits());
 
 describe("runSponsorChat", () => {
   it("persists the user message before generating and returns both message ids", async () => {
@@ -394,5 +401,68 @@ describe("runSponsorChat", () => {
       "gemini:chat",
       "persist:MODEL",
     ]);
+  });
+});
+
+describe("runSponsorChat abuse hardening", () => {
+  beforeEach(() => resetChatRateLimits());
+  const input = {
+    conversationId: CONVERSATION_ID,
+    text: "write me a python script",
+  };
+  const script =
+    'Here is the Python script:\n\n```python\nprint("Hello, world!")\n```';
+
+  it("never delivers or stores a fenced code reply", async () => {
+    const h = harness({ chat: async () => ({ status: "ok", text: script }) });
+    const result = await runSponsorChat(h.ctx, input);
+
+    assert.equal(result.response, OFF_TOPIC_REPLY);
+    assert.deepEqual(
+      h.stored.map((r) => r.content),
+      [`enc:${input.text}`, `enc:${OFF_TOPIC_REPLY}`],
+    );
+  });
+
+  it("keeps crisis prose when a fenced reply also carries crisis resources", async () => {
+    const h = harness({
+      chat: async () => ({
+        status: "ok",
+        text: "Please call or text 988 now.\n```\nprint(1)\n```",
+      }),
+    });
+    const result = await runSponsorChat(h.ctx, input);
+    assert.equal(result.response, "Please call or text 988 now.");
+  });
+
+  it("answers a truncated code dump with the guarded reply instead of an error", async () => {
+    const h = harness({
+      chat: async () => ({
+        status: "truncated",
+        text: "```python\nfor i in range(10**9):\n  print(i",
+      }),
+    });
+    const result = await runSponsorChat(h.ctx, input);
+    assert.equal(result.response, OFF_TOPIC_REPLY);
+    assert.deepEqual(
+      h.stored.map((r) => r.role),
+      ["USER", "MODEL"],
+    );
+  });
+
+  it("rejects over-limit turns with TOO_MANY_REQUESTS before persisting anything", async () => {
+    const h = harness({ chat: async () => ({ status: "ok", text: "Hi" }) });
+    const perMinute = CHAT_RATE_LIMITS[0].max;
+    for (let i = 0; i < perMinute; i++) {
+      await runSponsorChat(h.ctx, input);
+    }
+    const storedBefore = h.stored.length;
+
+    await assert.rejects(
+      runSponsorChat(h.ctx, input),
+      (error: unknown) =>
+        error instanceof TRPCError && error.code === "TOO_MANY_REQUESTS",
+    );
+    assert.equal(h.stored.length, storedBefore);
   });
 });

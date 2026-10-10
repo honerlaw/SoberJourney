@@ -1,4 +1,4 @@
-import { describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { TRPCError } from "@trpc/server";
 import { mockLogger } from "../../../../../../util/__mocks__/logger.mjs";
@@ -13,8 +13,13 @@ import {
 import { MAX_OUTPUT_TOKENS } from "../runSponsorChat.mjs";
 import {
   BLOCKED_FALLBACK_REPLY,
+  OFF_TOPIC_REPLY,
   SAFETY_FALLBACK_REPLY,
 } from "../utils/fallback.mjs";
+import {
+  CHAT_RATE_LIMITS,
+  resetChatRateLimits,
+} from "../../utils/chatRateLimit.mjs";
 import {
   activeLockCount,
   withConversationLock,
@@ -152,6 +157,8 @@ function harness(options: {
 }
 
 const input = { conversationId: CONVERSATION_ID, text: "I feel an urge" };
+
+beforeEach(() => resetChatRateLimits());
 const flush = () => new Promise((r) => setTimeout(r, 5));
 
 async function collect(
@@ -426,5 +433,81 @@ describe("runStreamSponsorChat", () => {
       h.stored.map((r) => r.role),
       ["USER"],
     );
+  });
+});
+
+describe("runStreamSponsorChat abuse hardening", () => {
+  beforeEach(() => resetChatRateLimits());
+
+  function deltasOf(events: SponsorChatStreamEvent[]): string[] {
+    return events.flatMap((e) => (e.type === "delta" ? [e.text] : []));
+  }
+
+  it("stops forwarding deltas once the reply contains a fence, and done carries the guarded reply", async () => {
+    const h = harness({
+      stream: streamOf([
+        "Here is the script:\n",
+        "```python\n",
+        'print("hi")\n',
+        "```",
+      ]),
+    });
+    const { events, error } = await collect(runStreamSponsorChat(h.ctx, input));
+
+    assert.equal(error, undefined);
+    assert.deepEqual(deltasOf(events), ["Here is the script:\n"]);
+    assert.deepEqual(events.at(-1), {
+      type: "done",
+      response: OFF_TOPIC_REPLY,
+      userMessageId: "m1",
+      modelMessageId: "m2",
+    });
+    assert.deepEqual(
+      h.stored.map((r) => r.content),
+      ["enc:I feel an urge", `enc:${OFF_TOPIC_REPLY}`],
+    );
+    await waitForLockRelease();
+  });
+
+  it("catches a fence split across chunks", async () => {
+    const h = harness({
+      stream: streamOf(["Sure:\n``", "`python\nprint(1)", "\n```"]),
+    });
+    const { events } = await collect(runStreamSponsorChat(h.ctx, input));
+
+    assert.deepEqual(deltasOf(events), ["Sure:\n``"]);
+    const done = events.at(-1);
+    assert.ok(done?.type === "done");
+    assert.equal(done.response, OFF_TOPIC_REPLY);
+  });
+
+  it("keeps crisis prose in done when a fenced reply carries crisis resources", async () => {
+    const h = harness({
+      stream: streamOf([
+        "Please call or text 988 right now. ",
+        "I'm here.\n```\nprint(1)\n```",
+      ]),
+    });
+    const { events } = await collect(runStreamSponsorChat(h.ctx, input));
+    const done = events.at(-1);
+    assert.ok(done?.type === "done");
+    assert.equal(done.response, "Please call or text 988 right now. I'm here.");
+    assert.equal(h.stored.filter((r) => r.role === "MODEL").length, 1);
+  });
+
+  it("rejects over-limit turns with TOO_MANY_REQUESTS before any event", async () => {
+    const perMinute = CHAT_RATE_LIMITS[0].max;
+    for (let i = 0; i < perMinute; i++) {
+      const h = harness({ stream: streamOf(["Hi"]) });
+      const { error } = await collect(runStreamSponsorChat(h.ctx, input));
+      assert.equal(error, undefined);
+    }
+
+    const h = harness({ stream: streamOf(["Hi"]) });
+    const { events, error } = await collect(runStreamSponsorChat(h.ctx, input));
+    assert.deepEqual(events, []);
+    assert.ok(error instanceof TRPCError && error.code === "TOO_MANY_REQUESTS");
+    assert.deepEqual(h.stored, []);
+    assert.equal(h.chatStream.mock.callCount(), 0);
   });
 });

@@ -3,6 +3,8 @@ import type { Context } from "../../../../../context.mjs";
 import { type ChatResult } from "../../../../../datasource/gemini/chat.mjs";
 import { withConversationLock } from "../utils/conversationLock.mjs";
 import { createEventChannel } from "../utils/eventChannel.mjs";
+import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
+import { containsCodeFence } from "./utils/replyGuard.mjs";
 import {
   buildGeneration,
   finishReply,
@@ -55,6 +57,7 @@ export async function* runStreamSponsorChat(
   if (!user) {
     throw new UnauthorizedError();
   }
+  consumeChatRateLimit(user.id);
 
   const abort = new AbortController();
   const onAbort = () => abort.abort(signal?.reason);
@@ -97,6 +100,11 @@ export async function* runStreamSponsorChat(
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           abortSignal: abort.signal,
         });
+        // Once the reply contains fenced code, stop forwarding deltas but
+        // keep consuming the stream, so the result is classified, guarded
+        // and persisted as usual; `done` then replaces what was shown.
+        let streamed = "";
+        let forwarding = true;
         while (true) {
           const next = await stream.next();
           if (next.done) {
@@ -106,7 +114,13 @@ export async function* runStreamSponsorChat(
           // Do not rely on the SDK alone to stop on abort: a reply stopped
           // mid-stream is never persisted.
           abort.signal.throwIfAborted();
-          channel.push({ type: "delta", text: next.value });
+          if (forwarding) {
+            streamed += next.value;
+            forwarding = !containsCodeFence(streamed);
+          }
+          if (forwarding) {
+            channel.push({ type: "delta", text: next.value });
+          }
         }
       } catch (error) {
         if (abort.signal.aborted) {
