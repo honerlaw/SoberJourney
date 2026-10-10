@@ -13,7 +13,6 @@
       "bundleIdentifier": "com.onerlaw.soberjourney",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library when you choose a photo to upload.",
         "ITSAppUsesNonExemptEncryption": false
       },
