@@ -169,7 +169,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           // width change.
           {...(isWeb
             ? { height: inputHeight, onLayout: measureWebHeight }
-            : { minHeight: MIN_INPUT_HEIGHT, maxHeight: MAX_INPUT_HEIGHT })}
+            : {
+                minHeight: MIN_INPUT_HEIGHT,
+                maxHeight: MAX_INPUT_HEIGHT,
+                // Android centers text vertically by default; keep it at the
+                // top, as on iOS, when the floor is taller than one line.
+                textAlignVertical: "top" as const,
+              })}
           placeholder="Chat with your AI sponsor"
           value={text}
           onChangeText={setText}

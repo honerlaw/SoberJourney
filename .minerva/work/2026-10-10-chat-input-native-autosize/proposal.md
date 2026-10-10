@@ -68,7 +68,7 @@ Android uses the same new-architecture path, so it is expected to get the same f
 4. A knowledge entry records the iOS mechanism and the native auto-size rule. It links to, and corrects, the native sentence in the 2026-10-10 constraint entry. Under promote's add-only rule, the old entry is not edited.
 5. Manual check on device, done by the user after merge through TestFlight. No simulator is available here, so this is recorded as user-verified post-merge and is the only check of native behavior. On the iOS Sponsor tab:
    - the input does not oscillate;
-   - it is one line when empty, at its natural height;
+   - it is one line when empty, at its natural height (the placeholder may wrap to two lines on a narrow device or with large Dynamic Type, which is acceptable);
    - it grows while typing;
    - a trailing newline shows its caret line;
    - it scrolls internally past the cap (this relies on React Native's default multiline scrolling, since `scrollEnabled` was removed);

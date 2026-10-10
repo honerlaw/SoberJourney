@@ -7,12 +7,17 @@
  * a switchable `Platform.OS`, and `tamagui` records the props its `TextArea`
  * receives. It renders once per platform with react-dom/server.
  *
+ * It checks ChatInput's own prop choices only. Tamagui's variant resolution
+ * (explicit `numberOfLines: undefined` → `height: "auto"`) and native layout
+ * are not exercised here; a Tamagui upgrade that re-forces a height would
+ * still pass, so re-check on device after upgrading Tamagui.
+ *
  * Run from the repo root after `npm ci`:
  *
  *   node .minerva/work/2026-10-10-chat-input-native-autosize/verify-chat-input-native-props.mjs
  */
 import assert from "node:assert/strict"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -103,5 +108,6 @@ check(`web: measured height + onLayout, no onContentSizeChange ${JSON.stringify(
   assert.deepEqual(sizing(web), { height: 44, onLayout: "fn" })
 })
 
+rmSync(dir, { recursive: true, force: true })
 console.log(results.join("\n"))
 process.exit(results.every((line) => line.startsWith("PASS")) ? 0 : 1)
