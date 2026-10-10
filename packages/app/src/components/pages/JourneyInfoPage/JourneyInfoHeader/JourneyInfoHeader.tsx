@@ -23,6 +23,7 @@ export const JourneyInfoHeader: React.FC<JourneyInfoHeaderProps> = ({
           <XStack gap="$2">
             <HeaderButton
               icon={Pencil}
+              label="Edit journey"
               onPress={() =>
                 router.push({
                   pathname: "/journeys-modify",
@@ -34,7 +35,11 @@ export const JourneyInfoHeader: React.FC<JourneyInfoHeaderProps> = ({
               }
             />
             <Separator vertical marginVertical="$2" />
-            <HeaderButton icon={Trash2} onPress={onDeletePress} />
+            <HeaderButton
+              icon={Trash2}
+              label="Delete journey"
+              onPress={onDeletePress}
+            />
           </XStack>
         ),
       }}

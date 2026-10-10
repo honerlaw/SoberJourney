@@ -42,7 +42,11 @@ export default function TabsLayout() {
         name="journal"
         options={{
           tabBarIcon: ({ color, size }) => (
-            <BookOpen color={color as string} size={size} pointerEvents="none" />
+            <BookOpen
+              color={color as string}
+              size={size}
+              pointerEvents="none"
+            />
           ),
         }}
       />

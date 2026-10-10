@@ -12,6 +12,7 @@ function OpenDrawerButton() {
   return (
     <HeaderButton
       icon={Menu}
+      label="Conversations"
       onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
     />
   )

@@ -1,6 +1,9 @@
-import { useCallback, useRef, useState } from "react"
-import { Dimensions, Platform, type View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Platform, type View } from "react-native"
+import {
+  useSafeAreaFrame,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context"
 
 /** Tamagui `$3`: the input's bottom padding when nothing sits below it. */
 const BASE_PADDING = 13
@@ -15,29 +18,37 @@ const KEYBOARD_GAP = 14
  * Native tabs can't report the tab bar's height, and the screen sits
  * differently on each platform: on iOS it extends under the tab bar (whose
  * height is in the tab's safe-area inset), on Android it ends above it. So the
- * screen root's distance to the window bottom is measured, and only while the
+ * screen root's distance to the bottom of the safe-area frame (the same window
+ * coordinates `measureInWindow` reports) is measured, and only while the
  * keyboard is hidden: the keyboard never moves the root, and the padding this
  * returns never changes the root's size, so the measurement can't feed back on
  * itself.
  */
 export function useInputBottomPadding(keyboardHeight: number) {
   const insets = useSafeAreaInsets()
+  const frame = useSafeAreaFrame()
   const rootRef = useRef<View>(null)
-  // Distance from the bottom of the screen root to the bottom of the window.
+  // Distance from the bottom of the screen root to the bottom of the frame.
   const [rootBottomOffset, setRootBottomOffset] = useState(0)
 
-  const onRootLayout = useCallback(() => {
+  const frameBottom = frame.y + frame.height
+  const measure = useCallback(() => {
     if (Platform.OS === "web" || keyboardHeight > 0) return
     rootRef.current?.measureInWindow((_x, y, _width, height) => {
-      const offset = Dimensions.get("window").height - (y + height)
-      setRootBottomOffset(Math.max(0, Math.round(offset)))
+      setRootBottomOffset(Math.max(0, Math.round(frameBottom - (y + height))))
     })
-  }, [keyboardHeight])
+  }, [keyboardHeight, frameBottom])
+
+  // Root layouts taken while the keyboard is up are skipped, and the keyboard
+  // never changes the root's size, so measure again once it hides.
+  useEffect(() => {
+    measure()
+  }, [measure])
 
   const bottomPadding =
     keyboardHeight > 0
       ? Math.max(BASE_PADDING, keyboardHeight - rootBottomOffset + KEYBOARD_GAP)
       : Math.max(0, insets.bottom - rootBottomOffset) + BASE_PADDING
 
-  return { bottomPadding, onRootLayout, rootRef }
+  return { bottomPadding, onRootLayout: measure, rootRef }
 }

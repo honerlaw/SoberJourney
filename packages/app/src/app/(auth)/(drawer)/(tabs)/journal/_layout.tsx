@@ -6,7 +6,13 @@ export default function JournalLayout() {
   return (
     <TabStackLayout
       title="Journal"
-      headerRight={() => <HeaderButton icon={Pencil} href="/journal-new" />}
+      headerRight={() => (
+        <HeaderButton
+          icon={Pencil}
+          label="New journal entry"
+          href="/journal-new"
+        />
+      )}
     />
   )
 }

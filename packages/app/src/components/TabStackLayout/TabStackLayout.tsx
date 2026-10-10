@@ -28,7 +28,9 @@ export const TabStackLayout: React.FC<TabStackLayoutProps> = ({
       name="index"
       options={{
         headerTitle: title,
-        headerLeft: () => <HeaderButton icon={User} href="/profile" />,
+        headerLeft: () => (
+          <HeaderButton icon={User} label="Profile" href="/profile" />
+        ),
         headerRight,
       }}
     />

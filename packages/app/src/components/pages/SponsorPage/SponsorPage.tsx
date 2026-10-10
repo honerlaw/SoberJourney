@@ -24,8 +24,11 @@ const MESSAGE_SPACING = 12
 export const SponsorPage: React.FC = () => {
   const listRef = useRef<FlatList<Message>>(null)
   const keyboardHeight = useKeyboardHeight()
-  const { bottomPadding: inputBottomPadding, onRootLayout, rootRef } =
-    useInputBottomPadding(keyboardHeight)
+  const {
+    bottomPadding: inputBottomPadding,
+    onRootLayout,
+    rootRef,
+  } = useInputBottomPadding(keyboardHeight)
   const navigation = useNavigation()
 
   const {

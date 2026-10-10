@@ -26,6 +26,8 @@
     - fix (all three): amend criterion 14 too — the cited checklist item did not exist; state the replan changes 7 and 14
     - fix: state the render is deferred, not satisfied (reword-by-replan path); resolver + criterion 6 + tsc cover web-gets-NativeTabs and compile-time errors
     - fix: where the user runs the web check; full resolved paths; who ran the mutation check and that the file was restored; script needs path.resolve (done) and depends on expo-router internal getRoutesCore; name rejected alternatives (auth bypass, isolated-render stub)
+- [reviewed — clean] completion verification (post-replan): Verifier reproduced criteria 1, 3–11, 13; 12 and 6-prebuild rest on recorded gate; 2 and 14 pending PR body at ship → accept (tier: reviewer floor — Verifier)
+- [solo] review triage: 5 FIX (#1 tab a11y labels, #2 safe-area frame vs Dimensions, #3 re-measure on keyboard hide, #9 narrow bottomPadding type, #10 header-button a11y names) / 1 SUGGEST (#7 eslint downgrade disposition at promote) / 5 IGNORE (#4 one-frame Android jump, #5 centred empty/loading views shift under glass bar, #6 no action, #8 no test runner, #11 header spacing) (tier: default-solo row — no finding had two defensible dispositions; minerva audit: no spec/knowledge findings)
 
 ## Work notes
 ### Part 1 progress (2026-10-10)
@@ -60,3 +62,18 @@
 - Step 8 glass composer: **skipped** (optional/non-blocking per proposal). Reason: on iOS the composer's padded area sits behind the floating glass tab bar; a glass composer there is glass-on-glass, which Apple's guidance avoids. The composer stays solid.
 - Verification: tsc ✓, lint 0 errors ✓, `expo export` ios/android/web (production) ✓, root build ✓, server tests 262/262 ✓, `expo prebuild -p ios --no-install` ✓ (IPHONEOS_DEPLOYMENT_TARGET 16.4; generated ios/ deleted). Android minSdk 24 → 24 (unchanged). Web runtime (JS tabs chosen via `_layout.web.tsx`) not observable signed-out: protected routes render the loader in static export → web smoke goes on the PR checklist.
 - Export warning: Clerk logs "@clerk/clerk-expo is deprecated, migrate to @clerk/expo" (2.20.x). Informational; migration is a separate change (TODO candidate).
+
+## Review triage 2026-10-10
+Code review (local-diff mode, fresh-context subagent) over fdc5282+769d5ea; minerva audit inline (spec fidelity: matches approach; deviations recorded — step 8 skipped, step 9 form; knowledge: autosize untouched, streams unchanged, provider order untouched, app-only).
+1. [medium] native tabs have no screen-reader name — expo-router 57 `appendLabelOptions` sets `title=''` for a hidden Label → FIX: `accessibilityLabel` per Trigger (my earlier "text kept for accessibility" note was wrong).
+2. [medium] Android: `Dimensions` window height vs `measureInWindow` frame may disagree by the nav bar → FIX: measure against `useSafeAreaFrame()` (frame.y + height); Android 3-button vs gesture nav added to device checklist.
+3. [low] measurement skipped if the first root layout happens with the keyboard up, never retried → FIX: effect re-measures whenever the keyboard hides.
+4. [low] Android one-frame padding jump on mount → IGNORE (cosmetic; Android not shipped to a store).
+5. [low] iOS centred loading/empty views sit under the glass tab bar → IGNORE (cosmetic; nothing bottom-anchored).
+6. drawer dispatch path confirmed → no action.
+7. [low] React Compiler rules downgraded app-wide → SUGGEST (TODO disposition at promote).
+8. [low] no tests for new hook/layouts → IGNORE (app has no test runner).
+9. [low] `ChatInput.bottomPadding: number | string` string path dead → FIX: `number`.
+10. [low] header buttons have no accessible name (pre-existing) → FIX: required `label` prop on HeaderButton → `aria-label`; labels at all 8 call sites. Pressed-background half → IGNORE (same as pushed-screen buttons before).
+11. [low] header button spacing on web's JS header → IGNORE (cosmetic).
+After fixes: tsc ✓, lint 0 errors ✓, exports ios/android/web ✓, root build ✓, route check ✓.

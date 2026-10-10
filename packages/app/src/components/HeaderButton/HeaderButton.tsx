@@ -8,6 +8,8 @@ type HeaderButtonProps = {
   onPress?: () => void | Promise<void>
   href?: Parameters<ReturnType<typeof useRouter>["push"]>[0]
   icon: React.ComponentType<{ size?: string; pointerEvents?: "none" | "auto" }>
+  /** Screen-reader name; the button shows only an icon. */
+  label: string
   disabled?: boolean
 }
 
@@ -20,6 +22,7 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
   onPress,
   href,
   icon: IconComponent,
+  label,
   disabled,
 }) => {
   const { isLiquidGlassEnabled } = useLiquidGlass()
@@ -56,6 +59,7 @@ export const HeaderButton: React.FC<HeaderButtonProps> = ({
       }
       onPress={handlePress}
       disabled={disabled}
+      aria-label={label}
     />
   )
 }

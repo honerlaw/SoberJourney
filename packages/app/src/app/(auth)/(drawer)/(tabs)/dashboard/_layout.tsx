@@ -7,7 +7,11 @@ export default function DashboardLayout() {
     <TabStackLayout
       title="Journeys"
       headerRight={() => (
-        <HeaderButton icon={PlusCircle} href="/journeys-new" />
+        <HeaderButton
+          icon={PlusCircle}
+          label="New journey"
+          href="/journeys-new"
+        />
       )}
     />
   )
