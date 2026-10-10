@@ -19,6 +19,8 @@
 - [reviewed — clean] whole-proposal (first wave, discarded as stale): accept with concerns (data_collection unverified, parity criterion, auto-merge exception, cost comment)
 - [reviewed — folded] whole-proposal (restart): re-reviewed because the approach panel's fixes rewrote ## Success criteria; Skeptic `revise` — folded: Goal no longer claims live parity; OPENROUTER_API_KEY optional (missing key → chat-only failure, not API boot failure) with written trade-off; privacy review is pre-merge owner step 1; blocked-via-fallback loosening documented; criterion 4 reworded (no deleted test / weakened assert); 60s stream cap labelled new behaviour; typed passthrough for models/reasoning; toRpcError location explicit (tier: reviewer — panel clauses already adjudicated by the approach panel; parallel wave restart)
 - [rechecked — residual folded] whole-proposal: fold-audit accept; items 1–3, 5–8 addressed, 4 partial (no alert for 402/fallback cost) — folded: Goal wording on blocked loosening, startup warning when key missing, credit-balance item in post-deploy check
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1–8 (ship-time parts of 7/8 pending) — accept (tier: reviewer floor; no interface change beyond the approved one)
+- [solo] review triage: 7 FIX / 0 SUGGEST / 0 IGNORE (tier: default-solo row — no finding had two defensible dispositions; #2 narrows an approved mapping detail toward the crisis-guidance entry, an edge-case fix within approach A, not a replan)
 
 ## Work notes
 - openai@7 error shapes (read from node_modules/openai/core/error.js + streaming.js): an HTTP error is `APIError.generate(status, body)` with `.error = body.error` ({code,message,metadata}); a mid-stream SSE chunk carrying `error` throws `new APIError(undefined, data.error)` — status undefined, so the code comes from `err.error.code`. A 200 non-stream body with `error` is returned as a "completion", so `classifyCompletion` checks it.
@@ -27,3 +29,13 @@
 - OpenRouter reports the dated canonical slug (`google/gemini-3.8-flash-20260902`) as the served `model`; the fallback warning treats `<requested>-<suffix>` as the same model.
 - Live endpoint check: `/api/v1/models/google/gemini-3.8-flash/endpoints` exposes no data-policy fields → request-level `data_collection` dropped (could not be verified; risk of zero eligible endpoints).
 - Worktree build needs `DATABASE_URL` placeholder for `npm run build` too (prisma generate inside build), not only codegen.
+
+## Review triage 2026-10-10
+Code review (local-diff mode, fresh-context subagent; reproduced against the real openai@7 SDK). Minerva audit: no findings.
+1. [high] FIX — chatStream: openai@7 ends an aborted stream quietly (no throw), so a timeout or client disconnect returned the partial text as `ok` and the route persisted it. Fixed: after the loop, an aborted signal with no finish reason rethrows (caller abort as-is, timeout → LlmError unavailable). Real-SDK tests added.
+2. [medium] FIX — a 403 carrying only `provider_name` (any upstream provider error) became a SAFETY block → crisis-line fallback, masking outages. Narrowed: content_policy_violation (reason = provider_code if any, else SAFETY), 403 + `reasons` (SAFETY), 403 + Gemini-block provider_code; anything else 403 → unavailable. Non-safety codes (OTHER) pass through → neutral fallback; content_filter keeps a native reason.
+3. [medium] FIX — `OPENROUTER_API_KEY=""` failed the whole config (boot failure the optional key exists to prevent). Preprocess "" → undefined; tested.
+4. [low] FIX — no finish reason with text → `truncated` (never stored as complete); finish_reason "error" → LlmError unavailable.
+5. [low] FIX — fallback warning compared by prefix; now only a `-YYYYMMDD` suffix counts as the same model, and an alias primary (`~…`) never warns.
+6. [medium] FIX — stream test mocks threw on abort unlike the SDK; mock now ends quietly, plus two tests through a real `OpenAI` client with a stalling fetch.
+7. [low] FIX — tests for provider_name-only 403, OTHER codes, served -lite/-preview slugs.

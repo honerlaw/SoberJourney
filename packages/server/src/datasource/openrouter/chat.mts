@@ -152,8 +152,17 @@ export function classifyOutcome(outcome: ResponseOutcome): ChatResult {
   if (native && BLOCKING_NATIVE_REASONS.has(native)) {
     return { status: "blocked", reason: native };
   }
+  // A model's own refusal. A non-safety native reason (e.g. Gemini's OTHER)
+  // is kept, so it gets the neutral fallback reply rather than the one with
+  // the crisis line (see fallbackReplyFor).
   if (finishReason === "content_filter") {
-    return { status: "blocked", reason: BLOCKED_DEFAULT_REASON };
+    return { status: "blocked", reason: native ?? BLOCKED_DEFAULT_REASON };
+  }
+  if (finishReason === "error") {
+    throw new LlmError(
+      "unavailable",
+      "OpenRouter ended the response with an error.",
+    );
   }
 
   const text = outcome.text?.trim() ?? "";
@@ -167,6 +176,13 @@ export function classifyOutcome(outcome: ResponseOutcome): ChatResult {
       "unknown",
       `OpenRouter returned an empty response (finish_reason: ${finishReason ?? "none"}).`,
     );
+  }
+
+  // No finish reason: the response was cut off before it ended (OpenRouter
+  // always sends one on a finished response), so it is never stored as a
+  // complete reply.
+  if (!finishReason) {
+    return { status: "truncated", text };
   }
 
   return { status: "ok", text };
@@ -217,11 +233,16 @@ export function bodyError(value: unknown): OpenRouterBodyError {
 
 /**
  * A content block reported as an error, or undefined when the error is not
- * one. Gemini's SAFETY filter arrives this way on OpenRouter
- * (`error_type: "content_policy_violation"`, a 403), as do OpenRouter's own
- * moderation flags (403 with `reasons`). Any other 403 provider-side refusal
- * is treated as a block too; a 403 with none of these markers (e.g. a key
- * budget limit) is not.
+ * one:
+ * - `error_type: "content_policy_violation"` (any status): a content filter
+ *   outside the model, such as Gemini's SAFETY block. The reason is the
+ *   provider's code when there is one (a non-safety code such as OTHER gets
+ *   the neutral fallback reply), else SAFETY.
+ * - a 403 with `reasons`: OpenRouter's own moderation (harmful-content
+ *   categories), so SAFETY.
+ * - a 403 whose `provider_code` is a Gemini block reason.
+ * Any other 403 — including a provider error that only names the provider,
+ * or a key budget limit — is an outage, not a block.
  */
 export function blockedReasonForError(
   status: number | undefined,
@@ -229,25 +250,21 @@ export function blockedReasonForError(
 ): string | undefined {
   const metadata = body?.metadata ?? undefined;
   const providerCode =
-    typeof metadata?.provider_code === "string"
+    typeof metadata?.provider_code === "string" && metadata.provider_code
       ? metadata.provider_code
       : undefined;
-  const reason =
-    providerCode && BLOCKING_NATIVE_REASONS.has(providerCode)
-      ? providerCode
-      : BLOCKED_DEFAULT_REASON;
 
   if (metadata?.error_type === "content_policy_violation") {
-    return reason;
+    return providerCode ?? BLOCKED_DEFAULT_REASON;
   }
-  if (
-    status === 403 &&
-    metadata &&
-    (Array.isArray(metadata.reasons) ||
-      metadata.provider_name !== undefined ||
-      metadata.provider_code !== undefined)
-  ) {
-    return reason;
+  if (status !== 403 || !metadata) {
+    return undefined;
+  }
+  if (Array.isArray(metadata.reasons)) {
+    return BLOCKED_DEFAULT_REASON;
+  }
+  if (providerCode && BLOCKING_NATIVE_REASONS.has(providerCode)) {
+    return providerCode;
   }
   return undefined;
 }
@@ -376,10 +393,17 @@ export function logFallback(
 }
 
 // OpenRouter reports the canonical, dated slug (google/gemini-3.8-flash ->
-// google/gemini-3.8-flash-20260902), so a served slug that extends the
-// requested one is the same model.
+// google/gemini-3.8-flash-20260902), so the requested slug plus a date
+// suffix is the same model. A requested alias (~google/gemini-flash-latest)
+// resolves to a concrete slug that cannot be compared, so it never warns.
 function servedBy(requested: string, served: string): boolean {
-  return served === requested || served.startsWith(`${requested}-`);
+  if (requested.startsWith("~") || served === requested) {
+    return true;
+  }
+  return (
+    served.startsWith(`${requested}-`) &&
+    /^-\d{8}$/.test(served.slice(requested.length))
+  );
 }
 
 /**

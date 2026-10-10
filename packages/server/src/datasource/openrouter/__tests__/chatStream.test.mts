@@ -1,6 +1,6 @@
 import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
-import { APIError, type OpenAI } from "openai";
+import { APIError, OpenAI } from "openai";
 import { mockLogger } from "../../../util/__mocks__/logger.mjs";
 import { LlmError, type ChatRequest, type ChatResult } from "../chat.mjs";
 import { chatStream } from "../chatStream.mjs";
@@ -24,15 +24,16 @@ function clientStreaming(
         for (const chunk of chunks) {
           if (options.failAfter === index) throw options.error;
           if (options.hangAfter === index) {
-            // like the SDK: a stalled body rejects when the signal aborts
-            await new Promise((_, reject) => {
-              const signal = requestOptions.signal!;
-              signal.addEventListener(
-                "abort",
-                () => reject(new DOMException("aborted", "AbortError")),
-                { once: true },
-              );
-            });
+            // like openai@7: an aborted stream ends quietly, it does not throw
+            const signal = requestOptions.signal!;
+            if (!signal.aborted) {
+              await new Promise<void>((resolve) => {
+                signal.addEventListener("abort", () => resolve(), {
+                  once: true,
+                });
+              });
+            }
+            return;
           }
           index++;
           yield chunk;
@@ -314,6 +315,51 @@ describe("openrouter chatStream", () => {
     assert.equal(mocked.error.mock.callCount(), 1);
   });
 
+  it("rethrows a caller abort even when the SDK ends the stream quietly", async () => {
+    const { logger, mocked } = mockLogger();
+    const abort = new AbortController();
+    const { client } = clientStreaming([chunk("a"), chunk("b")], {
+      hangAfter: 1,
+    });
+    const generator = chatStream(logger, client, {
+      ...request,
+      signal: abort.signal,
+    });
+    assert.deepEqual(await generator.next(), { done: false, value: "a" });
+    const reason = new DOMException("gone", "AbortError");
+    abort.abort(reason);
+    await assert.rejects(generator.next(), (error) => error === reason);
+    assert.equal(mocked.error.mock.callCount(), 0);
+  });
+
+  it("keeps a reply that finished before an abort", async () => {
+    const { logger } = mockLogger();
+    const abort = new AbortController();
+    const { client } = clientStreaming(
+      [chunk("done", { finish_reason: "stop" }), chunk("x")],
+      { hangAfter: 1 },
+    );
+    const generator = chatStream(logger, client, {
+      ...request,
+      signal: abort.signal,
+    });
+    assert.deepEqual(await generator.next(), { done: false, value: "done" });
+    abort.abort();
+    assert.deepEqual(await generator.next(), {
+      done: true,
+      value: { status: "ok", text: "done" },
+    });
+  });
+
+  it("returns truncated when the stream ends without a finish reason", async () => {
+    const { logger } = mockLogger();
+    const { client } = clientStreaming([chunk("I hear you, and I")]);
+    assert.deepEqual(
+      (await drain(chatStream(logger, client, request))).result,
+      { status: "truncated", text: "I hear you, and I" },
+    );
+  });
+
   it("warns when a fallback model served the stream", async () => {
     const { logger, mocked } = mockLogger();
     const { client } = clientStreaming([
@@ -336,6 +382,77 @@ describe("openrouter chatStream", () => {
       assert.ok(error instanceof LlmError);
       assert.equal(error.kind, "unavailable");
       return true;
+    });
+  });
+
+  describe("with the real openai SDK", () => {
+    // An SSE body that sends one chunk and then stalls until aborted.
+    function stallingClient() {
+      const encoder = new TextEncoder();
+      const fetch = async (
+        _url: unknown,
+        init?: { signal?: AbortSignal | null },
+      ) => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"id":"1","model":"google/gemini-3.8-flash","choices":[{"index":0,"delta":{"content":"I hear you, and I"},"finish_reason":null}]}\n\n',
+              ),
+            );
+            init?.signal?.addEventListener("abort", () => {
+              try {
+                controller.error(new DOMException("aborted", "AbortError"));
+              } catch {
+                // already closed
+              }
+            });
+          },
+        });
+        return new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      };
+      return new OpenAI({
+        apiKey: "test",
+        baseURL: "https://openrouter.ai/api/v1",
+        maxRetries: 0,
+        fetch,
+      });
+    }
+
+    it("ends a stalled stream at the timeout as unavailable, not a reply", async () => {
+      const { logger } = mockLogger();
+      const generator = chatStream(logger, stallingClient(), request, 50);
+      assert.deepEqual(await generator.next(), {
+        done: false,
+        value: "I hear you, and I",
+      });
+      await assert.rejects(generator.next(), (error) => {
+        assert.ok(error instanceof LlmError);
+        assert.equal(error.kind, "unavailable");
+        return true;
+      });
+    });
+
+    it("rethrows a caller abort mid-stream instead of returning the partial text", async () => {
+      const { logger } = mockLogger();
+      const abort = new AbortController();
+      const generator = chatStream(logger, stallingClient(), {
+        ...request,
+        signal: abort.signal,
+      });
+      assert.deepEqual(await generator.next(), {
+        done: false,
+        value: "I hear you, and I",
+      });
+      setTimeout(() => abort.abort(), 10);
+      await assert.rejects(generator.next(), (error) => {
+        assert.ok(!(error instanceof LlmError));
+        assert.ok(abort.signal.aborted);
+        return true;
+      });
     });
   });
 });

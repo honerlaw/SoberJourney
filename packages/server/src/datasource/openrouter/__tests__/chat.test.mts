@@ -167,6 +167,29 @@ describe("openrouter chat", () => {
     assert.match(logged, /"requested":"google\/gemini-3\.8-flash"/);
   });
 
+  it("compares the served model by dated slug only", async () => {
+    const served = async (model: string, primary?: string) => {
+      if (primary) process.env.OPENROUTER_MODEL = primary;
+      const { logger, mocked } = mockLogger();
+      const { client } = clientReturning(async () => completion({}, { model }));
+      await chat(logger, client, request);
+      delete process.env.OPENROUTER_MODEL;
+      return mocked.warn.mock.callCount();
+    };
+    assert.equal(await served("google/gemini-3.8-flash"), 0);
+    assert.equal(await served("google/gemini-3.8-flash-20260902"), 0);
+    assert.equal(await served("google/gemini-3.8-flash-lite"), 1);
+    assert.equal(await served("google/gemini-3.8-flash-preview-0901"), 1);
+    // an alias primary cannot be compared, so it never warns
+    assert.equal(
+      await served(
+        "google/gemini-3.8-flash-20260902",
+        "~google/gemini-flash-latest",
+      ),
+      0,
+    );
+  });
+
   it("classifies content_filter and Gemini block reasons as blocked", async () => {
     const { logger, mocked } = mockLogger();
     const filtered = clientReturning(async () =>
@@ -199,8 +222,35 @@ describe("openrouter chat", () => {
         reason: native,
       });
     }
+    // a refusal with a non-safety native reason keeps it
+    const other = clientReturning(async () =>
+      completion({
+        finish_reason: "content_filter",
+        native_finish_reason: "OTHER",
+        message: { role: "assistant", content: null },
+      }),
+    );
+    assert.deepEqual(await chat(logger, other.client, request), {
+      status: "blocked",
+      reason: "OTHER",
+    });
     // logged without any text
-    assert.equal(mocked.warn.mock.callCount(), 6);
+    assert.equal(mocked.warn.mock.callCount(), 7);
+  });
+
+  it("treats a missing finish reason as truncated and an error finish as unavailable", async () => {
+    const { logger } = mockLogger();
+    const cut = clientReturning(async () =>
+      completion({ finish_reason: null, native_finish_reason: null }),
+    );
+    assert.deepEqual(await chat(logger, cut.client, request), {
+      status: "truncated",
+      text: "hello",
+    });
+    const errored = clientReturning(async () =>
+      completion({ finish_reason: "error" }),
+    );
+    await rejectsWithKind(chat(logger, errored.client, request), "unavailable");
   });
 
   it("classifies length as truncated, including an empty reply", async () => {
@@ -263,12 +313,25 @@ describe("openrouter chat", () => {
         },
         "SAFETY",
       ],
-      // a provider-side refusal without an error_type
+      // a 403 carrying a Gemini block code
       [
         async () => {
-          throw httpError(403, { provider_name: "Google", raw: "{}" });
+          throw httpError(403, {
+            provider_name: "Google",
+            provider_code: "SAFETY",
+          });
         },
         "SAFETY",
+      ],
+      // a non-safety provider code is kept (neutral fallback reply)
+      [
+        async () => {
+          throw httpError(403, {
+            error_type: "content_policy_violation",
+            provider_code: "OTHER",
+          });
+        },
+        "OTHER",
       ],
       // reported inside a 200 body
       [
@@ -299,6 +362,12 @@ describe("openrouter chat", () => {
       [httpError(402), "unavailable"],
       [httpError(403, { limit_source: "key" }), "unavailable"],
       [httpError(403), "unavailable"],
+      // an upstream provider error that only names the provider is an outage
+      [httpError(403, { provider_name: "Google", raw: "{}" }), "unavailable"],
+      [
+        httpError(403, { provider_name: "Google", provider_code: "OTHER" }),
+        "unavailable",
+      ],
       [httpError(408), "unavailable"],
       [httpError(500), "unavailable"],
       [httpError(502), "unavailable"],

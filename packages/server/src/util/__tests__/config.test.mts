@@ -37,7 +37,7 @@ describe("config", () => {
   });
 
   // Last: a successful load is cached for the rest of this file.
-  it("loads without OPENROUTER_API_KEY and no longer reads GEMINI_API_KEY", async () => {
+  it("loads with an empty OPENROUTER_API_KEY and no longer reads GEMINI_API_KEY", async () => {
     process.env = {
       NODE_ENV: "test",
       CLERK_JWSK: "jwsk",
@@ -46,6 +46,8 @@ describe("config", () => {
       KEY_ENCRYPTION_KEY: "kek",
       DATABASE_URL: "postgresql://x:x@localhost:5432/x",
       GEMINI_API_KEY: "old-key",
+      // empty counts as unset rather than failing the whole config
+      OPENROUTER_API_KEY: "",
     };
 
     assert.equal(await getConfig("OPENROUTER_API_KEY"), undefined);

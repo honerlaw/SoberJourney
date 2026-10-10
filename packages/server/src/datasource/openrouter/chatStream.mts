@@ -87,6 +87,13 @@ export async function* chatStream(
       }
     }
 
+    // The SDK ends an aborted stream quietly instead of throwing. A stream
+    // stopped (by the caller or the timeout) before its finish reason was cut
+    // off: never classify it as a finished reply.
+    if (signal.aborted && !finishReason) {
+      throw signal.reason;
+    }
+
     const result = classifyOutcome({ finishReason, nativeFinishReason, text });
     logFallback(logger, model, servedModel, "chatStream");
     logNonOkResult(logger, model, result, "chatStream");
