@@ -11,7 +11,6 @@ import DraggableFlatList, {
   RenderItemParams,
 } from "react-native-draggable-flatlist"
 import { AppRouter } from "@onerlaw/soberjourney-server/dist/network/rpc/index.mjs"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 type JourneyItem = NonNullable<
   AppRouter["journey"]["list"]["_def"]["$types"]["output"]["journeys"][number]
@@ -24,7 +23,6 @@ export const DashboardPage: React.FC = () => {
   const isDragging = useRef(false)
   // Latest server order, used to roll back a failed reorder
   const serverJourneysRef = useRef<JourneyItem[]>(journeys)
-  const { bottom } = useSafeAreaInsets()
 
   // Sync local state with server data
   useEffect(() => {
@@ -109,7 +107,9 @@ export const DashboardPage: React.FC = () => {
       onDragEnd={handleDragEnd}
       keyExtractor={(item) => item.id}
       containerStyle={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: bottom }}
+      // Clears the tab bar (iOS: under the glass bar; Android pads the tab
+      // screen itself).
+      contentInsetAdjustmentBehavior="automatic"
       renderItem={renderItem}
     />
   )

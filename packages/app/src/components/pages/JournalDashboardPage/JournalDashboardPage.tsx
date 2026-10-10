@@ -6,7 +6,6 @@ import { H6, YStack } from "tamagui"
 import { ErrorView } from "../../ErrorView"
 import { FlatList, ListRenderItem } from "react-native"
 import { JournalEntryCard } from "./JournalEntryCard"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { CalendarView } from "../../CalendarView"
 import { format, isSameDay } from "date-fns"
 
@@ -18,7 +17,6 @@ type JournalEntry = {
 
 export const JournalDashboardPage: React.FC = () => {
   const { entries, isLoading, error } = useJournalList()
-  const { bottom } = useSafeAreaInsets()
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 
   // Calculate entries per day for the calendar heatmap
@@ -96,7 +94,9 @@ export const JournalDashboardPage: React.FC = () => {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: bottom }}
+          // Clears the tab bar (iOS: under the glass bar; Android pads the tab
+          // screen itself).
+          contentInsetAdjustmentBehavior="automatic"
         />
       )}
     </>

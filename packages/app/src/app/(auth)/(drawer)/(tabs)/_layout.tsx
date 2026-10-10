@@ -1,84 +1,37 @@
-import { HeaderButton } from "@/src/components/HeaderButton"
-import {
-  BookOpen,
-  Home,
-  Menu,
-  MessageCircle,
-  Pencil,
-  PlusCircle,
-  User,
-} from "@tamagui/lucide-icons"
-import { Tabs } from "expo-router"
-import { useLiquidGlass } from "@/src/hooks/useLiquidGlass"
+import { NativeTabs } from "expo-router/unstable-native-tabs"
+import { useTheme } from "tamagui"
 
+/**
+ * System tab bar: Liquid Glass on iOS 26, the classic bar on earlier iOS,
+ * Material 3 on Android. Each tab's header comes from its own Stack. Web uses
+ * `_layout.web.tsx`.
+ */
 export default function TabsLayout() {
-  const { isLiquidGlassEnabled } = useLiquidGlass()
+  const theme = useTheme()
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShadowVisible: false,
-        tabBarShowLabel: false,
-        headerBackButtonDisplayMode: "minimal",
-        headerStyle: isLiquidGlassEnabled
-          ? {
-              height: 120,
-            }
-          : undefined,
-        tabBarStyle: {
-          elevation: 0,
-          borderTopWidth: 0,
-          paddingTop: 14,
-        },
-        headerLeftContainerStyle: {
-          paddingLeft: 14,
-        },
-        headerRightContainerStyle: {
-          paddingRight: 14,
-        },
-        headerLeft: () => (
-          <HeaderButton icon={User} href="/profile" forceGlass />
-        ),
-      }}
-    >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          headerTitle: "Journeys",
-          tabBarIcon: ({ color, size }) => (
-            <Home color={color as string} size={size} pointerEvents="none" />
-          ),
-          headerRight: () => {
-            return (
-              <HeaderButton icon={PlusCircle} href="/journeys-new" forceGlass />
-            )
-          },
-        }}
-      />
-      <Tabs.Screen
-        name="sponsor/index"
-        options={{
-          headerTitle: "Sponsor",
-          tabBarIcon: ({ color, size }) => (
-            <MessageCircle color={color as string} size={size} pointerEvents="none" />
-          ),
-          headerRight: () => {
-            return <HeaderButton icon={Menu} href="openDrawer" forceGlass />
-          },
-        }}
-      />
-      <Tabs.Screen
-        name="journal"
-        options={{
-          headerTitle: "Journal",
-          tabBarIcon: ({ color, size }) => (
-            <BookOpen color={color as string} size={size} pointerEvents="none" />
-          ),
-          headerRight: () => {
-            return <HeaderButton icon={Pencil} href="/journal-new" forceGlass />
-          },
-        }}
-      />
-    </Tabs>
+    <NativeTabs tintColor={theme.color?.val}>
+      <NativeTabs.Trigger name="dashboard">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "house", selected: "house.fill" }}
+          md="home"
+        />
+        <NativeTabs.Trigger.Label hidden>Journeys</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="sponsor">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "bubble.left", selected: "bubble.left.fill" }}
+          md="chat"
+        />
+        <NativeTabs.Trigger.Label hidden>Sponsor</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="journal">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "book", selected: "book.fill" }}
+          md="book"
+        />
+        <NativeTabs.Trigger.Label hidden>Journal</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   )
 }

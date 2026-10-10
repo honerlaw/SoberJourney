@@ -1,12 +1,12 @@
 import { YStack, Spinner } from "tamagui"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { FlatList, type ListRenderItem } from "react-native"
-import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { useNavigation } from "expo-router"
 
 import { LoadingView } from "@/src/components/LoadingView"
 import { useConversation } from "@/src/providers/ConversationProvider"
 import { useKeyboardHeight } from "./hooks/useKeyboardHeight"
+import { useInputBottomPadding } from "./hooks/useInputBottomPadding"
 import { MessageBubble } from "./MessageBubble"
 import { ChatInput } from "./ChatInput"
 import { ThinkingIndicator } from "./ThinkingIndicator"
@@ -16,15 +16,16 @@ import { RetryNotice } from "./RetryNotice"
 import type { Message } from "@/src/providers/ConversationProvider"
 import { LIST_PLACEHOLDER_TITLE } from "@/src/providers/ConversationProvider/conversationCache"
 
-/** Must match the static `headerTitle` of the sponsor tab in `(tabs)/_layout.tsx`. */
-const DEFAULT_HEADER_TITLE = "Sponsor"
+/** The Sponsor header title until a conversation title is known (`sponsor/_layout.tsx`). */
+export const SPONSOR_HEADER_TITLE = "Sponsor"
 /** Vertical space between message bubbles. */
 const MESSAGE_SPACING = 12
 
 export const SponsorPage: React.FC = () => {
   const listRef = useRef<FlatList<Message>>(null)
-  const tabBarHeight = useBottomTabBarHeight()
   const keyboardHeight = useKeyboardHeight()
+  const { bottomPadding: inputBottomPadding, onRootLayout, rootRef } =
+    useInputBottomPadding(keyboardHeight)
   const navigation = useNavigation()
 
   const {
@@ -68,7 +69,7 @@ export const SponsorPage: React.FC = () => {
   const headerTitle =
     conversation?.title ||
     (listTitle && listTitle !== LIST_PLACEHOLDER_TITLE ? listTitle : null) ||
-    DEFAULT_HEADER_TITLE
+    SPONSOR_HEADER_TITLE
   useEffect(() => {
     navigation.setOptions({ headerTitle })
   }, [navigation, headerTitle])
@@ -142,18 +143,13 @@ export const SponsorPage: React.FC = () => {
     )
   }
 
-  // With edge-to-edge enabled (app.json), Android does not resize the window
-  // for the keyboard, so the input is lifted manually on both platforms.
-  const inputBottomPadding =
-    keyboardHeight > 0 ? keyboardHeight - tabBarHeight + 14 : "$3"
-
   const hasMessages = messages.length > 0 || isSending
   // The input stays mounted (disabled) while the conversation resolves, so
   // the screen does not swap layouts and pop the input in once it loads.
   const isResolving = isInitializing || isLoading
 
   return (
-    <YStack flex={1}>
+    <YStack flex={1} ref={rootRef} onLayout={onRootLayout}>
       {isResolving ? (
         <YStack flex={1}>
           <LoadingView />
