@@ -194,6 +194,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 // Android centers text vertically by default; keep it at the
                 // top, as on iOS, when the floor is taller than one line.
                 textAlignVertical: "top" as const,
+                // Android applies lineHeight to typed text only; without its
+                // font padding the empty placeholder line also stays under 44.
+                includeFontPadding: false,
               })}
           placeholder="Chat with your AI sponsor"
           value={text}

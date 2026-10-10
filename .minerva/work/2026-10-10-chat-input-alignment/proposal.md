@@ -1,7 +1,7 @@
 # Proposal: chat-input-alignment
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 ## Goal
 On the Sponsor chat screen, the message input and the Send/Stop button line up: at one line both are exactly 44pt tall, so their tops, bottoms and centers coincide. The text and placeholder sit vertically centered in the input, with even, moderate inner padding. Auto-grow behaviour (44 → 140, then internal scroll; native via minHeight/maxHeight, web via measured height) is unchanged. Client-only; no server/API change.
@@ -11,6 +11,9 @@ User screenshot (iOS, SDK 57): the input looks misaligned with the send button a
 Cause: the TextArea takes Tamagui 1.141.5's `textAreaSizeVariant` at size `$true` (config v4): font 14 with lineHeight 24 (size+10), paddingVertical = space shifted -2 (13 by the web harness's 52px H1 = 13+24+13+2), paddingHorizontal = 16, radius 9. Button `$true` = height 44, radius 9. The one-line input = pad + 24 + pad + 2 border > 44. On native, Tamagui keeps `lineHeight` 24 for TextArea, and on iOS a lineHeight above the font's natural ~17pt (14pt SF) puts the extra leading above the glyphs, so the text sits low.
 
 ## Approach
+
+Shipped as Approach A, plus `includeFontPadding: false` in the native spread (added at review for Android, whose `lineHeight` applies only to typed text, not the placeholder). Verification: the unit's props check and real-browser alignment check (both fail on the pre-change component), the #56 web harness (H1 now 44) and the #57 native props harness all pass. Knowledge: [[2026-10-10-reference-chat-input-explicit-typography]].
+
 In `ChatInput.tsx`, give the TextArea explicit typography/box props that override the size variant on all platforms, chosen to sum to exactly the button height at one line:
 `fontSize 16, lineHeight 20, paddingVertical 11, paddingHorizontal 14` + 1px border ×2 → 1+11+20+11+1 = 44 = MIN_INPUT_HEIGHT = Button `$true` height. Keep `borderRadius` matching the button's (radius `$true` = 9, i.e. the variant's own value, left as is).
 Keep the XStack `alignItems="flex-end"`: with equal one-line heights, flex-end and center coincide, so the controls read as centered. When the input grows to several lines, the button stays pinned to the last line (iMessage/ChatGPT convention) rather than floating at mid-height.

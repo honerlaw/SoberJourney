@@ -103,15 +103,16 @@ for (const os of ["ios", "android", "web"]) {
     assert.deepEqual(typography(props), expected)
   })
 }
-// One line = padding x2 + line + 1px border x2 = the 44px native floor, which
-// is the Send button's Tamagui $true height.
-check("one line sums to 44", () => {
-  assert.equal(2 * expected.paddingVertical + expected.lineHeight + 2, 44)
-  assert.deepEqual(
-    { minHeight: propsFor("ios").minHeight, maxHeight: propsFor("ios").maxHeight },
-    { minHeight: 44, maxHeight: 140 },
-  )
-})
+// One line of the component's own values = padding x2 + line + 1px border x2
+// = its 44px native floor, the Send button's Tamagui $true height.
+for (const os of ["ios", "android"]) {
+  const props = propsFor(os)
+  check(`${os}: one line sums to minHeight 44, no Android font padding`, () => {
+    assert.equal(2 * props.paddingVertical + props.lineHeight + 2, 44)
+    assert.equal(props.minHeight, 44)
+    assert.equal(props.includeFontPadding, false)
+  })
+}
 
 rmSync(dir, { recursive: true, force: true })
 console.log(results.join("\n"))

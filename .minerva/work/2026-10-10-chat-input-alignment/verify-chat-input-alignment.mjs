@@ -6,7 +6,8 @@
  *
  * Bundles the real ChatInput (react-native-web + Tamagui, the app's
  * tamagui.config) as the 2026-10-10-chat-input-web-autogrow harness does, and
- * measures it in headless Chrome. Run from the repo root after `npm ci`:
+ * measures it in headless Chrome. Run from the repo root after `npm ci`
+ * (needs Google Chrome installed):
  *
  *   npm i --no-save playwright-core@1.57.0
  *   node .minerva/work/2026-10-10-chat-input-alignment/verify-chat-input-alignment.mjs
@@ -15,7 +16,7 @@
  * one (52px textarea vs 44px button) it must fail.
  */
 import assert from "node:assert/strict"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -106,11 +107,40 @@ await esbuild.build({
 })
 
 const browser = await chromium.launch({ channel: "chrome", headless: true })
-const page = await browser.newPage()
 const pageErrors = []
-page.on("pageerror", (error) => pageErrors.push(error.message))
-await page.goto(pathToFileURL(path.join(outDir, "index.html")).href)
-await page.waitForSelector("textarea")
+let m
+try {
+  const page = await browser.newPage()
+  page.on("pageerror", (error) => pageErrors.push(error.message))
+  await page.goto(pathToFileURL(path.join(outDir, "index.html")).href)
+  await page.waitForSelector("textarea")
+
+  await page.waitForTimeout(500)
+  m = await page.evaluate(() => {
+    const ta = document.querySelector("textarea")
+    const button = document.querySelector('[aria-label="Send message"]')
+    const rect = (el) => {
+      const r = el.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, height: r.height }
+    }
+    const cs = getComputedStyle(ta)
+    return {
+      input: rect(ta),
+      button: rect(button),
+      style: {
+        fontSize: cs.fontSize,
+        lineHeight: cs.lineHeight,
+        paddingTop: cs.paddingTop,
+        paddingBottom: cs.paddingBottom,
+        paddingLeft: cs.paddingLeft,
+        paddingRight: cs.paddingRight,
+      },
+    }
+  })
+} finally {
+  await browser.close()
+  rmSync(outDir, { recursive: true, force: true })
+}
 
 const results = []
 const check = (name, fn) => {
@@ -121,29 +151,6 @@ const check = (name, fn) => {
     results.push(`FAIL ${name}: ${error.message}`)
   }
 }
-
-await page.waitForTimeout(500)
-const m = await page.evaluate(() => {
-  const ta = document.querySelector("textarea")
-  const button = document.querySelector('[aria-label="Send message"]')
-  const rect = (el) => {
-    const r = el.getBoundingClientRect()
-    return { top: r.top, bottom: r.bottom, height: r.height }
-  }
-  const cs = getComputedStyle(ta)
-  return {
-    input: rect(ta),
-    button: rect(button),
-    style: {
-      fontSize: cs.fontSize,
-      lineHeight: cs.lineHeight,
-      paddingTop: cs.paddingTop,
-      paddingBottom: cs.paddingBottom,
-      paddingLeft: cs.paddingLeft,
-      paddingRight: cs.paddingRight,
-    },
-  }
-})
 
 check(`input and button equal height input=${JSON.stringify(m.input)} button=${JSON.stringify(m.button)}`, () => {
   assert.equal(m.button.height, 44)
@@ -165,6 +172,5 @@ check(`textarea typography/padding ${JSON.stringify(m.style)}`, () => {
 })
 check(`no page errors ${JSON.stringify(pageErrors)}`, () => assert.deepEqual(pageErrors, []))
 
-await browser.close()
 console.log(results.join("\n"))
 process.exit(results.every((line) => line.startsWith("PASS")) ? 0 : 1)
