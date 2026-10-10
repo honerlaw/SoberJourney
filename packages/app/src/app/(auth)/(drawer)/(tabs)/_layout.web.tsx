@@ -1,11 +1,19 @@
 import { BookOpen, Home, MessageCircle } from "@tamagui/lucide-icons"
 import { Tabs } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+// The JS tab bar keeps a fixed height and pads inside it, so the padding is
+// set together with the height: 48px for the icons, 8px clear above and below.
+const TAB_BAR_HEIGHT = 64
+const TAB_BAR_PADDING = 8
 
 /**
  * Web keeps the JS tab bar (native tabs only have a basic web fallback).
  * Headers come from each tab's Stack, so the tab navigator shows none.
  */
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tabs
       screenOptions={{
@@ -14,8 +22,13 @@ export default function TabsLayout() {
         tabBarStyle: {
           elevation: 0,
           borderTopWidth: 0,
-          paddingTop: 14,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingTop: TAB_BAR_PADDING,
+          paddingBottom: TAB_BAR_PADDING + insets.bottom,
         },
+        // Each tab stacks icon over label from the top; with labels hidden,
+        // auto margins center the icon in the tab instead.
+        tabBarIconStyle: { marginVertical: "auto" },
       }}
     >
       <Tabs.Screen
