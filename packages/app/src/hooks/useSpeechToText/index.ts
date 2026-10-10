@@ -1,1 +1,0 @@
-export { useSpeechToText } from "./useSpeechToText"
