@@ -74,6 +74,14 @@
         "projectId": "f79c97c3-d0dd-43d0-bc42-a766540bee2b"
       }
     },
-    "owner": "onerlawllc"
+    "owner": "onerlawllc",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f79c97c3-d0dd-43d0-bc42-a766540bee2b",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

@@ -34,7 +34,7 @@ Ship JS/asset-only changes to the iOS app over the air with EAS Update.
 
 ## Approach
 1. **Install and configure expo-updates.**
-   - Add `expo-updates` at SDK 57's `bundledNativeModules.json` version (`~29.0.15`).
+   - Add `expo-updates` at SDK 57's `bundledNativeModules.json` version (`~57.0.25`).
    - Add `packages/app/fingerprint.config.js` with `sourceSkips: ["ExpoConfigExtraSection"]`.
      - **Why it's safe:** `extra` is read only by JS (`Constants.expoConfig.extra`), and every update ships its own `extra` in its manifest.
      - **What it buys:** the runtime fingerprint is independent of `NODE_ENV`/`APP_VARIANT`, so CI, `eas update` and EAS Build hash the same native inputs.
@@ -52,9 +52,10 @@ Ship JS/asset-only changes to the iOS app over the air with EAS Update.
      - A FINISHED build whose submit later failed, or that App Review rejected, would still count. Updates then wait until that binary ships, or are superseded by the next native build. This is accepted and documented, because submission status is not exposed by `build:list`.
    - **Fail closed.** Any non-zero exit or empty/invalid JSON from `fingerprint:generate` or `build:list` fails the job visibly. It never falls through to `eas update` and never to a surprise submit.
    - **`deploy` with a compatible build:**
-     1. Assert that `NODE_ENV=production npx expo config --type public --json | jq -r .extra.apiUrl` equals `https://www.soberjourney.app`, using the same env that `expo export` (run by `eas update`) uses. Fail otherwise. The smoke test (criterion 4) confirms this matches the published manifest's `extra.apiUrl`.
+     1. Export `APP_VARIANT=production` for the whole script. `eas update` evaluates app.config.ts with expo's development default for `NODE_ENV`, which would otherwise resolve `extra.apiUrl` to localhost; the smoke test caught exactly that. Assert that `npx expo config --type public --json | jq -r .extra.apiUrl` equals `https://www.soberjourney.app` (the same evaluation path as `eas update`), and fail otherwise.
      2. Run `eas update --channel production --platform ios --environment production --message "$MESSAGE" --json --non-interactive`. `$MESSAGE` is the quoted commit subject plus short SHA; it may summarize skipped commits because concurrency keeps only the newest pending run.
      3. Assert that the published `runtimeVersion` equals `$PROD_HASH`. Fail loudly if not: that means the update went to a runtime with no build, which is safe but unreachable.
+     4. Read `extra.apiUrl` back from the published manifest (`https://u.expo.dev/update/<id>`, multipart). If it is not the production URL, fail and print the `eas update:rollback <group>` command.
    - **`deploy` without a compatible build.** Run `npm run eas:submit` (today's production build with auto-submit, `--no-wait`).
    - **`predict`.** Prints `PROD_HASH`, the matching builds and the decision. It also prints the iOS **development**-profile fingerprint, for the parity check. It acts on nothing.
 4. **Workflows.**

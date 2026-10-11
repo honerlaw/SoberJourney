@@ -6,16 +6,19 @@
   "build": {
     "development": {
       "node": "24.20.0",
+      "channel": "development",
       "autoIncrement": true,
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
       "node": "24.20.0",
+      "channel": "preview",
       "distribution": "internal"
     },
     "production": {
       "node": "24.20.0",
+      "channel": "production",
       "autoIncrement": true
     }
   },

@@ -2,6 +2,10 @@ on:
   push:
     branches:
       - main
+concurrency:
+  # One deploy at a time; a queued run is not cancelled by the next merge.
+  group: eas-deploy
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,11 +25,11 @@ jobs:
       - name: 🏗 Setup EAS
         uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.12.1
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
         run: npm ci
 
-      - name: EAS Build and Submit
-        run: npm run eas:submit
+      - name: 🚀 Publish an EAS Update, or build and submit when native code changed
+        run: packages/app/scripts/eas-deploy.sh deploy
