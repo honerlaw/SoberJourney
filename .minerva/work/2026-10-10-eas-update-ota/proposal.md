@@ -1,7 +1,7 @@
 # Proposal: eas-update-ota
 
 **Date**: 2026-10-10
-**Status**: Draft
+**Status**: Shipped (2026-10-10)
 
 **Seed:** "how can we integrate with expo updates, so we don't need an app release to update the app" → user chose: publish on merge.
 
@@ -33,49 +33,26 @@ Ship JS/asset-only changes to the iOS app over the air with EAS Update.
   - `update:rollback`, `update:republish` and `update:roll-back-to-embedded`.
 
 ## Approach
-1. **Install and configure expo-updates.**
-   - Add `expo-updates` at SDK 57's `bundledNativeModules.json` version (`~57.0.25`).
-   - Add `packages/app/fingerprint.config.js` with `sourceSkips: ["ExpoConfigExtraSection"]`.
-     - **Why it's safe:** `extra` is read only by JS (`Constants.expoConfig.extra`), and every update ships its own `extra` in its manifest.
-     - **What it buys:** the runtime fingerprint is independent of `NODE_ENV`/`APP_VARIANT`, so CI, `eas update` and EAS Build hash the same native inputs.
-   - In app.json:
-     - `"updates": {"url": "https://u.expo.dev/f79c97c3-d0dd-43d0-bc42-a766540bee2b", "checkAutomatically": "ON_LOAD", "fallbackToCacheTimeout": 0}`;
-     - `"runtimeVersion": {"policy": "fingerprint"}`.
-   - **Behavior.** The app checks on launch and never blocks launch. A downloaded update applies on the next cold start. If an update fails to launch, expo-updates falls back to the previous working update, or to the embedded bundle.
-   - **No restart prompt.** There is no in-app "restart to update" prompt in this unit.
-2. **eas.json channels.** development → `development`, preview → `preview`, production → `production`. The existing `node` pins stay.
-3. **`packages/app/scripts/eas-deploy.sh <predict|deploy>`** (bash, `set -euo pipefail`, iOS only):
-   - **Fingerprint.** Compute `PROD_HASH` from `eas fingerprint:generate --platform ios --build-profile production --json --non-interactive | jq -er .hash`. `--build-profile` and `--environment` are mutually exclusive on 24.12.1; this was verified.
-   - **Find a compatible build.** Run `eas build:list --platform ios --build-profile production --fingerprint-hash "$PROD_HASH" --status finished --limit 10 --json --non-interactive`. Compatible means there is at least one FINISHED build; the script logs the matching build IDs.
-   - **Builds that don't count.** In-flight, errored and canceled builds do not count; they fall through to build + submit.
-     - Tradeoff: a merge landing during an in-flight native build starts another build. That is today's behavior, and costs a build.
-     - A FINISHED build whose submit later failed, or that App Review rejected, would still count. Updates then wait until that binary ships, or are superseded by the next native build. This is accepted and documented, because submission status is not exposed by `build:list`.
-   - **Fail closed.** Any non-zero exit or empty/invalid JSON from `fingerprint:generate` or `build:list` fails the job visibly. It never falls through to `eas update` and never to a surprise submit.
-   - **`deploy` with a compatible build:**
-     1. Export `APP_VARIANT=production` for the whole script. `eas update` evaluates app.config.ts with expo's development default for `NODE_ENV`, which would otherwise resolve `extra.apiUrl` to localhost; the smoke test caught exactly that. Assert that `npx expo config --type public --json | jq -r .extra.apiUrl` equals `https://www.soberjourney.app` (the same evaluation path as `eas update`), and fail otherwise.
-     2. Run `eas update --channel production --platform ios --environment production --message "$MESSAGE" --json --non-interactive`. `$MESSAGE` is the quoted commit subject plus short SHA; it may summarize skipped commits because concurrency keeps only the newest pending run.
-     3. Assert that the published `runtimeVersion` equals `$PROD_HASH`. Fail loudly if not: that means the update went to a runtime with no build, which is safe but unreachable.
-     4. Read `extra.apiUrl` back from the published manifest (`https://u.expo.dev/update/<id>`, multipart). If it is not the production URL, fail and print the `eas update:rollback <group>` command.
-   - **`deploy` without a compatible build.** Run `npm run eas:submit` (today's production build with auto-submit, `--no-wait`).
-   - **`predict`.** Prints `PROD_HASH`, the matching builds and the decision. It also prints the iOS **development**-profile fingerprint, for the parity check. It acts on nothing.
+
+What shipped:
+1. **expo-updates 57.0.25.** This is SDK 57's bundled version; the earlier `~29.0.15` came from a stale SDK-54 `node_modules`.
+   - app.json: `runtimeVersion: {policy: "fingerprint"}`, plus `updates: {url: https://u.expo.dev/<projectId>, checkAutomatically: ON_LOAD, fallbackToCacheTimeout: 0}`.
+   - eas.json: every build profile has a `channel` of the same name.
+2. **`packages/app/fingerprint.config.js`.** It skips `ExpoConfigExtraSection` and keeps the default `PackageJsonAndroidAndIosScriptsIfNotContainRun`, so the runtime hash no longer depends on `NODE_ENV`/`APP_VARIANT`. Production and development profiles hash identically.
+3. **`packages/app/scripts/eas-deploy.sh <predict|deploy>`** (iOS, `set -euo pipefail`, exports `APP_VARIANT=production`):
+   - **Lookup.** `fingerprint:generate --build-profile production`, then `build:list --fingerprint-hash --status finished --limit 10`.
+   - **No finished build:** `deploy` runs `npm run eas:submit`.
+   - **A finished build:** `deploy` runs these steps:
+     1. pre-checks `extra.apiUrl`;
+     2. runs `eas update --channel production --platform ios --environment production --message=<subject (sha)> --json`;
+     3. asserts that the published `runtimeVersion` equals the looked-up hash;
+     4. reads `extra.apiUrl` back from `manifestPermalink`, with retries. On any mismatch it prints `eas update:rollback <group>`.
+   - **`predict`** prints both fingerprints and the decision.
 4. **Workflows.**
-   - **eas.yml (push to main).** Replace `npm run eas:submit` with `eas-deploy.sh deploy`, under `concurrency: {group: eas-deploy, cancel-in-progress: false}`.
-   - **ci.yml (PR).** Add an `eas-deploy.sh predict` step after Build and before the EAS dev build step. It fails on tooling errors, like deploy would.
-   - **eas-cli version.** Pin it in both workflows to `24.12.1` (was `latest`), because the script depends on its flags.
-5. **Knowledge.** A new entry covering:
-   - the bootstrap rule (existing binaries never get OTA; updates reach users only after the first expo-updates binary is released, then on relaunch);
-   - the fingerprint safety argument and its accepted false-negative surface (EAS image/Xcode, env-dependent config — mitigated by the apiUrl assertion);
-   - the rollback runbook (`eas update:rollback <groupId>`, `eas update:republish --group <previous>`, `eas update:roll-back-to-embedded`, and `--rollout-percentage` for cautious releases);
-   - the ordering rule: OTA can reach users minutes after merge, so the server stays additive-only and any endpoint must already be deployed before JS relies on it;
-   - the measured CI-vs-EAS parity.
-
-   It also covers:
-   - **Rollback caveats.** `update:rollback <groupId>` works only if that group is the latest on its branch and runtime. `--rollout-percentage` belongs to `eas update`/`update:republish`, not to rollback.
-   - **Manual hotfix check.** A manual escape-hatch update must confirm its published `runtimeVersion` equals the released build's fingerprint.
-   - **The `extra` convention.** Never put native-affecting config in `extra`, because it is excluded from the fingerprint.
-   - **Spotting broken parity.** If eas.yml takes the build path on JS-only merges, check fingerprint parity.
-
-   It links [[2026-10-06-reference-released-app-compatibility]], which still holds for pre-OTA binaries.
+   - eas.yml runs `deploy` under `concurrency: eas-deploy` (non-cancelling).
+   - ci.yml runs `predict` before the EAS dev build.
+   - Both pin eas-cli to 24.12.1.
+5. **Knowledge:** [[2026-10-10-decision-eas-update-publish-on-merge-by-fingerprint]].
 
 Alternatives:
 - **B: `continuous-deploy-fingerprint` action.** Rejected: not ready for use.
