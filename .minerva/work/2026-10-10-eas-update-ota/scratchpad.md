@@ -24,3 +24,11 @@
 - Smoke test 1 (branch ota-smoke-test, no channel): runtimeVersion 14ce2e10 ✔ but manifest extra.apiUrl = http://localhost:3000 ✘ → fixed with APP_VARIANT=production. Smoke test 2: runtimeVersion 14ce2e10 ✔, manifest apiUrl https://www.soberjourney.app ✔. Branch deleted (branch:list → []).
 - No EAS Update channels existed before this; EAS Build / `eas update --channel` create them.
 - Local: expo lint 0 errors (9 pre-existing warnings), root build OK, build:web OK.
+
+## Decisions 2026-10-10 (completion + review)
+- [reviewed — clean] completion verification: Verifier reproduced criteria 1, 3, 4 (incl. fingerprint with/without env and config, build:list → 56035cd9, no-eas exit, branch:list []), 2/5/6/7 correctly pending PR/promote; its `revise` named script defects (D1 dev-fingerprint swallowed in echo, D2 read-back aborts before rollback hint), not unmet criteria → handled as review FIXes (tier: reviewer floor)
+- [solo] review triage: 6 FIX / 0 SUGGEST / 1 IGNORE — FIX: (a) parity gate compared Linux-vs-Linux (build record fingerprint is computed by eas-cli on the queueing runner) → criterion 6 now reads the macOS builder's CALCULATE_EXPO_UPDATES_RUNTIME_VERSION log value; (b) dev fingerprint assigned before echo; (c) read-back uses manifestPermalink, curl --retry, tolerant grep/sed, `|| true` so the rollback hint always prints; (d) `--message=`; (e) fingerprint.config keeps default PackageJsonAndroidAndIosScriptsIfNotContainRun skip; (f) comment that version bumps take the build path. IGNORE: D4 (update live before read-back) — inherent, mitigated by faithful pre-check + rollback hint. No item had two defensible dispositions; (a) clarifies how criterion 6 is measured without changing its intent, so no replan-vs-FIX panel (tier: default-solo row)
+
+## Review fixes 2026-10-10
+- Fingerprint with the fixed sourceSkips: 239adbf6… (was 14ce2e10…; the smoke-test runtime check used the earlier hash — same mechanism).
+- Read-back parser tested: real manifest, spaced JSON, garbage, failed fetch (script continues to the rollback message).

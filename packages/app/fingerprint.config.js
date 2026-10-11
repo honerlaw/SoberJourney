@@ -8,10 +8,13 @@
  * environment it is computed in (CI vs EAS Build vs `eas update`).
  * Never put native-affecting config in `extra`.
  *
+ * `sourceSkips` replaces @expo/fingerprint's default, so that default is kept.
+ * `version` is still fingerprinted: a version bump always takes the build path.
+ *
  * @type {import('expo/fingerprint').Config}
  */
 const config = {
-  sourceSkips: ["ExpoConfigExtraSection"],
+  sourceSkips: ["PackageJsonAndroidAndIosScriptsIfNotContainRun", "ExpoConfigExtraSection"],
 }
 
 module.exports = config

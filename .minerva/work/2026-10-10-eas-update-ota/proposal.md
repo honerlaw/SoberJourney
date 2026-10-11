@@ -107,7 +107,9 @@ Alternatives:
    - PR CI is green.
 6. **Parity gate, before auto-merge.**
    - This PR's CI-queued EAS iOS development build reaches `finished`.
-   - Its recorded fingerprint equals both fingerprints that `predict` printed on the Linux runner, development and `PROD_HASH`; they are equal by measurement. This proves Linux-runner/EAS parity for the hash that production deploys use.
+   - The runtime version that the **macOS builder** resolved and embedded equals both fingerprints that `predict` printed on the Linux runner (development and `PROD_HASH`, which are equal by measurement). The builder's value is read from its build log, phase `CALCULATE_EXPO_UPDATES_RUNTIME_VERSION`, with no runtime-version mismatch warning.
+     - The build record's own fingerprint is not enough: it is computed by eas-cli on the machine that queued the build, i.e. the same Linux runner.
+     - This proves the hash that deploys look up is the runtime that binaries actually accept.
    - Its config shows `channel: development` and a fingerprint `runtimeVersion`.
    - **If parity fails:** don't merge as is; replan (for example, compute the fingerprint on EAS instead). Production-profile parity is observed only after merge (see Open Questions). A mismatch there costs only an unneeded rebuild per merge.
 7. **Knowledge entry** as in Approach step 5.

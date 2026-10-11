@@ -38,7 +38,8 @@ echo "iOS production fingerprint: $prod_hash"
 if [[ "$mode" == "predict" ]]; then
   # Same native inputs as production (fingerprint.config.js skips `extra`);
   # compared against the PR's EAS development build to prove CI/EAS parity.
-  echo "iOS development fingerprint: $(fingerprint development)"
+  dev_hash="$(fingerprint development)"
+  echo "iOS development fingerprint: $dev_hash"
 fi
 
 builds="$(eas build:list --platform ios --build-profile production \
@@ -73,7 +74,7 @@ fi
 
 message="$(git log -1 --format='%s (%h)')"
 result="$(eas update --channel production --platform ios --environment production \
-  --message "$message" --json --non-interactive)"
+  --message="$message" --json --non-interactive)"
 echo "$result"
 
 published_runtime="$(jq -er '[.[].runtimeVersion] | unique | join(" ")' <<<"$result")"
@@ -82,12 +83,14 @@ if [[ "$published_runtime" != "$prod_hash" ]]; then
   exit 1
 fi
 
-# Read the API URL back from what devices will actually download.
-update_id="$(jq -er '.[0].id' <<<"$result")"
+# Read the API URL back from what devices will actually download. The update is
+# already live here, so any failure must still print how to roll it back.
 group_id="$(jq -er '.[0].group' <<<"$result")"
-manifest_api_url="$(curl -fsS -H 'expo-platform: ios' -H 'expo-protocol-version: 1' \
-  -H "expo-runtime-version: $prod_hash" -H 'accept: multipart/mixed' \
-  "https://u.expo.dev/update/$update_id" | grep -o '"apiUrl":"[^"]*"' | head -1 | cut -d'"' -f4)"
+permalink="$(jq -er '.[0].manifestPermalink' <<<"$result")"
+manifest_api_url="$(curl -fsS --retry 3 --retry-all-errors -H 'expo-platform: ios' \
+  -H 'expo-protocol-version: 1' -H "expo-runtime-version: $prod_hash" \
+  -H 'accept: multipart/mixed' "$permalink" |
+  grep -o '"apiUrl": *"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/' || true)"
 if [[ "$manifest_api_url" != "$PROD_API_URL" ]]; then
   echo "Published update group $group_id has extra.apiUrl '$manifest_api_url'; roll it back now: eas update:rollback $group_id" >&2
   exit 1
