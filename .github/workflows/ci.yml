@@ -28,7 +28,7 @@ jobs:
       - name: 🏗 Setup EAS
         uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.12.1
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Install dependencies
@@ -51,6 +51,9 @@ jobs:
 
       - name: 🌐 Export production web bundle (mirrors the DigitalOcean build)
         run: npm run build:web --workspace=@onerlaw/soberjourney-server
+
+      - name: 🔮 Predict the main deploy (EAS Update vs store build)
+        run: packages/app/scripts/eas-deploy.sh predict
 
       - name: EAS Build and Submit
         run: npm run eas:submit:dev
