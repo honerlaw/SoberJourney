@@ -7,6 +7,7 @@ import { procedure } from "../../router.mjs";
 import { CheckInMood } from "../../../../generated/prisma/enums.js";
 import type { Context } from "../../../../context.mjs";
 import { MAX_JOURNAL_CONTENT_LENGTH } from "../journal/create.mjs";
+import { assertJournalQuota } from "../utils/quota.mjs";
 
 async function createJournalEntry(
   ctx: Context,
@@ -63,6 +64,11 @@ export const create = procedure
   .mutation(async ({ ctx, input }) => {
     if (!ctx.auth.user) {
       throw new UnauthorizedError();
+    }
+
+    // refuse before writing anything, so a check-in is never half-saved
+    if (input.journalEntry && input.journalEntry.trim().length > 0) {
+      await assertJournalQuota(ctx, ctx.auth.user.id);
     }
 
     // Verify the journey belongs to the user
