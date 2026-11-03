@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@clerk/clerk-expo"
 import { useReportError } from "@/src/hooks/useReportError/useReportError"
 import { usePushTokenSync } from "@/src/hooks/useExpoNotifications"
+import { safeNotificationPath } from "@/src/utils/notificationPath"
 
 type NotificationData = {
   url?: string
@@ -64,13 +65,21 @@ export function usePushNotifications() {
       .data as NotificationData
 
     if (data?.url && typeof data.url === "string") {
+      // Only relative in-app paths are followed: router.push would open an
+      // absolute URL (https:, tel:, another scheme) outside the app.
+      const path = safeNotificationPath(data.url)
       try {
+        if (!path) {
+          router.replace(DASHBOARD)
+          Notifications.clearLastNotificationResponse()
+          return
+        }
         // Ensure dashboard is in the navigation stack before navigating to the target URL
         // This guarantees the back button works even when app is opened from notification
         if (!router.canGoBack()) {
           router.replace(DASHBOARD)
         }
-        router.push(data.url as RelativePathString)
+        router.push(path as RelativePathString)
       } catch (error) {
         // Don't drop the tap silently: report it and leave the user on the
         // dashboard rather than wherever navigation stopped.
