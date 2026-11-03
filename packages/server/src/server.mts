@@ -11,6 +11,7 @@ import {
   redirectToWwwMiddleware,
 } from "./util/middleware/redirect.mjs";
 import * as dataMigrations from "./util/migrations/index.mjs";
+import { trpcRequestGuard } from "./util/middleware/trpcRequestGuard.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
@@ -43,7 +44,9 @@ app.get("/api/health", express.json(), (req, res) =>
   res.status(200).send("OK"),
 );
 
-app.use("/api/trpc", express.json(), expressTRPCMiddleware);
+// batch cap + JSON-only POSTs, before body parsing and before tRPC resolves
+// (and decrypts for) any procedure
+app.use("/api/trpc", trpcRequestGuard(), express.json(), expressTRPCMiddleware);
 
 app.use("/api/app/config", express.json(), config);
 
