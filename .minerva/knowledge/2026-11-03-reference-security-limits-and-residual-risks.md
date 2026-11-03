@@ -24,10 +24,13 @@ The 2026-11-03 security audit found no cross-user data access, but found a Sentr
 - **Released apps.** No rejection is ever `UNAUTHORIZED`/401 or contains "Token expired"/"Invalid token", so none logs a user out. Queries retry on 429 (up to 3 times) but not on 400/403/415; mutations never retry. The decrypt budget is reserved before any decryption, so a retried 429 costs nothing.
 - **Mutation limit.** It is a middleware on the shared `procedure` in `network/rpc/router.mts`, so every route gets it. Chat still has its own stricter `chatRateLimit`.
 - **Lists.** `decryptMany` reserves the whole count first. `journal.list` and conversation history use it.
+- **Check-in at the journal quota.** A check-in that carries journal text is refused whole (FORBIDDEN, mood not saved) so it is never half-saved. One without journal text still saves.
+- **Oversized single request.** A cost above a window's max (e.g. listing more entries than the decrypt budget) is charged at the max, so it succeeds once the window is empty instead of never.
 - **In-process only.** Every limiter (mutation, decrypt, chat, the conversation lock) counts per server instance and resets on deploy. The limits assume DigitalOcean runs one instance. A multi-account attacker still gets N× the per-user budget.
 
 **Other controls.**
-- `errorFormatter` (`network/rpc/errorFormatter.mts`): an INTERNAL_SERVER_ERROR that tRPC built by wrapping a non-tRPC throw gets a generic message. Deliberate messages and every other code pass through unchanged.
+- `errorFormatter` (`network/rpc/errorFormatter.mts`): an INTERNAL_SERVER_ERROR that tRPC built by wrapping a non-tRPC throw gets a generic message. Deliberate messages and every other code pass through unchanged. The real cause is logged server-side by the adapter's `onError` (`network/rpc/logRpcError.mts`), so look in the server logs, not client Sentry, for these.
+- A terminal Express `errorHandler` sends only the status text (body-parser's 400/413/415 are kept). Without it Express's default page rendered stack traces whenever NODE_ENV was unset.
 - tRPC `isDev` and Clerk `debug` are on only when `NODE_ENV=development`.
 - Security headers: `frame-ancestors 'none'`, `X-Frame-Options: DENY`, nosniff, `Referrer-Policy: strict-origin-when-cross-origin`, and HSTS on HTTPS. `X-Powered-By` is off.
 - `CLERK_AUTHORIZED_PARTIES` (comma-separated origins) is opt-in.
@@ -45,11 +48,13 @@ The 2026-11-03 security audit found no cross-user data access, but found a Sentr
   1. Set `EXPO_ACCESS_TOKEN`.
   2. Enable "enhanced push security" in the Expo dashboard.
 - **NODE_ENV, finding 9.** Unconfirmed on DigitalOcean. The code is safe either way.
+- **Clerk bump untested end to end.** @clerk/express 1.7.60 → 1.7.84 (@clerk/backend 2.29 → 2.33.8) has no server test exercising real token verification. After deploy, watch the 401 rate, since a verification change would log released apps out.
 
 ## Implications
 - Tune a limit through its env var before changing code. The knobs exist so a miscalibration is fixed without a deploy of logic.
 - To back out a control with no knob (headers, errorFormatter, ownership checks, lock key), revert only its commit. A revert that touches app commits publishes an over-the-air update of the old app and brings the Sentry leak back.
 - A new route gets the mutation limit automatically. A new decrypt call site should use `decryptMany` for lists, so its cost is reserved before any work.
+- The privacy-helper check (`packages/app/scripts/check-privacy-helpers.mjs`) runs in CI as a direct `node` call. Adding it as an app `package.json` script changed the native fingerprint (72f9f8ad… vs 239adbf6…), which would have blocked over-the-air updates. Treat any app `package.json` scripts edit as a native change.
 - Moving to more than one server instance makes every in-process limit per-instance. Move them to a shared store first.
 
 ## Related
