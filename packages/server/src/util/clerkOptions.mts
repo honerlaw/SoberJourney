@@ -1,3 +1,5 @@
+import { isDevelopment } from "./environment.mjs";
+
 /**
  * Options for `clerkMiddleware`.
  *
@@ -9,8 +11,10 @@
  * the user out on 401. Verify the `azp` that native and web tokens carry
  * before enabling it (see the knowledge entry on security limits).
  *
- * Read straight from process.env, like `debug`: a config load failure must
- * never change auth behaviour.
+ * `debug` (verbose Clerk logs) is on only when NODE_ENV is "development".
+ *
+ * Read straight from process.env: a config load failure must never change
+ * auth behaviour.
  */
 export function parseAuthorizedParties(
   value: string | undefined,
@@ -22,12 +26,14 @@ export function parseAuthorizedParties(
   return parties.length > 0 ? parties : undefined;
 }
 
-export function buildClerkOptions(env: Record<string, string | undefined> = process.env) {
+export function buildClerkOptions(
+  env: Record<string, string | undefined> = process.env,
+) {
   const authorizedParties = parseAuthorizedParties(
     env.CLERK_AUTHORIZED_PARTIES,
   );
   return {
-    debug: env.NODE_ENV !== "production",
+    debug: isDevelopment(env.NODE_ENV),
     enableHandshake: true,
     ...(authorizedParties ? { authorizedParties } : {}),
   };
