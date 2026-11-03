@@ -12,6 +12,7 @@ import { isRunningInExpoGo } from "expo"
 import { Platform } from "react-native"
 import Head from "expo-router/head"
 import { CustomToast } from "../CustomToast"
+import { scrubBreadcrumb } from "@/src/utils/sentryScrub"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -25,7 +26,11 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 Sentry.init({
   dsn: "https://74a1a681ae029380d0dedb0fec2536bf@o4507030771007488.ingest.us.sentry.io/4510450371854336",
   debug: false,
-  tracesSampleRate: 1.0, // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing. Adjusting this value in production.
+  // every transaction in development, a sample in production
+  tracesSampleRate: __DEV__ ? 1.0 : 0.1,
+  // drops console breadcrumbs (they can carry decrypted journal/chat text)
+  // and strips query strings from request breadcrumb URLs
+  beforeBreadcrumb: (breadcrumb) => scrubBreadcrumb(breadcrumb),
   integrations: [
     // Pass integration
     navigationIntegration,
