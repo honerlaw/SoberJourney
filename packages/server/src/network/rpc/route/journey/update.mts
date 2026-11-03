@@ -53,7 +53,10 @@ export const update = procedure
         );
 
         if (checkIn) {
-          await ctx.database.notification.schedule.remove(checkIn.id);
+          await ctx.database.notification.schedule.remove(
+            ctx.auth.user.id,
+            checkIn.id,
+          );
         }
       } else {
         // If enabling notifications, get or create check-in and upsert schedule
