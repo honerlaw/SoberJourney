@@ -6,7 +6,10 @@ import { TRPCError } from "@trpc/server";
 import type { Context } from "../../../../../context.mjs";
 import { MessageRole } from "../../../../../util/database.mjs";
 import { HISTORY_MAX_MESSAGES } from "./utils/buildHistory.mjs";
-import { withConversationLock } from "../utils/conversationLock.mjs";
+import {
+  conversationLockKey,
+  withConversationLock,
+} from "../utils/conversationLock.mjs";
 import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
 import {
   generateReply,
@@ -43,7 +46,7 @@ export async function runRetrySponsorChat(
   consumeChatRateLimit(userId);
 
   return withConversationLock(
-    input.conversationId,
+    conversationLockKey(userId, input.conversationId),
     async () => {
       const [page, journeys] = await Promise.all([
         ctx.database.conversation.getMessagesPage(

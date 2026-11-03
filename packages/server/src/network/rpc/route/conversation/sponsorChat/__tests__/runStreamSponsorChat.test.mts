@@ -22,6 +22,7 @@ import {
 } from "../../utils/chatRateLimit.mjs";
 import {
   activeLockCount,
+  conversationLockKey,
   withConversationLock,
 } from "../../utils/conversationLock.mjs";
 
@@ -360,7 +361,10 @@ describe("runStreamSponsorChat", () => {
   it("does nothing when aborted while queued behind another turn", async () => {
     const h = harness({ stream: streamOf(["x"]) });
     const gate = deferred();
-    const holder = withConversationLock(CONVERSATION_ID, () => gate.promise);
+    const holder = withConversationLock(
+      conversationLockKey("user-1", CONVERSATION_ID),
+      () => gate.promise,
+    );
 
     const abort = new AbortController();
     const generator = runStreamSponsorChat(h.ctx, input, abort.signal);

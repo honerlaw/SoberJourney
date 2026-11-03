@@ -1,7 +1,10 @@
 import { UnauthorizedError } from "@onerlaw/framework/backend/rpc";
 import type { Context } from "../../../../../context.mjs";
 import { type ChatResult } from "../../../../../datasource/openrouter/chat.mjs";
-import { withConversationLock } from "../utils/conversationLock.mjs";
+import {
+  conversationLockKey,
+  withConversationLock,
+} from "../utils/conversationLock.mjs";
 import { createEventChannel } from "../utils/eventChannel.mjs";
 import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
 import { containsCodeFence } from "./utils/replyGuard.mjs";
@@ -70,7 +73,7 @@ export async function* runStreamSponsorChat(
   const channel = createEventChannel<SponsorChatStreamEvent>(abort.signal);
 
   const turn = withConversationLock(
-    input.conversationId,
+    conversationLockKey(user.id, input.conversationId),
     async () => {
       // Gave up while queued behind another turn: do nothing.
       if (abort.signal.aborted) {

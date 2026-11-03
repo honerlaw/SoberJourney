@@ -23,7 +23,10 @@ import { buildCurrentTimeContext, safeTimeZone } from "./utils/timeZone.mjs";
 import { fallbackReplyFor } from "./utils/fallback.mjs";
 import { containsCodeFence, guardReply } from "./utils/replyGuard.mjs";
 import { generateTitle } from "./utils/generateTitle.mjs";
-import { withConversationLock } from "../utils/conversationLock.mjs";
+import {
+  conversationLockKey,
+  withConversationLock,
+} from "../utils/conversationLock.mjs";
 import { consumeChatRateLimit } from "../utils/chatRateLimit.mjs";
 import { persistMessage } from "../utils/persistMessage.mjs";
 import { decryptMessages } from "../utils/decryptMessages.mjs";
@@ -60,7 +63,7 @@ export async function runSponsorChat(
   consumeChatRateLimit(user.id);
 
   return withConversationLock(
-    input.conversationId,
+    conversationLockKey(user.id, input.conversationId),
     () => runTurn(ctx, user.id, user.timezone, input, now()),
     {
       onWaitTimeout: () =>
