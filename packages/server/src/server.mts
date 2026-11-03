@@ -12,6 +12,7 @@ import {
 } from "./util/middleware/redirect.mjs";
 import * as dataMigrations from "./util/migrations/index.mjs";
 import { trpcRequestGuard } from "./util/middleware/trpcRequestGuard.mjs";
+import { securityHeaders } from "./util/middleware/securityHeaders.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
@@ -22,6 +23,9 @@ const REDIRECT_APEX_HOSTS = await getConfig(
 
 // the app runs behind a single TLS terminating proxy hop
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
+app.use(securityHeaders());
 
 app.use(redirectToWwwMiddleware(parseApexHosts(REDIRECT_APEX_HOSTS)));
 
