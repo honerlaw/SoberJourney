@@ -23,7 +23,7 @@ The 2026-11-03 security audit found no cross-user data access, but found a Sentr
 
 - **Released apps.** No rejection is ever `UNAUTHORIZED`/401 or contains "Token expired"/"Invalid token", so none logs a user out. Queries retry on 429 (up to 3 times) but not on 400/403/415; mutations never retry. The decrypt budget is reserved before any decryption, so a retried 429 costs nothing.
 - **Mutation limit.** It is a middleware on the shared `procedure` in `network/rpc/router.mts`, so every route gets it. Chat still has its own stricter `chatRateLimit`.
-- **Lists.** `decryptMany` reserves the whole count first. `journal.list` and conversation history use it.
+- **Lists.** `decryptMany` reserves the whole count first. `journal.list` and conversation history use it. A chat turn decrypts at most 41 history rows, so chat never nears the budget. `conversation.get` without input (released apps) decrypts the whole conversation, which only nears it past ~5,000 messages refetched several times a minute.
 - **Check-in at the journal quota.** A check-in that carries journal text is refused whole (FORBIDDEN, mood not saved) so it is never half-saved. One without journal text still saves.
 - **Oversized single request.** A cost above a window's max (e.g. listing more entries than the decrypt budget) is charged at the max, so it succeeds once the window is empty instead of never.
 - **In-process only.** Every limiter (mutation, decrypt, chat, the conversation lock) counts per server instance and resets on deploy. The limits assume DigitalOcean runs one instance. A multi-account attacker still gets N× the per-user budget.
@@ -62,3 +62,4 @@ The 2026-11-03 security audit found no cross-user data access, but found a Sentr
 - [[2026-10-10-decision-sponsor-chat-scope-guard-and-rate-limit]] — the chat limiter this generalises
 - [[2026-10-10-decision-eas-update-publish-on-merge-by-fingerprint]] — why the app fixes ship over the air and how to roll them back
 - [[2026-10-06-decision-request-scoped-dek-memo]] — the per-request key memo `decryptMany` builds on
+- [[2026-11-03-constraint-app-fingerprint-covers-package-scripts-and-install]] — why the privacy check runs from CI rather than an app script

@@ -1,7 +1,7 @@
 # Proposal: security-audit-hardening
 
 **Date**: 2026-11-03
-**Status**: Draft
+**Status**: Shipped (2026-11-03)
 
 ## Goal
 Close, or explicitly document the residual risk of, every finding from the 2026-11-03 security audit of SoberJourney, in one PR, without breaking App Store builds that are already released (they keep calling the current server forever):
@@ -22,7 +22,6 @@ Residuals this unit documents rather than closes (each in a knowledge `reference
 - Finding 4: cross-site CSRF is closed by default (see Approach: a JSON-only POST forces a CORS preflight, and the server never allows credentialed cross-origin requests). Same-site token reuse from a sibling subdomain stays possible until the user sets `CLERK_AUTHORIZED_PARTIES`.
 - Finding 5: a full script/style CSP is deferred; only `frame-ancestors` (plus the other headers) ships.
 - Finding 6: the push-token takeover (any user can claim a token string they know) cannot be closed server-side; Expo enhanced push security needs a dashboard toggle by the user.
-- Finding 8 (only if the dependency bump is dropped by the fingerprint fallback): the vulnerable versions stay; a GitHub issue records the bump and the final report tells the user this finding remains open.
 - Finding 9: whether DigitalOcean sets `NODE_ENV=production` is for the user to confirm; the code becomes safe either way.
 
 Audit verdict that stands: no cross-user data access was found; every procedure scopes by the session user.
@@ -61,7 +60,14 @@ Approach **A — in-process, cost-aware controls; additive and tolerant for rele
 - **Conversation lock** keyed by `${userId}:${conversationId}`.
 - **Dead code**: remove the token-string branch of `createContext`. No caller passes a string: the tRPC adapter passes the Express request, cron passes nothing and migrations pass `undefined`. No client can reach it.
 - **Expo push**: optional `EXPO_ACCESS_TOKEN` env passed to `new Expo({ accessToken })`. It only affects server-to-Expo calls; unset keeps today's behaviour.
-- **Dependencies**: targeted `npm update` of `@clerk/express` (pulls `@clerk/backend`), `body-parser`, `path-to-regexp`; not a blanket `npm audit fix`. This is the only change that could move the app's native fingerprint. If the production fingerprint (computed by `packages/app/scripts/eas-deploy.sh predict`, the same logic eas.yml uses) differs from main's, the dependency bump is dropped from this PR and recorded in a GitHub issue, and the user is told finding 8 stays open. That way the privacy fix's over-the-air path never depends on it. `predict` is re-run after the final rebase, immediately before ship. After merge, the eas.yml run is checked to confirm it took the update path and published.
+- **Dependencies** (shipped): targeted `npm update` to `@clerk/express` 1.7.84 (`@clerk/backend` 2.33.8), `body-parser` 2.4.0 and `path-to-regexp` 8.4.2, not a blanket `npm audit fix`. The fingerprint stayed 239adbf6… (equal to main's on the same install), and `predict` returned "Decision: update", so the fallback below was not needed and finding 8 is closed. No server test exercises real Clerk token verification, so the 401 rate is to be watched after deploy. `@trpc/client` was added as a server devDependency for the real-client guard test. If the production fingerprint (computed by `packages/app/scripts/eas-deploy.sh predict`, the same logic eas.yml uses) differs from main's, the dependency bump is dropped from this PR and recorded in a GitHub issue, and the user is told finding 8 stays open. That way the privacy fix's over-the-air path never depends on it. `predict` is re-run after the final rebase, immediately before ship. After merge, the eas.yml run is checked to confirm it took the update path and published.
+
+**Added during review** (code review findings, fixed in this PR):
+- A terminal Express `errorHandler` (`util/middleware/errorHandler.mts`, mounted last). With NODE_ENV unset, Express's default handler rendered stack traces for malformed or oversized JSON bodies. It now keeps the status and sends only the status text.
+- A tRPC `onError` (`network/rpc/logRpcError.mts`) logs INTERNAL_SERVER_ERROR causes server-side, since the errorFormatter now hides them from clients.
+- `createRateLimiter` charges a cost above a window's max at the max. A single list larger than the decrypt budget therefore succeeds once the window is empty, instead of never.
+- CI runs `packages/app/scripts/check-privacy-helpers.mjs` directly. Adding it as an app `package.json` script changed the native fingerprint (knowledge: fingerprint constraint).
+- At the journal quota, a check-in carrying journal text is refused whole, so it is never half-saved. This is documented and deliberate.
 
 **Accepted limitations** (recorded in the knowledge entry): every in-process limiter (mutation, decrypt, the existing chat limiter, the conversation lock) counts per server instance and resets on deploy; the limits assume DigitalOcean runs one instance. A multi-account attacker still gets N× the per-user budget.
 
