@@ -12,16 +12,16 @@ export async function decryptMessages(
   ctx: Context,
   messages: ConversationMessageModel[],
 ): Promise<DecryptedMessage[]> {
-  return Promise.all(
-    messages.map(async (message) => ({
-      id: message.id,
-      role: message.role,
-      content: await ctx.service.encryption.decrypt(
-        ctx,
-        ctx.service.encryption.DEKIdentifier.CONVERSATION,
-        message.content,
-      ),
-      createdAt: message.createdAt,
-    })),
+  // one budget reservation for the whole list, before any decryption
+  const contents = await ctx.service.encryption.decryptMany(
+    ctx,
+    ctx.service.encryption.DEKIdentifier.CONVERSATION,
+    messages.map((message) => message.content),
   );
+  return messages.map((message, index) => ({
+    id: message.id,
+    role: message.role,
+    content: contents[index]!,
+    createdAt: message.createdAt,
+  }));
 }

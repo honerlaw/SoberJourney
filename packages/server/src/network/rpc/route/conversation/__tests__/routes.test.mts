@@ -38,6 +38,8 @@ function caller(conversation: Record<string, unknown>) {
     service: {
       encryption: {
         DEKIdentifier: { CONVERSATION: "conversation" },
+        decryptMany: async (_c: unknown, _i: unknown, texts: string[]) =>
+          texts.map((text) => text.replace(/^enc:/, "")),
         decrypt: async (_c: unknown, _i: unknown, text: string) =>
           text.replace(/^enc:/, ""),
       },

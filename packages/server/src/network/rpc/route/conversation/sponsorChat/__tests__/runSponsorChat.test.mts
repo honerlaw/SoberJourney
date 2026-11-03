@@ -103,6 +103,8 @@ function harness(options: {
     service: {
       encryption: {
         DEKIdentifier: { CONVERSATION: "conversation" },
+        decryptMany: async (_c: unknown, _i: unknown, texts: string[]) =>
+          texts.map((text) => text.replace(/^enc:/, "")),
         encrypt: mock.fn(
           async (_ctx: unknown, _id: unknown, text: string) => `enc:${text}`,
         ),
