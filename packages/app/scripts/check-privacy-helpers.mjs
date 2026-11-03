@@ -1,5 +1,7 @@
 // Checks the import-free privacy helpers (the app has no test runner):
 //   node --experimental-strip-types scripts/check-privacy-helpers.mjs
+// CI runs it from the repo root. It is deliberately not a package.json
+// script: changing the app's scripts changes the native fingerprint.
 import assert from "node:assert/strict"
 import {
   scrubBreadcrumb,
