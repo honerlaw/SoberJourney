@@ -91,4 +91,15 @@ describe("createRateLimiter", () => {
     limiter.reset();
     limiter.consume("u", 1, 1);
   });
+
+  it("charges an oversized cost at the max, so it succeeds once the window is empty", () => {
+    const limiter = createRateLimiter({
+      limits: () => [{ windowMs: 1000, max: 10 }],
+      message: "slow",
+    });
+    limiter.consume("u", 25, 0);
+    assert.throws(() => limiter.consume("u", 1, 500), isTooMany);
+    assert.throws(() => limiter.consume("u", 25, 900), isTooMany);
+    limiter.consume("u", 25, 1001);
+  });
 });

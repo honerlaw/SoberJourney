@@ -65,12 +65,17 @@ export function createRateLimiter({
    * Records `cost` for `key`, or throws TOO_MANY_REQUESTS when that would
    * take any active window past its max. With every window disabled it
    * records nothing.
+   *
+   * A cost larger than the smallest max is charged at that max, so one
+   * oversized request (e.g. listing more entries than the per-minute decrypt
+   * budget) still succeeds once the window is empty, instead of never.
    */
   function consume(key: string, cost = 1, now: number = Date.now()): void {
     const active = limits().filter((l) => l.max > 0);
     if (active.length === 0 || cost <= 0) {
       return;
     }
+    cost = Math.min(cost, ...active.map((l) => l.max));
 
     const windowMs = longestWindow(active);
     const list = prune(entries.get(key) ?? [], now, windowMs);
