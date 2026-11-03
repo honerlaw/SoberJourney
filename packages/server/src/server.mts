@@ -13,6 +13,7 @@ import {
 import * as dataMigrations from "./util/migrations/index.mjs";
 import { trpcRequestGuard } from "./util/middleware/trpcRequestGuard.mjs";
 import { securityHeaders } from "./util/middleware/securityHeaders.mjs";
+import { buildClerkOptions } from "./util/clerkOptions.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
@@ -29,13 +30,9 @@ app.use(securityHeaders());
 
 app.use(redirectToWwwMiddleware(parseApexHosts(REDIRECT_APEX_HOSTS)));
 
-app.use(
-  clerkMiddleware({
-    // read directly so a config load failure can never re-enable debug
-    debug: process.env.NODE_ENV !== "production",
-    enableHandshake: true,
-  }),
-);
+// read directly from process.env so a config load failure can never change
+// auth behaviour (debug, opt-in authorizedParties)
+app.use(clerkMiddleware(buildClerkOptions()));
 
 app.use(cors());
 
