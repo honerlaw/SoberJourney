@@ -12,3 +12,10 @@
 - [rechecked — clean] approach: fold-audit confirmed items 1–7 addressed; noted the dev-client CI submission claim is unverified (wording softened)
 - [reviewed — folded] whole-proposal (first wave): criterion 2 counted 3 lockfile lines where #47 changed 4; criterion 3 lacked a same-install control (tier: reviewer; parallel wave) — superseded by the restart
 - [reviewed — clean] whole-proposal (restart): re-reviewed after the approach pick changed 1.3.0 → 1.2.1. Accept; wording fixes folded (Goal ties ASC acceptance to post-merge step; pick the production build in ASC; hold-merges stop condition; why a JS-only fix still needs a bump; closed-train assumption; CI predict as fallback for criterion 3) (tier: reviewer; parallel wave restart)
+
+## Work notes
+- Fresh `npm ci` in the worktree (Node 24.20.0, NPM_TOKEN from ~/.npmrc).
+- Control: `eas-deploy.sh predict` on main's version files → production + development fingerprint 239adbf6321f8911c7c50247d7d75c6bc388afe4, "Finished production builds with this fingerprint: 6c7b726a…", "Decision: update".
+- Bumped 1.2.0 → 1.2.1 in package.json, packages/app/package.json, packages/app/app.json, packages/server/package.json, and lockfile lines top-level / packages[""] / packages/app / packages/server (8 +/-, same shape as #47).
+- After bump: predict → 47106bafcf4cae81c6d36036fff776b0275a6460 (prod = dev), "No finished production build has this fingerprint.", "Decision: build".
+- `npm ci --dry-run` accepts the edited lockfile. check:native-modules, check:eas-node, privacy-helper check, build, build:web pass; test 397/397.
