@@ -22,6 +22,7 @@ import {
 } from "../../utils/chatRateLimit.mjs";
 import {
   activeLockCount,
+  conversationLockKey,
   withConversationLock,
 } from "../../utils/conversationLock.mjs";
 
@@ -144,6 +145,8 @@ function harness(options: {
     service: {
       encryption: {
         DEKIdentifier: { CONVERSATION: "conversation" },
+        decryptMany: async (_c: unknown, _i: unknown, texts: string[]) =>
+          texts.map((text) => text.replace(/^enc:/, "")),
         encrypt: mock.fn(
           async (_ctx: unknown, _id: unknown, text: string) => `enc:${text}`,
         ),
@@ -358,7 +361,10 @@ describe("runStreamSponsorChat", () => {
   it("does nothing when aborted while queued behind another turn", async () => {
     const h = harness({ stream: streamOf(["x"]) });
     const gate = deferred();
-    const holder = withConversationLock(CONVERSATION_ID, () => gate.promise);
+    const holder = withConversationLock(
+      conversationLockKey("user-1", CONVERSATION_ID),
+      () => gate.promise,
+    );
 
     const abort = new AbortController();
     const generator = runStreamSponsorChat(h.ctx, input, abort.signal);

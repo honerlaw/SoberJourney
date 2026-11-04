@@ -4,6 +4,7 @@ import {
 } from "@onerlaw/framework/backend/rpc";
 import { z } from "zod";
 import { procedure } from "../../router.mjs";
+import { assertJournalQuota } from "../utils/quota.mjs";
 
 // generous bound, released apps have no limit on the journal input (the
 // request body is already capped at 100kb by express.json)
@@ -22,6 +23,8 @@ export const create = procedure
     if (!ctx.auth.user) {
       throw new UnauthorizedError();
     }
+
+    await assertJournalQuota(ctx, ctx.auth.user.id);
 
     // Encrypt the journal content before storing
     const encryptedContent = await ctx.service.encryption.encrypt(

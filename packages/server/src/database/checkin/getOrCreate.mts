@@ -25,6 +25,16 @@ export async function getOrCreate(
   userId: string,
 ): Promise<JourneyCheckInModel | null> {
   try {
+    // never create a check-in row for someone else's journey: the upsert
+    // below keys on journeyId alone, so ownership is checked first
+    const journey = await client.userJourney.findFirst({
+      where: { id: journeyId, userId },
+      select: { id: true },
+    });
+    if (!journey) {
+      return null;
+    }
+
     // upsert on the unique journeyId so concurrent calls don't race between
     // a find and a create
     const checkIn = await client.journeyCheckIn.upsert({

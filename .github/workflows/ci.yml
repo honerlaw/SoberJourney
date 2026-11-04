@@ -40,6 +40,10 @@ jobs:
       - name: 🟢 Check EAS build profiles pin the repo's Node (.nvmrc)
         run: npm run check:eas-node --workspace=@onerlaw/soberjourney-app
 
+      - name: 🔒 Check the app's privacy helpers (Sentry scrub, notification paths)
+        # run directly: a new package.json script would change the native fingerprint
+        run: node --experimental-strip-types packages/app/scripts/check-privacy-helpers.mjs
+
       - name: 📝 Create mock .env file
         run: echo "DATABASE_URL=postgresql://user:password@localhost:5432/testdb" > packages/server/.env
 

@@ -10,6 +10,8 @@ import * as checkinRoutes from "./route/checkin/index.mjs";
 import * as notificationRoutes from "./route/notification/index.mjs";
 import type { UserModel } from "../../util/database.mjs";
 import { streamResponseMeta } from "./streamResponseMeta.mjs";
+import { createRpcErrorLogger } from "./logRpcError.mjs";
+import { logger } from "../../util/logger/index.mjs";
 
 const appRouter = router({
   user: router(userRoutes),
@@ -26,6 +28,9 @@ export const expressTRPCMiddleware = trpcExpress.createExpressMiddleware({
   router: appRouter,
   // Anti-buffering headers on streamed (JSONL) responses only.
   responseMeta: streamResponseMeta,
+  // unexpected errors reach clients with a generic message (errorFormatter),
+  // so their cause is logged here
+  onError: createRpcErrorLogger(logger),
   createContext: async ({ req }) => {
     return await createContext(
       req as unknown as ContextRequest<UserModel, Context>,

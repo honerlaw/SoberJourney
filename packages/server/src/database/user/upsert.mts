@@ -13,6 +13,28 @@ export async function upsert(
   // an invalid / missing timezone never overwrites the stored one, new users
   // fall back to the default
   const validTimezone = isValidTimeZone(timezone) ? timezone : undefined;
+
+  // This runs on every authenticated request, so read first and write only
+  // when the user is new or a valid header timezone differs from the stored
+  // one. A failed read falls through to the upsert, as before.
+  try {
+    const existing = await client.user.findUnique({ where: { authId } });
+    if (
+      existing &&
+      (validTimezone === undefined || existing.timezone === validTimezone)
+    ) {
+      return existing;
+    }
+  } catch (err) {
+    logger.error(
+      {
+        error: err,
+        tags: ["database", "user", "upsert"],
+      },
+      "Failed to read user before upsert",
+    );
+  }
+
   try {
     return await client.user.upsert({
       where: {

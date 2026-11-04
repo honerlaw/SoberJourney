@@ -11,6 +11,10 @@ import {
   redirectToWwwMiddleware,
 } from "./util/middleware/redirect.mjs";
 import * as dataMigrations from "./util/migrations/index.mjs";
+import { trpcRequestGuard } from "./util/middleware/trpcRequestGuard.mjs";
+import { securityHeaders } from "./util/middleware/securityHeaders.mjs";
+import { buildClerkOptions } from "./util/clerkOptions.mjs";
+import { errorHandler } from "./util/middleware/errorHandler.mjs";
 
 const app = express();
 const PORT = await getConfig("PORT", 3000);
@@ -21,16 +25,15 @@ const REDIRECT_APEX_HOSTS = await getConfig(
 
 // the app runs behind a single TLS terminating proxy hop
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
+app.use(securityHeaders());
 
 app.use(redirectToWwwMiddleware(parseApexHosts(REDIRECT_APEX_HOSTS)));
 
-app.use(
-  clerkMiddleware({
-    // read directly so a config load failure can never re-enable debug
-    debug: process.env.NODE_ENV !== "production",
-    enableHandshake: true,
-  }),
-);
+// read directly from process.env so a config load failure can never change
+// auth behaviour (debug, opt-in authorizedParties)
+app.use(clerkMiddleware(buildClerkOptions()));
 
 app.use(cors());
 
@@ -43,7 +46,9 @@ app.get("/api/health", express.json(), (req, res) =>
   res.status(200).send("OK"),
 );
 
-app.use("/api/trpc", express.json(), expressTRPCMiddleware);
+// batch cap + JSON-only POSTs, before body parsing and before tRPC resolves
+// (and decrypts for) any procedure
+app.use("/api/trpc", trpcRequestGuard(), express.json(), expressTRPCMiddleware);
 
 app.use("/api/app/config", express.json(), config);
 
@@ -60,6 +65,9 @@ app.use(express.static(path.join(process.cwd(), "static")));
 app.get("/{*splat}", (req, res) => {
   res.sendFile(path.join(process.cwd(), "static/index.html"));
 });
+
+// last: never let Express's default handler render a stack trace
+app.use(errorHandler(logger));
 
 // run all data migrations on startup, this won't scale but its fine for now
 // when there is almost no data

@@ -13,6 +13,18 @@
 
 export const LOCK_WAIT_MS = 20_000;
 
+/**
+ * The lock key for a user's conversation. Including the user id means a
+ * conversation id supplied by another user (before any ownership check) can
+ * never queue behind, or hold up, this user's turns.
+ */
+export function conversationLockKey(
+  userId: string,
+  conversationId: string,
+): string {
+  return `${userId}:${conversationId}`;
+}
+
 // The tail of each conversation's queue. A new caller chains behind it.
 const tails = new Map<string, Promise<void>>();
 

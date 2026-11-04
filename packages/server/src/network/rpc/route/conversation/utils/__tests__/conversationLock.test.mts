@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { activeLockCount, withConversationLock } from "../conversationLock.mjs";
+import {
+  activeLockCount,
+  conversationLockKey,
+  withConversationLock,
+} from "../conversationLock.mjs";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -96,5 +100,21 @@ describe("withConversationLock", () => {
     ]);
     await sleep(0);
     assert.equal(activeLockCount(), 0);
+  });
+
+  it("keys by user, so another user's id for the same conversation never queues", async () => {
+    assert.equal(conversationLockKey("u1", "c"), "u1:c");
+    const gate = deferred();
+    const held = withConversationLock(
+      conversationLockKey("u1", "c-key"),
+      () => gate.promise,
+    );
+    let otherRan = false;
+    await withConversationLock(conversationLockKey("u2", "c-key"), async () => {
+      otherRan = true;
+    });
+    assert.equal(otherRan, true);
+    gate.resolve();
+    await held;
   });
 });

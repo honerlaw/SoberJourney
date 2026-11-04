@@ -6,6 +6,7 @@ import { z } from "zod";
 import { procedure } from "../../router.mjs";
 import { UserPushNotificationScheduleFrequency } from "../../../../generated/prisma/enums.js";
 import { journeyTitleSchema, startDateTimeSchema } from "./inputs.mjs";
+import { assertJourneyQuota } from "../utils/quota.mjs";
 
 const notificationSettingsSchema = z.object({
   frequency: z.enum([
@@ -29,6 +30,8 @@ export const create = procedure
     if (!ctx.auth.user) {
       throw new UnauthorizedError();
     }
+
+    await assertJourneyQuota(ctx, ctx.auth.user.id);
 
     // creates the journey, its first entry and (optionally) the check-in +
     // notification schedule in a single atomic statement

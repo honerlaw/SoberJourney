@@ -46,6 +46,7 @@ export const getSettingsForJourney = procedure
 
     // Get the notification schedule for this check-in
     const schedule = await ctx.database.notification.schedule.getByCheckInId(
+      ctx.auth.user.id,
       checkIn.id,
     );
 

@@ -249,7 +249,9 @@ export const TRPCProvider: React.FC<React.PropsWithChildren> = ({
   const options = useMemo(
     () => ({
       links: [
-        loggerLink(),
+        // dev only: it logs every input and result, which in production would
+        // put decrypted journal/chat text into console breadcrumbs (Sentry)
+        loggerLink({ enabled: () => __DEV__ }),
         splitLink({
           condition: (op) => STREAMED_PATHS.has(op.path),
           true: httpBatchStreamLink({

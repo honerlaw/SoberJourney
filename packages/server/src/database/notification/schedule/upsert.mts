@@ -43,17 +43,20 @@ export async function upsert(
 }
 
 /**
- * Delete a notification schedule by check-in ID
+ * Delete the user's notification schedule for a check-in. Filters on the
+ * user too, so the query itself enforces ownership.
  */
 export async function remove(
   logger: Logger,
   client: DBClient,
+  userId: string,
   checkInId: string,
 ): Promise<boolean> {
   try {
     await client.userPushNotificationSchedule.deleteMany({
       where: {
         checkInId,
+        userId,
       },
     });
     return true;

@@ -1,6 +1,5 @@
 import { type Logger, logger } from "./util/logger/index.mjs";
 import { wrap } from "@onerlaw/framework/backend/utils";
-import { getConfig } from "./util/config.mjs";
 
 import * as userDB from "./database/user/index.mjs";
 import * as userKeyDB from "./database/user/key/index.mjs";
@@ -20,7 +19,7 @@ import * as expoDS from "./datasource/expo/index.mjs";
 
 import { type ContextRequest } from "@onerlaw/framework/backend/context";
 import { client, type UserModel } from "./util/database.mjs";
-import { getAuth, verifyToken } from "@clerk/express";
+import { getAuth } from "@clerk/express";
 import { isValidTimeZone } from "./database/user/isValidTimeZone.mjs";
 
 const TIMEZONE_HEADER = "x-iana-time-zone";
@@ -87,46 +86,15 @@ const options = {
 };
 
 export type Context = Awaited<ReturnType<(typeof options)["create"]>>;
-export type CTXRequest =
-  | ContextRequest<UserModel, Context>
-  | string
-  | undefined;
+// Only ever the Express request (tRPC adapter) or nothing (cron,
+// migrations). A bare token string is not accepted.
+export type CTXRequest = ContextRequest<UserModel, Context> | undefined;
 
 export const createContext = async (
   req?: CTXRequest,
   additional?: { [key: string]: unknown },
 ) => {
-  // if we receive a token from clerk, we need to verify / parse it
-  if (typeof req === "string") {
-    try {
-      const results = await verifyToken(req, {
-        jwtKey: await getConfig("CLERK_JWSK"),
-      });
-      const userId = results.sub;
-      // When only a token string is provided, we don't have access to headers
-      // so we leave the stored timezone untouched
-      const foundUser = await options.upsert(userId, undefined);
-      return options.create(
-        foundUser,
-        logger.child({
-          userId,
-        }),
-        additional,
-      );
-    } catch (err) {
-      logger.error(
-        {
-          error: err,
-          tags: ["context", "createContext"],
-        },
-        "Failed to verify token to create context.",
-      );
-
-      return options.create(null, logger, additional);
-    }
-  }
-
-  // no request object or token, so just return a context without auth
+  // no request object (cron, migrations), so a context without auth
   if (!req) {
     return options.create(null, logger, additional);
   }
