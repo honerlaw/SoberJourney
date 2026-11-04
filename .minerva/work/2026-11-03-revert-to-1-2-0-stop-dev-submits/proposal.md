@@ -1,7 +1,7 @@
 # Proposal: revert-to-1-2-0-stop-dev-submits
 
 **Date**: 2026-11-03
-**Status**: Draft
+**Status**: Shipped (2026-11-03)
 
 ## Goal
 Return main's app version to 1.2.0, so JS-only merges again publish EAS Updates to the released 1.2.0 binary (build 118). Stop PR CI uploading development builds to App Store Connect. Correct the records written from the wrong diagnosis behind #70.
@@ -59,3 +59,15 @@ Return main's app version to 1.2.0, so JS-only merges again publish EAS Updates 
 
 ## Open questions
 - The live-build fact rests on the user's statement that build 118 (not, for example, 116 from before expo-updates) is the released 1.2.0. As of about two hours after publish, `eas update:insights a87f16da` shows 0 launches. Confirm it post-merge with launches above 0 for the newest update group on runtime `239adbf6` (this merge publishes a newer group with the same JS, so check that one, not only `a87f16da`). If it turned out to be 116, #70's bump was right after all, and the bump is cheap to redo.
+
+## Outcome
+- **Version files** restored from `c4b13c1~1`. `predict` on a fresh `npm ci` gave `239adbf6321f8911c7c50247d7d75c6bc388afe4`, finished build `6c7b726a…`, "Decision: update".
+- **ci.yml's last step** is "EAS development build (no store submit)". The app and root `package.json` scripts are unchanged; `eas:submit:dev` and `submit.development` remain but nothing calls them.
+- **New entry** `2026-11-03-constraint-version-bump-moves-ota-off-the-released-binary` supersedes the 2026-11-03 version-train entry. It hedges the live-build fact pending launch telemetry, and records the shared dev/production build-number counter.
+- **#69** was retitled to the native-change-after-release hazard and kept open at priority high, with a correction comment.
+- **Build 121** (1.2.1) was CANCELED with no submission.
+
+## Deferred work
+
+- #69 — a native change merged after an App Store release, without a version bump, turns a rejected build into the OTA target (priority: high)
+

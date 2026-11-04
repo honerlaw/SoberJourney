@@ -13,10 +13,14 @@ In fact:
 - The user confirmed from App Store Connect that build 118 *is* the released 1.2.0.
 - The rejected upload was development build 119 (1.2.0). PR #68's CI made it with `npm run eas:submit:dev` (`--auto-submit --profile development`), and App Store Connect refused it because the 1.2.0 train was closed.
 
-The bump had moved main's fingerprint off 118's runtime (`239adbf6…` → `47106baf…`), so JS-only merges would have stopped reaching 1.2.0 users. It was reverted the same day, and production build 121 (1.2.1) was cancelled before submitting.
+The bump had moved main's fingerprint off 118's runtime (`239adbf6…` → `47106baf…`), so JS-only merges would no longer have targeted 1.2.0's runtime. It was reverted the same day, and production build 121 (1.2.1) was cancelled before submitting.
+
+**Still to confirm.** That build 118 is live rests on the user's App Store Connect confirmation. Launch telemetry hasn't confirmed it yet: about two hours after #68's update group `a87f16da` was published, `eas update:insights` showed 0 launches.
+- To confirm, look for launches above 0 on the newest update group for runtime `239adbf6`. The revert's merge publishes a newer group with the same JS, so check that one, not only `a87f16da`.
+- If the live 1.2.0 were instead build 116 (built before expo-updates), no OTA would reach it, and a bumped store build would be the only way to ship fixes.
 
 ## Constraint
-- **Releasing a version closes its train.** Once Apple approves or releases a marketing version, App Store Connect and TestFlight reject any further upload at that `CFBundleShortVersionString`. Past cases: build 78 at 1.1.0 (#47), and dev build 119 at 1.2.0. EAS manages the build number remotely (`appVersionSource: "remote"`); only `expo.version` sets the marketing version.
+- **Releasing a version closes its train.** Once Apple approves or releases a marketing version, App Store Connect and TestFlight reject any further upload at that `CFBundleShortVersionString`. Past cases: build 78 at 1.1.0 (#47), and dev build 119 at 1.2.0 (the rejection the user saw cited the closed 1.2.0 version). EAS manages the build number remotely (`appVersionSource: "remote"`); only `expo.version` sets the marketing version.
 - **The version is fingerprinted** (`fingerprint.config.js` keeps it). A bump therefore makes the merge build and submit, and it moves every *later* EAS Update to the new runtime. Users on the released build stop receiving OTA until they install the new version.
   - Bump only when a native change needs a new binary anyway, because the released build can't take that change over the air.
   - A JS-only change should never come with a bump.
@@ -36,6 +40,7 @@ The bump had moved main's fingerprint off 118's runtime (`239adbf6…` → `4710
   - If the rejection is one App Store Connect itself can fix, resubmit the same build: `eas submit --platform ios --id <build-id>`.
   - Hold other merges until a bumped production build is FINISHED; a merge in between starts a second build.
   - When creating the App Store version, attach the eas.yml production build.
+- **Dev and production builds share one build-number counter** (`appVersionSource: "remote"`, `autoIncrement` on both profiles). That is why dev build 119 sits between production builds 118 and 121. Match a release to its build by profile, not by number order.
 - **PR CI no longer uploads dev builds.** ci.yml queues `eas build --profile development` without `--auto-submit`.
   - The development profile is `distribution: internal`, which per eas.json means ad hoc/development signing, and that is normally not TestFlight-eligible. Whether any dev upload ever reached TestFlight is unverified.
   - Install dev builds from the EAS internal-distribution link on registered devices.
