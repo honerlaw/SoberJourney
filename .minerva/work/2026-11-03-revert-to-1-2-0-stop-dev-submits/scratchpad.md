@@ -12,3 +12,12 @@
 - [reviewed — clean] approach: version via restore from c4b13c1~1 (not git revert — it would drop #70's records); CI via a direct `eas build` in ci.yml with working-directory (not editing the fingerprinted app package.json script, not deleting the step); records via correction. Skeptic answered the interface doubt: the internal CI step has no outside consumers and the user withdrew the submit. Noted: dev builds likely never TestFlight-eligible (tier: reviewer — interface-clause doubt passed to the Skeptic; parallel wave)
 - [reviewed — folded] whole-proposal: in-place knowledge rewrite breaks minerva's add-only wiki rule → superseding entry carrying forward still-true content; criterion 3 reworded to a no-"Scheduling iOS submission" check plus dev build appVersion 1.2.0; restore via git checkout; fingerprint reasoning stated (tier: reviewer; parallel wave)
 - [rechecked — residual folded] whole-proposal: fold-audit accepted; residuals folded — post-merge "Published update group … for runtime 239adbf6" criterion; carry forward the --no-wait submit check and `eas submit --id` resubmission; hedge "receives OTA" pending launch telemetry
+
+## Work notes
+- Version files restored with `git checkout c4b13c1~1 -- <5 files>`; `git diff c4b13c1~1 -- <5 files>` is empty.
+- Fresh `npm ci` (Node 24.20.0). `eas-deploy.sh predict` → production and development fingerprint 239adbf6321f8911c7c50247d7d75c6bc388afe4, "Finished production builds with this fingerprint: 6c7b726a-421c-4682-8307-344a7a318c70", "Decision: update".
+- ci.yml's last step is now "EAS development build (no store submit)": `working-directory: packages/app`, `eas build --non-interactive --platform ios --no-wait --profile development`. The app/root package.json scripts are unchanged. YAML parses.
+- New knowledge entry 2026-11-03-constraint-version-bump-moves-ota-off-the-released-binary supersedes the 2026-11-03 version-train entry. knowledge_catalog.py renders the old one "(superseded by [[…]])". knowledge_lint: 0 errors (1 pre-existing legacy index.md warning).
+- #69 retitled ("A native change merged after an App Store release, without a version bump, turns a rejected build into the OTA target"), body rewritten with a Failure scenario line, correction comment added, still OPEN.
+- Production build 121 (1.2.1): CANCELED, no submission.
+- check:native-modules, check:eas-node, privacy-helper check, build, build:web pass; test 397/397.

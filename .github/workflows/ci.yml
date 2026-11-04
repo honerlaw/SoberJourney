@@ -59,6 +59,13 @@ jobs:
       - name: 🔮 Predict the main deploy (EAS Update vs store build)
         run: packages/app/scripts/eas-deploy.sh predict
 
-      - name: EAS Build and Submit
-        run: npm run eas:submit:dev
+      # Queues the iOS dev-client build only. No --auto-submit: development builds
+      # are internal (ad hoc) distribution, and uploading them to App Store
+      # Connect only produced rejections once the version was released. Install
+      # them from the EAS internal-distribution link. Run eas directly rather than
+      # changing the app's package.json scripts, which are part of the native
+      # fingerprint.
+      - name: EAS development build (no store submit)
+        working-directory: packages/app
+        run: eas build --non-interactive --platform ios --no-wait --profile development
 
